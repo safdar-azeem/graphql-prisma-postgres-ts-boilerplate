@@ -53,6 +53,10 @@ async function startServer() {
     res.send(`Hello from ${INSTANCE_ID}`)
   })
 
+  app.get('/health', (req, res) => {
+    res.status(200).send('OK')
+  })
+
   const gracefulShutdown = async (signal: string) => {
     console.log(`\n${signal} received. Starting graceful shutdown...`)
 
