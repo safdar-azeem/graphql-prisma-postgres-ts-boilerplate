@@ -9,14 +9,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@/generated/prisma": [
-        "./src/generated/prisma/client"
-      ],
       "@/*": [
         "./src/*"
-      ],
-      "@prisma/*": [
-        "./src/generated/prisma/*"
       ]
     }
   },
