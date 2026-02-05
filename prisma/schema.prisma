@@ -1,0 +1,45 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// 3. Add the JSON types generator
+generator json {
+  provider = "prisma-json-types-generator"
+  // The generator uses the global PrismaJson namespace by default
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id       String @id @default(cuid())
+  email    String @unique
+  username String
+  password String
+  role     String @default("USER")
+
+  // Auth fields
+  googleId String? @unique
+
+  /// [MfaSettingsType]
+  mfaSettings Json?
+
+  /// [OtpSettingsType]
+  otp Json?
+
+  /// [PasswordResetSettingsType]
+  passwordReset Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum MfaMethod {
+  EMAIL
+  AUTHENTICATOR
+}
