@@ -9,6 +9,7 @@ esbuild
     format: 'esm', // Force ESM output
     sourcemap: true,
     minify: true,
+    external: ['bcrypt', 'sharp', '@prisma/client', 'prisma-sharding', 'ioredis'], // Exclude native modules
     banner: {
       js: `
 import { createRequire } from 'module';
