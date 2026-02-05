@@ -1,20 +1,18 @@
 # =============================================================================
-# Docker Compose - Development Mode
+# Docker Compose - Development
 # =============================================================================
-# Quick Start:
-#   yarn docker:dev        - Start (builds on first run)
-#   yarn docker:migrate    - Run migrations
-#   yarn docker:logs       - View logs
-#   yarn docker:down       - Stop containers
+# Usage:
+#   yarn docker:dev     - Start development environment
+#   yarn docker:logs    - View logs
+#   yarn docker:down    - Stop containers
 # =============================================================================
 
 services:
   # ===========================================================================
-  # Nginx Load Balancer (port 3001)
+  # Nginx Load Balancer
   # ===========================================================================
   nginx:
     image: nginx:alpine
-    container_name: nginx-lb
     ports:
       - "3001:80"
     volumes:
@@ -26,14 +24,15 @@ services:
       - app-network
 
   # ===========================================================================
-  # Application (with hot-reload)
+  # Application (Development with hot-reload)
   # ===========================================================================
   app:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      target: development  # Use development stage
     env_file:
-      - .env.docker
+      - .env
     expose:
       - "4000"
     volumes:
