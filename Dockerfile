@@ -14,6 +14,7 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN npx prisma generate
 RUN yarn generate && yarn build
 RUN yarn install --production --frozen-lockfile && yarn cache clean
 
