@@ -1,0 +1,47 @@
+# Auth Types
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
+type Init2faResponse {
+  secret: String!
+  qrCode: String!
+  backupCodes: [String!]!
+}
+
+# Auth Inputs
+input SignupInput {
+  email: String!
+  username: String!
+  password: String!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+enum TwoFactorMethod {
+  EMAIL
+  AUTHENTICATOR
+}
+
+# Auth Mutations
+extend type Mutation {
+  signup(data: SignupInput!): AuthPayload!
+  login(data: LoginInput!): AuthPayload!
+
+  # Google Login
+  googleLogin(token: String!): AuthPayload!
+
+  # 2FA
+  init2faEnrollment(method: TwoFactorMethod!): Init2faResponse!
+  confirm2faEnrollment(token: String!, secret: String!): Boolean!
+  disable2fa(password: String!): Boolean!
+  verify2FA(token: String!): AuthPayload!
+
+  # Password Reset
+  forgotPassword(email: String!): Boolean!
+  resetPassword(token: String!, password: String!): Boolean!
+}
