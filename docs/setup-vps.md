@@ -1,20 +1,6 @@
 # VPS Setup & Deployment Guide
 
-Complete guide for deploying this application to a fresh Ubuntu VPS with Docker and GitHub Actions.
-
----
-
-## Table of Contents
-
-1. [Prerequisites](#prerequisites)
-2. [VPS Initial Setup](#vps-initial-setup)
-3. [Clone Repository](#clone-repository)
-4. [Configure Environment](#configure-environment)
-5. [GitHub Secrets](#github-secrets)
-6. [First Deployment](#first-deployment)
-7. [Monitoring & Maintenance](#monitoring--maintenance)
-
----
+## Complete guide for deploying this application to a fresh Ubuntu VPS with Docker and GitHub Actions.
 
 ## Prerequisites
 
@@ -36,34 +22,7 @@ ssh root@YOUR_VPS_IP
 
 ```bash
 # Download and run setup script
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/scripts/setup-vps.sh | bash
-```
-
-Or manually:
-
-```bash
-# Update system
-apt update && apt upgrade -y
-
-# Install Docker
-curl -fsSL https://get.docker.com | bash
-systemctl enable docker
-systemctl start docker
-
-# Install required packages
-apt install -y git ufw fail2ban
-
-# Configure firewall
-ufw default deny incoming
-ufw default allow outgoing
-ufw allow ssh
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw allow 3001/tcp
-ufw --force enable
-
-# Create app directory
-mkdir -p /opt/app
+curl -fsSL https://raw.githubusercontent.com/safdar-azeem/graphql-prisma-postgres-ts-boilerplate/refs/heads/main/scripts/setup-vps.sh | bash
 ```
 
 ### Step 3: Verify Docker
@@ -71,15 +30,6 @@ mkdir -p /opt/app
 ```bash
 docker --version
 docker compose version
-```
-
----
-
-## Clone Repository
-
-```bash
-cd /opt/app
-git clone https://github.com/YOUR_USERNAME/YOUR_REPO.git .
 ```
 
 ---
@@ -95,29 +45,53 @@ nano /opt/app/.env.production
 Add the following (replace with your values):
 
 ```env
-# Database
-DATABASE_URL="postgresql://postgres:YOUR_SECURE_PASSWORD@postgres:5432/production?schema=public"
+# ==========================================
+# POSTGRES CONFIGURATION
+# ==========================================
+# Define the password here. Docker sends this to the container.
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=YOUR_SECURE_PASSWORD
+POSTGRES_PASSWORD=my_secure_password_123!
 POSTGRES_DB=production
 
-# Database Shards
-SHARD_COUNT=3
-SHARD_1_URL="postgresql://postgres:YOUR_SECURE_PASSWORD@postgres:5432/shard1?schema=public"
-SHARD_2_URL="postgresql://postgres:YOUR_SECURE_PASSWORD@postgres:5432/shard2?schema=public"
-SHARD_3_URL="postgresql://postgres:YOUR_SECURE_PASSWORD@postgres:5432/shard3?schema=public"
+# ==========================================
+# APP DATABASE CONNECTION
+# ==========================================
+# Must use 'postgres' host (container name) and the password from above
+DATABASE_URL="postgresql://postgres:my_secure_password_123!@postgres:5432/production?schema=public"
 
-# Redis
+# ==========================================
+# REDIS
+# ==========================================
+# Must use 'redis' host (container name)
 REDIS_HOST=redis
 REDIS_PORT=6379
 
-# Application
+# ==========================================
+# SHARDING (App -> Postgres)
+# ==========================================
+SHARD_COUNT=3
+# Note: In a single-DB setup, these all point to the same DB but could be separate in future
+SHARD_1_URL="postgresql://postgres:my_secure_password_123!@postgres:5432/shard1?schema=public"
+SHARD_2_URL="postgresql://postgres:my_secure_password_123!@postgres:5432/shard2?schema=public"
+SHARD_3_URL="postgresql://postgres:my_secure_password_123!@postgres:5432/shard3?schema=public"
+
+# ==========================================
+# APPLICATION SETTINGS
+# ==========================================
 PORT=4000
 NODE_ENV=production
+JWT_SECRET=generate_a_random_jwt_secret_string
+MFA_ENCRYPTION_KEY=A9f3K2mQ7Xc8RZL4pWJ6N0H5sD1EYTUb
 
-# Security (generate secure random strings)
-JWT_SECRET=your-very-secure-jwt-secret-minimum-32-characters
-MFA_ENCRYPTION_KEY=your-32-character-encryption-key
+# ==========================================
+# POOLING
+# ==========================================
+SHARD_POOL_SIZE=10
+SHARD_IDLE_TIMEOUT_MS=10000
+SHARD_CONNECTION_TIMEOUT_MS=5000
+SHARD_HEALTH_CHECK_INTERVAL_MS=30000
+SHARD_CIRCUIT_BREAKER_THRESHOLD=3
+SHARD_ROUTING_STRATEGY=modulo
 ```
 
 ### Step 2: Generate Secure Secrets
@@ -143,8 +117,6 @@ Add these secrets to your GitHub repository:
 | `VPS_HOST`     | `72.60.194.185` (your VPS IP) |
 | `VPS_USERNAME` | `root`                        |
 | `VPS_PASSWORD` | `your-ssh-password`           |
-
-> **Recommended**: Use SSH keys instead of password for better security.
 
 ---
 
