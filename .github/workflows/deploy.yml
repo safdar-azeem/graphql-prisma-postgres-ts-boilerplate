@@ -90,11 +90,20 @@ jobs:
             # Configuration
             APP_DIR="/opt/app"
             COMPOSE_FILE="$APP_DIR/docker-compose.vps.yml"
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+
+            # Ensure app directory exists and sets permissions
+            mkdir -p $APP_DIR
+
+            # Clone if not exists, otherwise pull
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "📂 Cloning repository for the first time..."
+              git clone $REPO_URL $APP_DIR
+            fi
 
             # Navigate to app directory
             cd $APP_DIR
-
-            # Pull latest code
+            git checkout main
             git pull origin main
 
             # Login to GitHub Container Registry
