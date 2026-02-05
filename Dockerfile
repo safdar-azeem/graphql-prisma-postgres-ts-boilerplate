@@ -12,13 +12,17 @@ RUN yarn install --frozen-lockfile && yarn cache clean
 # Stage 2: Builder
 FROM node:22-alpine AS builder
 WORKDIR /app
+
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+
+# Copy all source files
 COPY . .
 
-# Generate Prisma client (creates src/generated/prisma)
+# Generate Prisma Client
 RUN npx prisma generate
 
-# Build application
+# Generate GraphQL types and build
 RUN yarn generate && yarn build
 
 # Install production dependencies only
@@ -26,27 +30,30 @@ RUN yarn install --production --frozen-lockfile && yarn cache clean
 
 # Stage 3: Production runtime
 FROM node:22-alpine AS production
-RUN apk add --no-cache tini && \
+RUN apk add --no-cache tini curl && \
     addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
 WORKDIR /app
+
 ENV NODE_ENV=production
 
-# Copy built artifacts
+# Copy built application
 COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 
-# Copy the generated Prisma client folder (Crucial for VPS/Production)
+# Copy Prisma generated client
 COPY --from=builder --chown=nodejs:nodejs /app/src/generated ./src/generated
 
 USER nodejs
+
 EXPOSE 4000
+
 ENTRYPOINT ["/sbin/tini", "--"]
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:4000/graphql', r => process.exit(r.statusCode === 200 ? 0 : 1))" || exit 1
+    CMD node -e "require('http').get('http://localhost:4000/health', r => process.exit(r.statusCode === 200 ? 0 : 1))" || exit 1
 
 CMD ["node", "dist/index.cjs"]
