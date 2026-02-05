@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Folder {
+  id         String      @id @default(cuid())
+  name       String
+  path       String      @unique
+  parentId   String?
+  parent     Folder?     @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children   Folder[]    @relation("FolderTree")
+  files      File[]
+  shareLinks ShareLink[]
+  ownerId    String
+  isPublic   Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([ownerId])
+  @@index([parentId])
+  @@index([name])
+}
+
+model File {
+  id           String      @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  storageKey   String      @unique
+  provider     String
+  status       FileStatus  @default(PENDING)
+  folderId     String?
+  folder       Folder?     @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  shareLinks   ShareLink[]
+  ownerId      String
+  isPublic     Boolean     @default(false)
+  metadata     Json?
+  expiresAt    DateTime?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([ownerId])
+  @@index([folderId])
+  @@index([status])
+  @@index([storageKey])
+  @@index([originalName])
+  @@index([createdAt])
+}
+
+model ShareLink {
+  id        String   @id @default(cuid())
+  token     String   @unique @default(cuid())
+  fileId    String?
+  file      File?    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  folderId  String?
+  folder    Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  ownerId   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([fileId])
+  @@index([folderId])
+  @@index([ownerId])
+  @@index([expiresAt])
+}
+
+enum FileStatus {
+  PENDING
+  UPLOADED
+  FAILED
+  DELETED
+}
