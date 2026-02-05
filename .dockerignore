@@ -1,0 +1,44 @@
+# node_modules
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build output
+dist
+
+# Git
+.git
+.gitignore
+
+# Environment files (use .env.docker instead)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs
+
+# Test
+coverage
+.nyc_output
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Development files not needed in container
+.editorconfig
+.prettierrc
+.eslintrc*
