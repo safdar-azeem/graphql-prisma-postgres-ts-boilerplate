@@ -97,14 +97,19 @@ jobs:
 
             # Clone if not exists, otherwise pull
             if [ ! -d "$APP_DIR/.git" ]; then
-              echo "📂 Cloning repository for the first time..."
-              git clone $REPO_URL $APP_DIR
+              echo "📂 Initializing repository in existing directory..."
+              cd $APP_DIR
+              git init
+              git remote add origin $REPO_URL
+              git fetch origin
+              git checkout -f main
+              git branch --set-upstream-to=origin/main main
+            else
+              # Navigate to app directory
+              cd $APP_DIR
+              git checkout main
+              git pull origin main
             fi
-
-            # Navigate to app directory
-            cd $APP_DIR
-            git checkout main
-            git pull origin main
 
             # Login to GitHub Container Registry
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
