@@ -58,13 +58,12 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          target: production
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: |
-            NODE_ENV=production
 
   # ===========================================================================
   # Deploy to VPS (Blue-Green Deployment)
@@ -89,7 +88,7 @@ jobs:
 
             # Configuration
             APP_DIR="/opt/app"
-            COMPOSE_FILE="$APP_DIR/docker-compose.vps.yml"
+            COMPOSE_FILE="$APP_DIR/docker-compose.prod.yml"
             REPO_URL="https://github.com/${{ github.repository }}.git"
 
             # Ensure app directory exists and sets permissions
