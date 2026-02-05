@@ -26,7 +26,11 @@ RUN npx prisma generate
 RUN yarn generate && yarn build
 
 # Install production dependencies only
+# Install production dependencies only
+# Save generated prisma client before pruning dependencies
+RUN cp -R node_modules/.prisma ./.prisma-temp
 RUN yarn install --production --frozen-lockfile && yarn cache clean
+RUN cp -R ./.prisma-temp node_modules/.prisma && rm -rf ./.prisma-temp
 
 # Stage 3: Production runtime
 FROM node:22-alpine AS production
@@ -44,8 +48,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/package.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 
-# Copy Prisma generated client
-COPY --from=builder --chown=nodejs:nodejs /app/src/generated ./src/generated
+
 
 USER nodejs
 
