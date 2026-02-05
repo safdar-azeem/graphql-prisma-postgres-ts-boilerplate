@@ -7,13 +7,20 @@
   "scripts": {
     "start": "node dist/index.js",
     "generate": "graphql-codegen",
-    "build": "rimraf dist && node esbuild.config.js",
+    "build": "rimraf dist && yarn generate && node esbuild.config.js",
     "db:sync": "prisma generate && prisma db push",
     "db:studio": "prisma studio --config ./prisma.config.ts --browser none",
     "db:studio:all": "prisma-sharding-studio",
-    "dev": "npm run generate && concurrently \"npm run db:studio:all\" \"nodemon --exec tsx --env-file=.env --no-warnings src/server.ts\"",
+    "dev": "yarn generate && concurrently \"yarn db:studio:all\" \"nodemon --exec tsx --env-file=.env --no-warnings src/server.ts\"",
+    "dev:docker": "nodemon --exec tsx --no-warnings src/server.ts",
     "migrate:shards": "prisma-sharding-migrate",
-    "test:shards": "prisma-sharding-test"
+    "test:shards": "prisma-sharding-test",
+    "docker:dev": "docker compose up --build",
+    "docker:dev:scale": "docker compose up --build --scale app=5",
+    "docker:prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d",
+    "docker:down": "docker compose down -v",
+    "docker:logs": "docker compose logs -f",
+    "docker:logs:app": "docker compose logs -f app"
   },
   "devDependencies": {
     "@eddeee888/gcg-typescript-resolver-files": "^0.15.0",
