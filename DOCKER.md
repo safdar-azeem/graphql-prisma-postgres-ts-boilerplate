@@ -1,17 +1,14 @@
 # Docker Setup
 
-Fast development environment with Nginx load balancing.
+Production-ready development environment with Nginx load balancing.
 
 ## Quick Start
 
 ```bash
-# 1. Install dependencies (first time only)
-yarn
-
-# 2. Start containers (builds in ~5 seconds)
+# Start (first time builds ~7 min, then ~10 sec)
 yarn docker:dev
 
-# 3. Run migrations (first time only)
+# Run migrations
 yarn docker:migrate
 ```
 
@@ -19,21 +16,21 @@ yarn docker:migrate
 
 ## Commands
 
-| Command                 | Description                        |
-| ----------------------- | ---------------------------------- |
-| `yarn docker:dev`       | Start dev environment (3 replicas) |
-| `yarn docker:dev:scale` | Start with 5 app replicas          |
-| `yarn docker:migrate`   | Run database migrations            |
-| `yarn docker:down`      | Stop containers                    |
-| `yarn docker:clean`     | Stop + remove volumes              |
-| `yarn docker:logs`      | View all logs                      |
-| `yarn docker:sh`        | Shell into app container           |
+| Command                 | Description                   |
+| ----------------------- | ----------------------------- |
+| `yarn docker:dev`       | Start containers (3 replicas) |
+| `yarn docker:dev:scale` | Start with 5 replicas         |
+| `yarn docker:migrate`   | Run database migrations       |
+| `yarn docker:down`      | Stop containers               |
+| `yarn docker:clean`     | Stop + remove volumes/images  |
+| `yarn docker:logs`      | View all logs                 |
+| `yarn docker:sh`        | Shell into app container      |
 
 ## Architecture
 
 ```
 localhost:3001 → Nginx (load balancer)
-                    ↓
+                    ↓ (IP-hash sticky sessions)
         ┌──────────┼──────────┐
         ↓          ↓          ↓
       App 1      App 2      App 3
@@ -44,12 +41,12 @@ localhost:3001 → Nginx (load balancer)
                           (shards 1,2,3)
 ```
 
-## Key Features
+## Features
 
 - **IP-hash sticky sessions** - Same user → same app instance
-- **Hot reload** with nodemon in development
-- **Fast builds** - Uses host node_modules (~5s startup)
-- **Easy scaling** - Just use `docker:dev:scale`
+- **Hot reload** - nodemon watches /src for changes
+- **Easy scaling** - just use `docker:dev:scale`
+- **3 database shards** - auto-created on first run
 
 ## Production
 
@@ -57,4 +54,4 @@ localhost:3001 → Nginx (load balancer)
 yarn docker:prod
 ```
 
-Uses `Dockerfile` (multi-stage) instead of `Dockerfile.dev`.
+Uses full multi-stage `Dockerfile` for optimized production image.
