@@ -17,7 +17,7 @@
     "docker:dev": "docker compose up -d",
     "docker:dev:build": "docker compose up --build",
     "docker:dev:scale": "docker compose up --scale app=5",
-    "docker:prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d",
+    "docker:prod": "docker compose -f docker-compose.prod.yml up --build -d",
     "docker:down": "docker compose down",
     "docker:clean": "docker compose down -v --rmi local",
     "docker:logs": "docker compose logs -f",
