@@ -18,12 +18,9 @@ logs
 .fleet
 .idea
 
-# Local env files
-.env.*
-.env.production
-.env.production.drixal
+# Local env files (copy .env.example to .env)
+.env
 !.env.example
-!.env.local
 
 /src/generated/prisma
 
