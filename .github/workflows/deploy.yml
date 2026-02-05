@@ -110,6 +110,24 @@ jobs:
               git pull origin main
             fi
 
+            # Create/Update .env file with production secrets
+            cat > $APP_DIR/.env << 'ENVEOF'
+            DATABASE_URL="${{ secrets.DATABASE_URL }}"
+            SHARD_COUNT=${{ secrets.SHARD_COUNT || '3' }}
+            SHARD_1_URL="${{ secrets.SHARD_1_URL }}"
+            SHARD_2_URL="${{ secrets.SHARD_2_URL }}"
+            SHARD_3_URL="${{ secrets.SHARD_3_URL }}"
+            POSTGRES_USER="${{ secrets.POSTGRES_USER }}"
+            POSTGRES_PASSWORD="${{ secrets.POSTGRES_PASSWORD }}"
+            POSTGRES_DB="${{ secrets.POSTGRES_DB }}"
+            REDIS_HOST="${{ secrets.REDIS_HOST || 'redis' }}"
+            REDIS_PORT="${{ secrets.REDIS_PORT || '6379' }}"
+            JWT_SECRET="${{ secrets.JWT_SECRET }}"
+            NODE_ENV=production
+            ENVEOF
+            # Remove leading whitespace from .env file
+            sed -i 's/^[[:space:]]*//' $APP_DIR/.env
+
             # Login to GitHub Container Registry
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
