@@ -48,6 +48,10 @@ async function startServer() {
     })
   )
 
+  app.get('/', (req, res) => {
+    res.send('Hello World!')
+  })
+
   const gracefulShutdown = async (signal: string) => {
     console.log(`\n${signal} received. Starting graceful shutdown...`)
 
