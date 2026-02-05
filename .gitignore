@@ -18,9 +18,8 @@ logs
 .fleet
 .idea
 
-# Local env files (copy .env.example to .env)
-.env
-!.env.example
+# Environment file is committed with safe defaults
+# Override values locally as needed (git will track changes)
 
 /src/generated/prisma
 
