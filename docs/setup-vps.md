@@ -30,29 +30,43 @@ docker compose version
 
 ## Configure Environment
 
-### Step 1: Update .env on VPS
+### Step 1: Create .env on VPS
 
-The `.env` file is committed with safe defaults. For production, update these values:
+> **⚠️ Important:** The `.env` file must NOT contain quotes around values or comments. Docker Compose will not parse them correctly.
+
+Create the `.env` file on your VPS:
 
 ```bash
 cd /opt/app
-nano .env
+cat > .env << 'EOF'
+DATABASE_URL=postgresql://postgres:password@postgres:5432/production?schema=public
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=password
+POSTGRES_DB=production
+SHARD_COUNT=3
+SHARD_1_URL=postgresql://postgres:password@postgres:5432/shard1?schema=public
+SHARD_2_URL=postgresql://postgres:password@postgres:5432/shard2?schema=public
+SHARD_3_URL=postgresql://postgres:password@postgres:5432/shard3?schema=public
+SHARD_POOL_SIZE=10
+SHARD_IDLE_TIMEOUT_MS=10000
+SHARD_CONNECTION_TIMEOUT_MS=5000
+SHARD_HEALTH_CHECK_INTERVAL_MS=30000
+SHARD_CIRCUIT_BREAKER_THRESHOLD=3
+SHARD_ROUTING_STRATEGY=modulo
+REDIS_HOST=redis
+REDIS_PORT=6379
+PORT=4000
+NODE_ENV=production
+JWT_SECRET=change-this-to-a-secure-secret-in-production
+MFA_ENCRYPTION_KEY=A9f3K2mQ7Xc8RZL4pWJ6N0H5sD1EYTUb
+EOF
 ```
 
-**Change these values:**
+**Replace these values:**
 
-```env
-# Change passwords
-POSTGRES_PASSWORD=YOUR_SECURE_PASSWORD
-DATABASE_URL="postgresql://postgres:YOUR_SECURE_PASSWORD@postgres:5432/production?schema=public"
-SHARD_1_URL="postgresql://postgres:YOUR_SECURE_PASSWORD@postgres:5432/shard1?schema=public"
-SHARD_2_URL="postgresql://postgres:YOUR_SECURE_PASSWORD@postgres:5432/shard2?schema=public"
-SHARD_3_URL="postgresql://postgres:YOUR_SECURE_PASSWORD@postgres:5432/shard3?schema=public"
-
-# Change secrets (generate with: openssl rand -base64 32)
-JWT_SECRET=YOUR_RANDOM_SECRET
-MFA_ENCRYPTION_KEY=YOUR_32_CHARACTER_KEY
-```
+- `YOUR_SECURE_PASSWORD` - Strong database password
+- `YOUR_RANDOM_SECRET` - Generate with: `openssl rand -base64 32`
+- `YOUR_32_CHARACTER_KEY` - Must be exactly 32 characters
 
 ## GitHub Secrets
 
@@ -60,11 +74,22 @@ Add these secrets to your GitHub repository:
 
 **Settings → Secrets and variables → Actions → New repository secret**
 
-| Secret Name    | Value               |
-| -------------- | ------------------- |
-| `VPS_HOST`     | Your VPS IP address |
-| `VPS_USERNAME` | `root`              |
-| `VPS_PASSWORD` | Your SSH password   |
+| Secret Name          | Value                                                                        |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `VPS_HOST`           | Your VPS IP address                                                          |
+| `VPS_USERNAME`       | `root`                                                                       |
+| `VPS_PASSWORD`       | Your SSH password                                                            |
+| `DATABASE_URL`       | `postgresql://postgres:YOUR_PASSWORD@postgres:5432/production?schema=public` |
+| `POSTGRES_USER`      | `postgres`                                                                   |
+| `POSTGRES_PASSWORD`  | Your secure database password                                                |
+| `POSTGRES_DB`        | `production`                                                                 |
+| `SHARD_1_URL`        | `postgresql://postgres:YOUR_PASSWORD@postgres:5432/shard1?schema=public`     |
+| `SHARD_2_URL`        | `postgresql://postgres:YOUR_PASSWORD@postgres:5432/shard2?schema=public`     |
+| `SHARD_3_URL`        | `postgresql://postgres:YOUR_PASSWORD@postgres:5432/shard3?schema=public`     |
+| `JWT_SECRET`         | Generate with: `openssl rand -base64 32`                                     |
+| `MFA_ENCRYPTION_KEY` | Exactly 32 characters                                                        |
+
+> **Note:** Replace `YOUR_PASSWORD` with your `POSTGRES_PASSWORD` value in all database URLs.
 
 ## Deployment
 
