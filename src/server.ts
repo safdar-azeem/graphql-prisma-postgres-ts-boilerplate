@@ -2,7 +2,7 @@ import http from 'http'
 import express from 'express'
 import bodyParser from 'body-parser'
 import { resolvers } from '@/modules/index'
-import { IS_DEVELOPMENT } from '@/constants'
+import { INSTANCE_ID, IS_DEVELOPMENT } from '@/constants'
 import { ApolloServer } from '@apollo/server'
 import { Context } from '@/types/context.type'
 import { typeDefs } from '@/types/typeDefs.generated'
@@ -49,7 +49,8 @@ async function startServer() {
   )
 
   app.get('/', (req, res) => {
-    res.send('Hello World!')
+    console.log(`[${INSTANCE_ID}] Handling request from ${req.ip}`)
+    res.send(`Hello from ${INSTANCE_ID}`)
   })
 
   const gracefulShutdown = async (signal: string) => {
