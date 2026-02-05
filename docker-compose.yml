@@ -1,18 +1,22 @@
-# Docker Compose for GraphQL API with Load Balancing
-# Usage:
-#   Development:  docker compose up --build
-#   Scale:        docker compose up --build --scale app=5
-#   Production:   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# =============================================================================
+# Docker Compose - Development Mode
+# =============================================================================
+# Quick Start:
+#   yarn docker:dev        - Start (builds on first run)
+#   yarn docker:migrate    - Run migrations
+#   yarn docker:logs       - View logs
+#   yarn docker:down       - Stop containers
+# =============================================================================
 
 services:
-  # =============================================================================
-  # Nginx Load Balancer
-  # =============================================================================
+  # ===========================================================================
+  # Nginx Load Balancer (port 3001)
+  # ===========================================================================
   nginx:
     image: nginx:alpine
     container_name: nginx-lb
     ports:
-      - "80:80"
+      - "3001:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -20,29 +24,22 @@ services:
     restart: unless-stopped
     networks:
       - app-network
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
-  # =============================================================================
-  # Application (Scalable Replicas)
-  # =============================================================================
+  # ===========================================================================
+  # Application (with hot-reload)
+  # ===========================================================================
   app:
     build:
       context: .
-      target: development
+      dockerfile: Dockerfile.dev
     env_file:
       - .env.docker
-    environment:
-      - NODE_ENV=development
     expose:
       - "4000"
     volumes:
-      - .:/app
-      - /app/node_modules
-      - /app/dist
+      # Mount source for hot-reload (but NOT node_modules)
+      - ./src:/app/src:ro
+      - ./prisma:/app/prisma:ro
     depends_on:
       redis:
         condition: service_healthy
@@ -54,9 +51,9 @@ services:
     deploy:
       replicas: 3
 
-  # =============================================================================
-  # Redis Cache
-  # =============================================================================
+  # ===========================================================================
+  # Redis
+  # ===========================================================================
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -74,9 +71,9 @@ services:
     networks:
       - app-network
 
-  # =============================================================================
-  # PostgreSQL Database (with multiple databases for sharding)
-  # =============================================================================
+  # ===========================================================================
+  # PostgreSQL (with shard databases)
+  # ===========================================================================
   postgres:
     image: postgres:16-alpine
     container_name: postgres
