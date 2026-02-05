@@ -1,5 +1,8 @@
-# Production overrides for docker-compose.yml
-# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# =============================================================================
+# Docker Compose - Production Mode
+# =============================================================================
+# Usage: yarn docker:prod
+# =============================================================================
 
 services:
   nginx:
@@ -7,12 +10,13 @@ services:
 
   app:
     build:
-      target: production
+      context: .
+      dockerfile: Dockerfile
     env_file:
-      - .env.docker.prod
+      - .env.docker
     environment:
       - NODE_ENV=production
-    volumes: []  # No volume mounts in production
+    volumes: []
     restart: always
     deploy:
       replicas: 3
@@ -20,9 +24,6 @@ services:
         limits:
           cpus: '1'
           memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 256M
 
   redis:
     restart: always
