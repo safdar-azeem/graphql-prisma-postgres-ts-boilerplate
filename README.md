@@ -1,4 +1,4 @@
-# GraphQL, Prisma, Postgres, TypeScript, Wallerplate.
+# GraphQL, Prisma, Postgres, TypeScript, Boilerplate
 
 ## 🚀 Tech Stack
 
