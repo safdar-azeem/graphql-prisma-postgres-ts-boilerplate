@@ -1,0 +1,132 @@
+enum FileStatus {
+  PENDING
+  UPLOADED
+  FAILED
+  DELETED
+}
+
+type File {
+  id: ID!
+  filename: String!
+  originalName: String!
+  mimeType: String!
+  size: Int!
+  status: FileStatus!
+  url: String
+  folderId: String
+  isPublic: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type Folder {
+  id: ID!
+  name: String!
+  path: String!
+  parentId: String
+  isPublic: Boolean!
+  files: [File!]
+  children: [Folder!]
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type SignedUploadUrl {
+  signedUrl: String!
+  fileId: String!
+  publicUrl: String!
+  storageKey: String!
+  expiresAt: DateTime!
+}
+
+type PaginationInfo {
+  currentPage: Int!
+  totalPages: Int!
+  totalItems: Int!
+}
+
+type FileConnection {
+  items: [File!]!
+  pageInfo: PaginationInfo!
+}
+
+type FolderConnection {
+  items: [Folder!]!
+  pageInfo: PaginationInfo!
+}
+
+type ResourceShareLink {
+  id: ID!
+  token: String!
+  url: String!
+  fileId: String
+  folderId: String
+  expiresAt: DateTime!
+  createdAt: DateTime!
+}
+
+input RequestUploadInput {
+  filename: String!
+  mimeType: String!
+  size: Int!
+  folderId: String
+  isPublic: Boolean
+}
+
+input CreateFolderInput {
+  name: String!
+  parentId: String
+  isPublic: Boolean
+}
+
+input PaginationInput {
+  page: Int = 1
+  limit: Int = 10
+}
+
+input DateRangeInput {
+  from: DateTime
+  to: DateTime
+}
+
+input FilesFilterInput {
+  search: String
+  uploadedBy: String
+  dateRange: DateRangeInput
+  folderId: String
+}
+
+input FolderFilterInput {
+  search: String
+  parentId: String
+}
+
+input ShareLinkInput {
+  fileId: String
+  folderId: String
+  expiresInMinutes: Int
+}
+
+extend type Query {
+  getFile(id: ID!): File
+  getFiles(filter: FilesFilterInput, pagination: PaginationInput): FileConnection!
+  getFolder(id: ID!): Folder
+  getFolders(filter: FolderFilterInput, pagination: PaginationInput): FolderConnection!
+  getFileDownloadUrl(id: ID!): String!
+  getFileShareLinks(fileId: ID!): [ResourceShareLink!]!
+  getFolderShareLinks(folderId: ID!): [ResourceShareLink!]!
+}
+
+extend type Mutation {
+  requestUploadUrl(input: RequestUploadInput!): SignedUploadUrl!
+  confirmUpload(fileId: ID!): File!
+  cancelUpload(fileId: ID!): Boolean!
+  deleteFiles(ids: [String!]!): String!
+  toggleFilePublic(id: ID!): File!
+  createFolder(input: CreateFolderInput!): Folder!
+  renameFolder(id: ID!, name: String!): Folder!
+  moveFolder(id: ID!, parentId: String): Folder!
+  deleteFolder(id: ID!): Boolean!
+  createShareLink(input: ShareLinkInput!): ResourceShareLink!
+  deleteShareLink(id: ID!): Boolean!
+}
