@@ -1,0 +1,8 @@
+type Query
+type Mutation
+scalar Any
+
+scalar JSON
+scalar Upload
+scalar ObjectId
+scalar DateTime
