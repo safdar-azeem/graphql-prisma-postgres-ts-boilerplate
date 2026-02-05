@@ -42,7 +42,7 @@ for i in {1..5}; do
     sleep 5
 done
 
-# Run migrations
+# Run migrations on all shards
 echo "📊 Running database migrations..."
 docker compose -f $COMPOSE_FILE exec -T app yarn migrate:shards || echo "Migration skipped or already up to date"
 
