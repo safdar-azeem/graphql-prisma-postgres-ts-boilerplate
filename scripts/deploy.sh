@@ -2,10 +2,12 @@
 # =============================================================================
 # Blue-Green Deployment Script
 # =============================================================================
+# Usage: ./scripts/deploy.sh
+# =============================================================================
 
 set -e
 
-COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.vps.yml}"
+COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
 APP_DIR="${APP_DIR:-/opt/app}"
 
 cd "$APP_DIR"
