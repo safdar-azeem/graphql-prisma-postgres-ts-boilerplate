@@ -15,6 +15,7 @@
     "dev:docker": "nodemon --exec tsx --no-warnings src/server.ts",
     "migrate:shards": "prisma-sharding-migrate",
     "test:shards": "prisma-sharding-test",
+    "prisma:generate": "npx prisma generate",
     "docker:dev": "docker compose up -d",
     "docker:dev:build": "docker compose up --build",
     "docker:dev:scale": "docker compose up --scale app=5",
