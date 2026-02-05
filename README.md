@@ -1,197 +1,153 @@
-# GraphQL, Prisma, Postgres, TypeScript, Boilerplate
+# GraphQL, Prisma, Postgres, TypeScript Boilerplate
+
+A production-ready GraphQL API boilerplate with built-in database sharding, authentication, and Docker deployment.
 
 ## 🚀 Tech Stack
 
-- **Runtime**: [Node.js](https://nodejs.org/) (v20+ recommended)
-- **Language**: [TypeScript](https://www.typescriptlang.org/)
-- **Framework**: [Express 5](https://expressjs.com/en/5x/api.html)
-- **API**: [Apollo Server](https://www.apollographql.com/docs/apollo-server/) (GraphQL)
-- **Database ORM**: [Prisma](https://www.prisma.io/)
-- **Sharding**: [Prisma Sharding](https://github.com/safdar-azeem/prisma-sharding)
-- **Database**: PostgreSQL
+- **Runtime**: Node.js v22
+- **Language**: TypeScript
+- **Framework**: Express 5 + Apollo Server (GraphQL)
+- **Database**: PostgreSQL with Prisma ORM
+- **Sharding**: [prisma-sharding](https://github.com/safdar-azeem/prisma-sharding)
 - **Authentication**: [AuthLite](https://github.com/safdar-azeem/authlite)
-- **Code Generation**: [GraphQL Code Generator](https://the-guild.dev/graphql/codegen)
+- **Caching**: Redis
+- **Deployment**: Docker + Nginx load balancer
 
-## 🛠️ Prerequisites
+## 🏃 Quick Start
 
-Before you begin, ensure you have the following installed:
+### Option 1: Docker (Recommended)
 
-- Node.js (v20 or higher)
-- Yarn or NPM
-- PostgreSQL running locally or accessible via URL
-- Redis running locally
+```bash
+git clone <repository_url>
+cd graphql-prisma-postgres-ts-boilerplate
+yarn docker:dev        # Start development environment
+yarn docker:migrate    # Run database migrations
+```
 
-## 🏃 Getting Started
+Open http://localhost:3001/graphql
 
-1.  **Clone the repository:**
+### Option 2: Local Development
 
-    ```bash
-    git clone <repository_url>
-    cd graphql-prisma-postgres-ts-boilerplate
-    ```
+Prerequisites: Node.js v20+, PostgreSQL, Redis running locally
 
-2.  **Install dependencies:**
+```bash
+git clone <repository_url>
+cd graphql-prisma-postgres-ts-boilerplate
+yarn install
+yarn migrate:shards    # Run database migrations
+yarn dev               # Start development server
+```
 
-    ```bash
-    yarn install
-    # or
-    npm install
-    ```
+Open http://localhost:4000/graphql
 
-3.  **Environment Setup:**
-    Create a `.env` file in the root directory. You can copy the structure below:
+## 📦 Commands
 
-    ```env
-    DATABASE_URL="postgresql://postgres:password@localhost:5432/test?schema=public"
-    JWT_SECRET="secret"
-    MFA_ENCRYPTION_KEY="A9f3K2mQ7Xc8RZL4pWJ6N0H5sD1EYTUb"
+### Development
 
-    # Shard Configuration
-    SHARD_COUNT=3
-    SHARD_1_URL="postgresql://postgres:password@localhost:5432/shard1?schema=public"
-    SHARD_2_URL="postgresql://postgres:password@localhost:5432/shard2?schema=public"
-    SHARD_3_URL="postgresql://postgres:password@localhost:5432/shard3?schema=public"
+| Command                 | Description                            |
+| ----------------------- | -------------------------------------- |
+| `yarn dev`              | Start local dev server with hot-reload |
+| `yarn docker:dev`       | Start Docker dev environment           |
+| `yarn docker:dev:build` | Rebuild and start Docker dev           |
+| `yarn docker:dev:logs`  | View Docker dev logs                   |
+| `yarn docker:dev:down`  | Stop Docker dev containers             |
 
-    # Shard Pool Settings
-    SHARD_POOL_SIZE=10
-    SHARD_IDLE_TIMEOUT_MS=10000
-    SHARD_CONNECTION_TIMEOUT_MS=5000
-    SHARD_HEALTH_CHECK_INTERVAL_MS=30000
-    SHARD_CIRCUIT_BREAKER_THRESHOLD=3
+### Production
 
-    # Routing Strategy: 'modulo' or 'consistent-hash'
-    SHARD_ROUTING_STRATEGY=modulo
+| Command                  | Description                         |
+| ------------------------ | ----------------------------------- |
+| `yarn build`             | Build production bundle             |
+| `yarn start`             | Start production server             |
+| `yarn docker:prod`       | Start Docker production environment |
+| `yarn docker:prod:build` | Rebuild and start Docker prod       |
+| `yarn docker:prod:logs`  | View Docker prod logs               |
+| `yarn docker:prod:down`  | Stop Docker prod containers         |
 
-    REDIS_HOST=localhost
-    REDIS_PORT=6379
-    ```
+### Database
 
-4.  **Database & Shard Setup:**
+| Command               | Description                         |
+| --------------------- | ----------------------------------- |
+| `yarn migrate:shards` | Apply schema to all database shards |
+| `yarn db:studio`      | Open Prisma Studio for all shards   |
+| `yarn test:shards`    | Test shard connectivity             |
+| `yarn docker:migrate` | Run migrations in Docker            |
 
-    This project uses `prisma-sharding` to distribute data across multiple PostgreSQL instances.
+### Utilities
 
-    **Migrate all shards:**
+| Command             | Description                          |
+| ------------------- | ------------------------------------ |
+| `yarn generate`     | Generate GraphQL types               |
+| `yarn docker:clean` | Remove all Docker volumes and images |
+| `yarn docker:sh`    | Shell into app container             |
 
-    ```bash
-    yarn migrate:shards
-    ```
+## 🐳 Docker Architecture
 
-5.  **Start the Server:**
-    ```bash
-    yarn dev
-    ```
-    This command will:
-    - Generate TypeScript types from GraphQL schema.
-    - Start the server in watch mode (using `nodemon`).
-    - The server will be available at `http://localhost:4000/graphql`.
+```
+├── Dockerfile               # Multi-stage (dev + prod stages)
+├── docker-compose.yml       # Development environment
+├── docker-compose.prod.yml  # Production environment
+├── .env                     # Configuration (committed)
+└── nginx/nginx.conf         # Load balancer
+```
+
+The single Dockerfile contains both development and production stages:
+
+- **Development**: `target: development` - hot-reload, dev dependencies
+- **Production**: `target: production` - optimized, minimal image
 
 ## 🗄️ Database Sharding
 
-This boilerplate comes with built-in sharding support using `prisma-sharding`.
-
-### CLI Tools
-
-We provide custom CLI tools to manage distributed databases:
-
-| Command               | Description                                                              |
-| --------------------- | ------------------------------------------------------------------------ |
-| `yarn migrate:shards` | Runs `prisma db push` on all configured shards sequentially.             |
-| `yarn db:studio:all`  | Opens Prisma Studio for ALL shards on different ports (5555, 5556, etc). |
-| `yarn test:shards`    | Runs a connection and distribution test across all shards.               |
-
-### Accessing Shards in Code
-
-**Get a shard for a specific user:**
+Built-in horizontal sharding across multiple PostgreSQL instances:
 
 ```typescript
-import { getShardForUser } from '@/config/prisma'
+import { getShardForUser, findUserAcrossShards } from '@/config/prisma'
 
+// Get shard for a specific user
 const client = getShardForUser(userId)
 const user = await client.user.findUnique({ where: { id: userId } })
-```
 
-**Find a user across ALL shards (when ID is unknown):**
-
-```typescript
-import { findUserAcrossShards } from '@/config/prisma'
-
+// Find user across all shards
 const { result } = await findUserAcrossShards(async (client) =>
   client.user.findFirst({ where: { email: 'user@example.com' } })
 )
 ```
 
-**Run a query on ALL shards:**
-
-```typescript
-import { sharding } from '@/config/prisma'
-
-// Example: Count total users across all shards
-const counts = await sharding.runOnAll(async (client) => client.user.count())
-const totalUsers = counts.reduce((a, b) => a + b, 0)
-```
-
 ## 📂 Project Structure
 
-This project follows a **Feature-Based Modular Architecture**.
+```
+src/
+├── modules/           # Feature modules (auth, user, etc.)
+│   └── <module>/
+│       ├── graphql/   # GraphQL schema
+│       └── resolvers/ # Business logic
+├── config/            # Prisma, AuthLite config
+├── middleware/        # Auth, CORS middleware
+├── guards/            # Authentication guards
+├── errors/            # Error handling
+├── utils/             # Shared utilities
+└── server.ts          # Entry point
+```
 
-- **`src/modules/`**: Contains core features (e.g., `auth`, `user`). Each module is self-contained.
-  - `src/modules/<module-name>/`: Root of the module.
-  - `graphql/`: Module-specific schema (`*.graphql`).
-  - `resolvers/`: Business logic (`*.resolver.ts`).
-  - `utils/`: Module-specific utilities.
-  - `types/`: Module-specific types (e.g., `db.types.ts`).
-  - `index.ts`: Exports for the module aggregator.
-- **`src/config/`**: Configuration files (Prisma, AuthLite).
-- **`src/errors/`**: Error handling classes and plugins.
-- **`src/guards/`**: Authentication guards (`requireAuth`).
-- **`src/middleware/`**: Middleware (e.g., `auth`, `cors`).
-- **`src/utils/`**: Shared utilities (e.g., email).
-- **`src/constants/`**: Global constants.
-- **`src/types/`**: Global type definitions.
-- **`src/server.ts`**: Main entry point that sets up Apollo Server.
+## 🚀 Production Deployment
 
-## 👩‍💻 Development Workflow
+### VPS with GitHub Actions
 
-### Adding a New Module
+1. Set GitHub secrets: `VPS_HOST`, `VPS_USERNAME`, `VPS_PASSWORD`
+2. Update `.env` with production values
+3. Push to `main` branch → auto-deploys
 
-1.  **Create Module Directory**:
-    Create a new folder in `src/modules/<your-feature>`.
-    Inside it, create `graphql/`, `resolvers/`, `utils/`, and `types/` folders.
-
-2.  **Define Schema**:
-    Add `src/modules/<your-feature>/graphql/<your-feature>.graphql`.
-
-3.  **Implement Resolver**:
-    Create `src/modules/<your-feature>/resolvers/<your-feature>.resolver.ts`.
-
-4.  **Export Module**:
-    Create `src/modules/<your-feature>/index.ts` and export your resolvers.
-
-5.  **Register Module**:
-    Import and merge your module in `src/modules/index.ts`.
-
-6.  **Generate Types**:
-    Run `npm run generate` to update TypeScript definitions.
-
-7.  **Test**:
-    Go to `http://localhost:4000/graphql` to verify your changes.
-
-## 🗄️ Database Management
-
-### Making Schema Changes
-
-1.  **Modify Schema**:
-    Update `prisma/schema.prisma`.
-
-2.  **Sync Database**:
-    ```bash
-    yarn migrate:shards
-    ```
+See [docs/setup-vps.md](docs/setup-vps.md) for detailed VPS setup.
 
 ## 🐛 Troubleshooting
 
-- **Server exits immediately?**
-  Ensure required env vars like `MFA_ENCRYPTION_KEY` are set.
+| Issue                    | Solution                                           |
+| ------------------------ | -------------------------------------------------- |
+| Server exits immediately | Check `MFA_ENCRYPTION_KEY` is set (32 chars)       |
+| Port already in use      | Kill process: `lsof -i :4000` then `kill -9 <PID>` |
+| Docker build fails       | Run `yarn docker:clean` and try again              |
 
-- **Address in use (EADDRINUSE)?**
-  Another process is using port 4000. Kill it with `kill -9 <PID>`.
+## 📚 Documentation
+
+- [Docker Guide](docs/docker.md)
+- [VPS Setup](docs/setup-vps.md)
+- [Sharding Design](docs/system-design-sharding.md)
