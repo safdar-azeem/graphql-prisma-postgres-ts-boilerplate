@@ -15,12 +15,15 @@
     "dev:docker": "nodemon --exec tsx --no-warnings src/server.ts",
     "migrate:shards": "prisma-sharding-migrate",
     "test:shards": "prisma-sharding-test",
-    "docker:dev": "docker compose up --build",
-    "docker:dev:scale": "docker compose up --build --scale app=5",
+    "docker:dev": "docker compose up -d",
+    "docker:dev:build": "docker compose up --build",
+    "docker:dev:scale": "docker compose up --scale app=5",
     "docker:prod": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d",
-    "docker:down": "docker compose down -v",
+    "docker:down": "docker compose down",
+    "docker:clean": "docker compose down -v --rmi local",
     "docker:logs": "docker compose logs -f",
-    "docker:logs:app": "docker compose logs -f app"
+    "docker:migrate": "docker compose exec app yarn migrate:shards",
+    "docker:sh": "docker compose exec app sh"
   },
   "devDependencies": {
     "@eddeee888/gcg-typescript-resolver-files": "^0.15.0",
