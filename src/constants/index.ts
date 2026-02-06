@@ -8,6 +8,7 @@ export const JWT_EXPIRES_IN_SECONDS = parseInt(process.env.JWT_EXPIRES_IN_SECOND
 export const JWT_SECRET = process.env.JWT_SECRET as string
 export const APP_NAME = 'Builto'
 export const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
+export const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || ''
 
 export const STORAGE_SERVICE_URL = process.env.STORAGE_SERVICE_URL || 'http://localhost:4001'
 
