@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express'
+import { FastifyCorsOptions } from '@fastify/cors'
 import { IS_DEVELOPMENT, FRONTEND_URL, CORS_ALLOWED_ORIGINS } from '../constants'
 
 // Helper to parse allowed origins
@@ -29,9 +29,7 @@ const getAllowedOrigins = (): string[] => {
 
 const allowedOrigins = getAllowedOrigins()
 
-const shouldAllowRequest = (req: Request): boolean => {
-  const origin = req.headers.origin
-
+const shouldAllowOrigin = (origin: string | undefined): boolean => {
   // Always allow in development
   if (IS_DEVELOPMENT) {
     return true
@@ -46,35 +44,18 @@ const shouldAllowRequest = (req: Request): boolean => {
   return allowedOrigins.some((allowed) => origin === allowed || origin.startsWith(allowed))
 }
 
-export const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
-  const origin = req.headers.origin
-  const userAgent = req.headers['user-agent']
-
-  if (shouldAllowRequest(req)) {
-    // Important: Set CORS headers so the browser accepts the response
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin)
-      res.setHeader('Access-Control-Allow-Credentials', 'true')
+/**
+ * Get CORS configuration options for Fastify
+ */
+export const getCorsOptions = (): FastifyCorsOptions => ({
+  origin: (origin, callback) => {
+    if (shouldAllowOrigin(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS policy'), false)
     }
-
-    // Handle Preflight OPTIONS requests
-    if (req.method === 'OPTIONS') {
-      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH')
-      res.setHeader(
-        'Access-Control-Allow-Headers',
-        'Content-Type, Authorization, token, X-Requested-With'
-      )
-      res.status(200).end()
-      return
-    }
-
-    res.setHeader('Vary', 'Origin')
-    next()
-  } else {
-    res.status(403).json({
-      error: 'Not allowed by CORS policy',
-      origin: origin || 'undefined',
-      userAgent: userAgent,
-    })
-  }
-}
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'token', 'X-Requested-With'],
+})
