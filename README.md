@@ -4,14 +4,28 @@ A production-ready GraphQL API boilerplate with built-in database sharding, auth
 
 ## 🚀 Tech Stack
 
-- **Runtime**: Node.js v22
+- **Runtime**: Node.js v22+
 - **Language**: TypeScript
-- **Framework**: Express 5 + Apollo Server (GraphQL)
+- **Framework**: Fastify 5 + Mercurius (GraphQL)
 - **Database**: PostgreSQL with Prisma ORM
 - **Sharding**: [prisma-sharding](https://github.com/safdar-azeem/prisma-sharding)
 - **Authentication**: [AuthLite](https://github.com/safdar-azeem/authlite)
 - **Caching**: Redis
 - **Deployment**: Docker + Nginx load balancer
+
+## ⚡ Why Fastify + Mercurius?
+
+This boilerplate uses **Fastify + Mercurius** instead of Express + Apollo Server for:
+
+| Feature           | Fastify + Mercurius | Express + Apollo |
+| ----------------- | ------------------- | ---------------- |
+| Performance       | 🚀 Excellent        | Good             |
+| Security defaults | ✅ Strong           | Manual setup     |
+| Schema validation | ✅ Built-in         | Manual           |
+| Request overhead  | Lower               | Higher           |
+| Async/await       | Native              | Middleware-based |
+
+---
 
 ## 🏃 Quick Start
 
@@ -28,7 +42,7 @@ Open http://localhost:3001/graphql
 
 ### Option 2: Local Development
 
-Prerequisites: Node.js v20+, PostgreSQL, Redis running locally
+Prerequisites: Node.js v22+, PostgreSQL, Redis running locally
 
 ```bash
 git clone <repository_url>
@@ -38,7 +52,51 @@ yarn migrate:shards    # Run database migrations
 yarn dev               # Start development server
 ```
 
-Open http://localhost:4200/graphql
+Server will start at: http://localhost:4200/graphql
+
+---
+
+## 🧪 Testing GraphQL APIs
+
+### Option 1: Apollo Sandbox (Recommended)
+
+The best GraphQL IDE experience! Open in your browser:
+
+**https://studio.apollographql.com/sandbox/explorer**
+
+Then connect to: `http://localhost:4200/graphql`
+
+### Option 2: Built-in GraphiQL
+
+Open: http://localhost:4200/graphiql
+
+### Option 3: cURL
+
+```bash
+# Test introspection
+curl -X POST http://localhost:4200/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ __typename }"}'
+
+# Test a query
+curl -X POST http://localhost:4200/graphql \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ me { id email } }"}'
+
+# With authentication
+curl -X POST http://localhost:4200/graphql \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{"query": "{ me { id email username } }"}'
+```
+
+### Option 4: Desktop Apps
+
+- **[Altair](https://altairgraphql.dev/)** - Feature-rich GraphQL client
+- **[Insomnia](https://insomnia.rest/)** - REST & GraphQL client
+- **[Postman](https://www.postman.com/)** - API testing platform
+
+---
 
 ## 📦 Commands
 
@@ -80,6 +138,8 @@ Open http://localhost:4200/graphql
 | `yarn docker:clean` | Remove all Docker volumes and images |
 | `yarn docker:sh`    | Shell into app container             |
 
+---
+
 ## 🐳 Docker Architecture
 
 ```
@@ -94,6 +154,8 @@ The single Dockerfile contains both development and production stages:
 
 - **Development**: `target: development` - hot-reload, dev dependencies
 - **Production**: `target: production` - optimized, minimal image
+
+---
 
 ## 🗄️ Database Sharding
 
@@ -112,6 +174,8 @@ const { result } = await findUserAcrossShards(async (client) =>
 )
 ```
 
+---
+
 ## 📂 Project Structure
 
 ```
@@ -120,13 +184,17 @@ src/
 │   └── <module>/
 │       ├── graphql/   # GraphQL schema
 │       └── resolvers/ # Business logic
-├── config/            # Prisma, AuthLite config
-├── middleware/        # Auth, CORS middleware
+├── config/            # Prisma, Redis, AuthLite config
+├── middleware/        # Auth, CORS configuration
 ├── guards/            # Authentication guards
-├── errors/            # Error handling
+├── errors/            # Error handling & formatters
+├── graphql/           # Scalars & base schema
+├── types/             # Generated TypeScript types
 ├── utils/             # Shared utilities
-└── server.ts          # Entry point
+└── server.ts          # Fastify entry point
 ```
+
+---
 
 ## 🚀 Production Deployment
 
@@ -138,6 +206,8 @@ src/
 
 See [docs/setup-vps.md](docs/setup-vps.md) for detailed VPS setup.
 
+---
+
 ## 🐛 Troubleshooting
 
 | Issue                    | Solution                                           |
@@ -145,9 +215,32 @@ See [docs/setup-vps.md](docs/setup-vps.md) for detailed VPS setup.
 | Server exits immediately | Check `MFA_ENCRYPTION_KEY` is set (32 chars)       |
 | Port already in use      | Kill process: `lsof -i :4200` then `kill -9 <PID>` |
 | Docker build fails       | Run `yarn docker:clean` and try again              |
+| Redis connection error   | Ensure Redis is running: `redis-server`            |
+| GraphiQL not loading     | Use Apollo Sandbox instead (see Testing section)   |
+
+---
 
 ## 📚 Documentation
 
+- [Getting Started Guide](docs/getting-started.md) - Complete setup guide for new developers
+- [GraphQL API Guide](docs/graphql-guide.md) - How to use and test the API
 - [Docker Guide](docs/docker.md)
 - [VPS Setup](docs/setup-vps.md)
 - [Sharding Design](docs/system-design-sharding.md)
+
+---
+
+## 📊 Performance
+
+Fastify + Mercurius provides excellent performance for GraphQL applications:
+
+- **JIT Query Compilation** - Queries are compiled for faster execution
+- **Automatic Loader Integration** - Prevents N+1 query problems
+- **Query Parsing Cache** - Validated queries are cached
+- **Low Request Overhead** - Fastify's async architecture
+
+For benchmarking, use:
+
+```bash
+autocannon -c30 -d10 http://localhost:4200/health
+```
