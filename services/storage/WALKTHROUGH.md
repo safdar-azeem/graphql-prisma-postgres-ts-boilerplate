@@ -23,7 +23,7 @@ The storage service is designed as a standalone microservice that handles all fi
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │                 │     │                 │     │                 │
 │  Frontend App   │────▶│  GraphQL API    │────▶│ Storage Service │
-│                 │     │   (Port 4000)   │     │   (Port 4001)   │
+│                 │     │   (Port 4200)   │     │   (Port 4001)   │
 │                 │     │                 │     │                 │
 └─────────────────┘     └─────────────────┘     └────────┬────────┘
         │                                                │
