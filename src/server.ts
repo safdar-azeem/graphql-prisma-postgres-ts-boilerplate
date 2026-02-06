@@ -2,17 +2,17 @@ import http from 'http'
 import express from 'express'
 import bodyParser from 'body-parser'
 import { resolvers } from '@/modules/index'
-import { INSTANCE_ID, IS_DEVELOPMENT } from '@/constants'
 import { ApolloServer } from '@apollo/server'
+import { connectRedis } from '@/config/redis'
 import { Context } from '@/types/context.type'
 import { typeDefs } from '@/types/typeDefs.generated'
+import { INSTANCE_ID, IS_DEVELOPMENT } from '@/constants'
 import { createContext, corsMiddleware } from '@/middleware'
 import { expressMiddleware } from '@as-integrations/express5'
+import { initializeSharding, shutdownSharding } from '@/config/prisma'
 import { formatError, errorHandlingPlugin } from '@/errors/errorPlugin'
 import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer'
 import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default'
-import { connectRedis } from '@/config/redis'
-import { initializeSharding, shutdownSharding } from '@/config/prisma'
 
 async function startServer() {
   const app = express()
@@ -78,7 +78,7 @@ async function startServer() {
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
   process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
-  const port = parseInt(process.env.PORT || '4000', 10)
+  const port = parseInt(process.env.PORT || '4200', 10)
   await new Promise<void>((resolve) => httpServer.listen({ port }, resolve))
   console.log(`🚀 Server ready at http://localhost:${port}/graphql`)
 }
