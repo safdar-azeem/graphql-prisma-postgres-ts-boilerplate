@@ -1,8 +1,7 @@
 import { ErrorCode } from './index'
 import { IS_DEVELOPMENT } from '@/constants'
-import { Context } from '@/types/context.type'
-import { GraphQLError, GraphQLFormattedError } from 'graphql'
-import { ApolloServerPlugin, GraphQLRequestListener, GraphQLRequestContext } from '@apollo/server'
+import { GraphQLError, ExecutionResult } from 'graphql'
+import { MercuriusContext } from 'mercurius'
 
 /**
  * Known error codes that should be passed through to the client as-is.
@@ -18,74 +17,87 @@ const isKnownError = (error: GraphQLError): boolean => {
 }
 
 /**
- * Format error for client response.
+ * Format a single GraphQL error for client response.
  * In production, masks internal errors to prevent information leakage.
  */
-export const formatError = (
-  formattedError: GraphQLFormattedError,
-  error: unknown
-): GraphQLFormattedError => {
-  const originalError = error as GraphQLError
-
+const formatSingleError = (error: GraphQLError): GraphQLError => {
   // In development, include full error details
   if (IS_DEVELOPMENT) {
-    return {
-      ...formattedError,
+    return new GraphQLError(error.message, {
+      nodes: error.nodes,
+      source: error.source,
+      positions: error.positions,
+      path: error.path,
+      originalError: error.originalError,
       extensions: {
-        ...formattedError.extensions,
-        stacktrace: originalError.stack?.split('\n'),
+        ...error.extensions,
+        stacktrace: error.stack?.split('\n'),
       },
-    }
+    })
   }
 
   // In production, mask unknown/internal errors
-  if (!isKnownError(originalError)) {
-    return {
-      message: 'An unexpected error occurred',
+  if (!isKnownError(error)) {
+    return new GraphQLError('An unexpected error occurred', {
       extensions: {
         code: ErrorCode.INTERNAL_SERVER_ERROR,
       },
-    }
+    })
   }
 
   // Return known errors as-is (without stack trace)
-  const { stacktrace, ...safeExtensions } = formattedError.extensions || {}
-  return {
-    ...formattedError,
+  const { stacktrace, ...safeExtensions } = error.extensions || {}
+  return new GraphQLError(error.message, {
+    nodes: error.nodes,
+    source: error.source,
+    positions: error.positions,
+    path: error.path,
     extensions: safeExtensions,
-  }
+  })
 }
 
 /**
- * Apollo Server plugin for global error handling and logging.
+ * Mercurius error formatter function.
+ * Replaces Apollo Server's formatError and errorHandlingPlugin.
  */
-export const errorHandlingPlugin = (): ApolloServerPlugin<Context> => ({
-  async requestDidStart(
-    _requestContext: GraphQLRequestContext<Context>
-  ): Promise<GraphQLRequestListener<Context>> {
-    return {
-      async didEncounterErrors(requestContext) {
-        for (const error of requestContext.errors) {
-          // Log all errors in development
-          if (IS_DEVELOPMENT) {
-            console.error('[GraphQL Error]', {
-              message: error.message,
-              code: error.extensions?.code,
-              path: error.path,
-              stack: error.stack,
-            })
-          } else {
-            // In production, only log unknown/internal errors
-            if (!isKnownError(error)) {
-              console.error('[Internal Error]', {
-                message: error.message,
-                path: error.path,
-                stack: error.stack,
-              })
-            }
-          }
-        }
-      },
+export const mercuriusFormatError = (
+  execution: ExecutionResult,
+  context: MercuriusContext
+): { statusCode: number; response: ExecutionResult } => {
+  // Log errors
+  if (execution.errors) {
+    for (const error of execution.errors) {
+      if (IS_DEVELOPMENT) {
+        context.app.log.error(
+          {
+            message: error.message,
+            code: error.extensions?.code,
+            path: error.path,
+            stack: error.stack,
+          },
+          '[GraphQL Error]'
+        )
+      } else if (!isKnownError(error)) {
+        context.app.log.error(
+          {
+            message: error.message,
+            path: error.path,
+            stack: error.stack,
+          },
+          '[Internal Error]'
+        )
+      }
     }
-  },
-})
+  }
+
+  return {
+    statusCode: 200,
+    response: {
+      data: execution.data ?? null,
+      errors: execution.errors?.map(formatSingleError),
+    },
+  }
+}
+
+// Legacy export for backwards compatibility with the formatError signature
+export const formatError = formatSingleError
