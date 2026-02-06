@@ -38,7 +38,7 @@ yarn migrate:shards    # Run database migrations
 yarn dev               # Start development server
 ```
 
-Open http://localhost:4000/graphql
+Open http://localhost:4200/graphql
 
 ## 📦 Commands
 
@@ -143,7 +143,7 @@ See [docs/setup-vps.md](docs/setup-vps.md) for detailed VPS setup.
 | Issue                    | Solution                                           |
 | ------------------------ | -------------------------------------------------- |
 | Server exits immediately | Check `MFA_ENCRYPTION_KEY` is set (32 chars)       |
-| Port already in use      | Kill process: `lsof -i :4000` then `kill -9 <PID>` |
+| Port already in use      | Kill process: `lsof -i :4200` then `kill -9 <PID>` |
 | Docker build fails       | Run `yarn docker:clean` and try again              |
 
 ## 📚 Documentation
