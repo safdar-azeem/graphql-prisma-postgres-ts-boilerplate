@@ -50,7 +50,7 @@ RUN npx prisma generate && yarn generate
 
 ENV NODE_ENV=development
 
-EXPOSE 4000
+EXPOSE 4200
 
 # Use tini as init process
 ENTRYPOINT ["/sbin/tini", "--"]
@@ -108,14 +108,14 @@ COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 # Run as non-root user
 USER nodejs
 
-EXPOSE 4000
+EXPOSE 4200
 
 # Use tini as init process
 ENTRYPOINT ["/sbin/tini", "--"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:4000/health || exit 1
+  CMD curl -f http://localhost:4200/health || exit 1
 
 # Start production server
 CMD ["node", "dist/index.cjs"]
