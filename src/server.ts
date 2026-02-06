@@ -31,7 +31,7 @@ async function startServer() {
   // Register Mercurius GraphQL
   await app.register(mercurius, {
     schema,
-    graphiql: IS_DEVELOPMENT,
+    graphiql: IS_DEVELOPMENT ? 'graphiql' : false,
     path: '/graphql',
     context: async (request): Promise<Context> => {
       const token = request.headers.authorization || (request.headers.token as string)
