@@ -1,85 +1,78 @@
-import http from 'http'
-import express from 'express'
-import bodyParser from 'body-parser'
+import Fastify from 'fastify'
+import mercurius from 'mercurius'
+import cors from '@fastify/cors'
+import { makeExecutableSchema } from '@graphql-tools/schema'
 import { resolvers } from '@/modules/index'
-import { ApolloServer } from '@apollo/server'
 import { connectRedis } from '@/config/redis'
 import { Context } from '@/types/context.type'
 import { typeDefs } from '@/types/typeDefs.generated'
 import { INSTANCE_ID, IS_DEVELOPMENT } from '@/constants'
-import { createContext, corsMiddleware } from '@/middleware'
-import { expressMiddleware } from '@as-integrations/express5'
+import { createContext, getCorsOptions } from '@/middleware'
 import { initializeSharding, shutdownSharding } from '@/config/prisma'
-import { formatError, errorHandlingPlugin } from '@/errors/errorPlugin'
-import { ApolloServerPluginDrainHttpServer } from '@apollo/server/plugin/drainHttpServer'
-import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin/landingPage/default'
+import { mercuriusFormatError } from '@/errors/errorPlugin'
 
 async function startServer() {
-  const app = express()
-  const httpServer = http.createServer(app)
+  const app = Fastify({
+    logger: IS_DEVELOPMENT,
+  })
 
   await connectRedis()
-
   await initializeSharding()
 
-  const server = new ApolloServer<Context>({
+  // Build executable schema
+  const schema = makeExecutableSchema({
     typeDefs,
     resolvers,
-    formatError,
-    plugins: [
-      IS_DEVELOPMENT ? ApolloServerPluginLandingPageLocalDefault() : {},
-      ApolloServerPluginDrainHttpServer({ httpServer }),
-      errorHandlingPlugin(),
-    ],
   })
 
-  await server.start()
+  // Register CORS plugin
+  await app.register(cors, getCorsOptions())
 
-  app.use(corsMiddleware)
-  app.use(
-    '/graphql',
-    bodyParser.json(),
-    bodyParser.urlencoded({ extended: true }),
-    expressMiddleware(server, {
-      context: async ({ req }: { req: express.Request }) => {
-        const token = req.headers.authorization || (req.headers.token as string)
-        return createContext(token)
-      },
-    })
-  )
-
-  app.get('/', (req, res) => {
-    console.log(`[${INSTANCE_ID}] Handling request from ${req.ip}`)
-    res.send(`Hello from ${INSTANCE_ID}`)
+  // Register Mercurius GraphQL
+  await app.register(mercurius, {
+    schema,
+    graphiql: IS_DEVELOPMENT,
+    path: '/graphql',
+    context: async (request): Promise<Context> => {
+      const token = request.headers.authorization || (request.headers.token as string)
+      return createContext(token)
+    },
+    errorFormatter: mercuriusFormatError,
   })
 
-  app.get('/health', (req, res) => {
-    res.status(200).send('OK')
+  // Health check endpoints
+  app.get('/', async (request) => {
+    app.log.info(`[${INSTANCE_ID}] Handling request from ${request.ip}`)
+    return `Hello from ${INSTANCE_ID}`
   })
 
+  app.get('/health', async () => {
+    return 'OK'
+  })
+
+  // Graceful shutdown
   const gracefulShutdown = async (signal: string) => {
-    console.log(`\n${signal} received. Starting graceful shutdown...`)
+    app.log.info(`${signal} received. Starting graceful shutdown...`)
 
-    httpServer.close(async () => {
-      console.log('HTTP server closed')
+    try {
+      await app.close()
+      app.log.info('HTTP server closed')
 
       await shutdownSharding()
-      console.log('Database connections closed')
+      app.log.info('Database connections closed')
 
       process.exit(0)
-    })
-
-    setTimeout(() => {
-      console.error('Forced shutdown due to timeout')
+    } catch (err) {
+      app.log.error('Error during graceful shutdown:', err)
       process.exit(1)
-    }, 10000)
+    }
   }
 
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM'))
   process.on('SIGINT', () => gracefulShutdown('SIGINT'))
 
   const port = parseInt(process.env.PORT || '4200', 10)
-  await new Promise<void>((resolve) => httpServer.listen({ port }, resolve))
+  await app.listen({ port, host: '0.0.0.0' })
   console.log(`🚀 Server ready at http://localhost:${port}/graphql`)
 }
 
