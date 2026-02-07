@@ -1,5 +1,14 @@
 import { reporter } from 'vitest'
 
+const RESET = '\x1b[0m'
+const GREEN = '\x1b[32m'
+const RED = '\x1b[31m'
+const BOLD = '\x1b[1m'
+
+const green = (str) => `${GREEN}${str}${RESET}`
+const red = (str) => `${RED}${str}${RESET}`
+const bold = (str) => `${BOLD}${str}${RESET}`
+
 export default class CustomReporter {
   constructor() {
     this.ctx = null
@@ -38,7 +47,7 @@ export default class CustomReporter {
           if (result.state === 'pass') this.stats.passed++
           if (result.state === 'fail') this.stats.failed++
 
-          const status = result.state === 'pass' ? 'SUCCESS' : 'FAILED'
+          const status = result.state === 'pass' ? green('SUCCESS') : red('FAILED')
           let name = task.name.replace(/ : (SUCCESS|FAILED)$/, '')
           process.stderr.write(`${name} : ${status}\n`)
         }
@@ -51,9 +60,12 @@ export default class CustomReporter {
     this.summaryPrinted = true
 
     const total = this.stats.passed + this.stats.failed
+    const passedLabel = this.stats.passed > 0 ? green(this.stats.passed) : this.stats.passed
+    const failedLabel = this.stats.failed > 0 ? red(this.stats.failed) : this.stats.failed
+
     process.stderr.write('\n--- Test Summary ---\n')
-    process.stderr.write(`Total: ${total}\n`)
-    process.stderr.write(`Passed: ${this.stats.passed}\n`)
-    process.stderr.write(`Failed: ${this.stats.failed}\n`)
+    process.stderr.write(`Total: ${bold(total)}\n`)
+    process.stderr.write(`Passed: ${passedLabel}\n`)
+    process.stderr.write(`Failed: ${failedLabel}\n`)
   }
 }
