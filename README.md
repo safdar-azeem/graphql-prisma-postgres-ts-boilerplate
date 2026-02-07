@@ -56,7 +56,30 @@ Server will start at: http://localhost:4200/graphql
 
 ---
 
-## 🧪 Testing GraphQL APIs
+## 🧪 Testing
+
+### Automated Unit Tests (Vitest)
+
+This project uses **Vitest** for unit testing, focusing on GraphQL resolvers and business logic. The tests are configured with a custom reporter for clean, action-oriented output.
+
+```bash
+yarn test
+```
+
+**Output Example:**
+
+```text
+Get user : SUCCESS
+Create a new user : SUCCESS
+Login user : SUCCESS
+...
+--- Test Summary ---
+Total: 12
+Passed: 12
+Failed: 0
+```
+
+### Manual GraphQL Testing
 
 ### Option 1: Apollo Sandbox (Recommended)
 
@@ -222,11 +245,11 @@ See [docs/setup-vps.md](docs/setup-vps.md) for detailed VPS setup.
 
 ## 📚 Documentation
 
-- [Getting Started Guide](docs/getting-started.md) - Complete setup guide for new developers
-- [GraphQL API Guide](docs/graphql-guide.md) - How to use and test the API
-- [Docker Guide](docs/docker.md)
-- [VPS Setup](docs/setup-vps.md)
-- [Sharding Design](docs/system-design-sharding.md)
+- [Getting Started Guide](docs/1-getting-started.md)
+- [Docker Guide](docs/2-docker.md)
+- [GraphQL API Guide](docs/3-graphql-guide.md)
+- [Sharding Design](docs/4-database-sharding.md)
+- [VPS Setup](docs/5-setup-vps-deployment.md)
 
 ---
 
