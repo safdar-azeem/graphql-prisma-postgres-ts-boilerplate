@@ -15,9 +15,19 @@ Complete guide to using and testing the GraphQL API powered by Fastify + Mercuri
 
 ---
 
-## 🧪 Testing Tools (Best to Worst)
+## 🧪 Testing Tools
 
-### 1. Apollo Sandbox (⭐ Recommended)
+### 1. Automated Unit Tests (Vitest)
+
+Run the comprehensive test suite for resolvers and business logic:
+
+```bash
+yarn test
+```
+
+This uses a custom reporter to show a clean summary of passed/failed actions.
+
+### 2. Apollo Sandbox (⭐ Recommended for Manual Testing)
 
 The best GraphQL IDE experience with full features:
 
