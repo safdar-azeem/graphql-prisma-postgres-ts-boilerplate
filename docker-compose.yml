@@ -48,7 +48,7 @@ services:
     networks:
       - app-network
     deploy:
-      replicas: 3
+      replicas: ${APP_REPLICAS:-3}
 
   # ===========================================================================
   # Redis
