@@ -24,13 +24,15 @@
     "docker:prod:down": "docker compose -f docker-compose.prod.yml down",
     "docker:clean": "docker compose down -v --rmi local && docker compose -f docker-compose.prod.yml down -v --rmi local",
     "docker:migrate": "docker compose exec app yarn migrate:shards",
-    "docker:sh": "docker compose exec app sh"
+    "docker:sh": "docker compose exec app sh",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@eddeee888/gcg-typescript-resolver-files": "^0.15.0",
     "@graphql-codegen/cli": "^6.1.1",
     "@types/bcrypt": "^6.0.0",
     "@types/bull": "^4.10.4",
+    "@types/jest": "^30.0.0",
     "@types/node": "^25.2.0",
     "@types/nodemailer": "^7.0.9",
     "@types/pg": "^8.16.0",
@@ -43,7 +45,10 @@
     "rimraf": "^6.1.2",
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vite-tsconfig-paths": "^6.1.0",
+    "vitest": "^4.0.18",
+    "vitest-mock-extended": "^3.1.0"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.0",
