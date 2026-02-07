@@ -16,6 +16,7 @@ async function startServer() {
   const app = Fastify({
     logger: IS_DEVELOPMENT,
     // Trust Nginx proxy to get correct client IP for rate limiting
+    // This allows X-Real-IP and X-Forwarded-For to populate request.ip
     trustProxy: true,
   })
 
@@ -28,7 +29,8 @@ async function startServer() {
     resolvers,
   })
 
-  // Register Rate Limit plugin (Best registered early)
+  // Register Rate Limit plugin
+  // Must be registered before routes/graphql to ensure it wraps them
   await app.register(rateLimit, getRateLimitOptions())
 
   // Register CORS plugin
