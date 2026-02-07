@@ -1,19 +1,22 @@
 import Fastify from 'fastify'
 import mercurius from 'mercurius'
 import cors from '@fastify/cors'
+import rateLimit from '@fastify/rate-limit'
 import { makeExecutableSchema } from '@graphql-tools/schema'
 import { resolvers } from '@/modules/index'
 import { connectRedis } from '@/config/redis'
 import { Context } from '@/types/context.type'
 import { typeDefs } from '@/types/typeDefs.generated'
 import { INSTANCE_ID, IS_DEVELOPMENT } from '@/constants'
-import { createContext, getCorsOptions } from '@/middleware'
+import { createContext, getCorsOptions, getRateLimitOptions } from '@/middleware'
 import { initializeSharding, shutdownSharding } from '@/config/prisma'
 import { mercuriusFormatError } from '@/errors/errorPlugin'
 
 async function startServer() {
   const app = Fastify({
     logger: IS_DEVELOPMENT,
+    // Trust Nginx proxy to get correct client IP for rate limiting
+    trustProxy: true,
   })
 
   await connectRedis()
@@ -24,6 +27,9 @@ async function startServer() {
     typeDefs,
     resolvers,
   })
+
+  // Register Rate Limit plugin (Best registered early)
+  await app.register(rateLimit, getRateLimitOptions())
 
   // Register CORS plugin
   await app.register(cors, getCorsOptions())
