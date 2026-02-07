@@ -12,7 +12,7 @@ describe('User Resolver', () => {
   })
 
   describe('Query.me', () => {
-    it('should return the authenticated user', async () => {
+    it('Get user', async () => {
       const user = { id: '1', email: 'test@example.com', role: 'USER', name: 'Test User' }
       mockContext.user = user as any
 
@@ -21,7 +21,7 @@ describe('User Resolver', () => {
       expect(result).toEqual(user)
     })
 
-    it('should throw AuthenticationError if user is not authenticated', async () => {
+    it('Get user (Unauthenticated)', async () => {
       mockContext.user = undefined as any
 
       await expect((userResolver.Query?.me as any)({}, {}, mockContext, {})).rejects.toThrow(
