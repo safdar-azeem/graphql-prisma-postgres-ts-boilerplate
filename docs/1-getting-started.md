@@ -135,7 +135,13 @@ curl -X POST http://localhost:4200/graphql \
 
 ## 🧪 Step 5: Test the API
 
-### Create a user (Signup):
+### Run Unit Tests:
+
+```bash
+yarn test
+```
+
+### Manual Testing - Create a user (Signup):
 
 ```bash
 curl -X POST http://localhost:4200/graphql \
