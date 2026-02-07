@@ -12,6 +12,7 @@ A production-ready GraphQL API boilerplate with built-in database sharding, auth
 - **Authentication**: [AuthLite](https://github.com/safdar-azeem/authlite)
 - **Caching**: Redis
 - **Deployment**: Docker + Nginx load balancer
+- **Testing**: [Vitest](https://vitest.dev/)
 
 ## ⚡ Why Fastify + Mercurius?
 
