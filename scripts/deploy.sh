@@ -20,13 +20,13 @@ echo "==========================================="
 echo "📥 Pulling latest images..."
 docker compose -f $COMPOSE_FILE pull
 
-# Get current container count
-CURRENT_COUNT=$(docker compose -f $COMPOSE_FILE ps app --quiet 2>/dev/null | wc -l || echo "0")
-echo "Current app instances: $CURRENT_COUNT"
+# Get desired replica count from env or default to 3
+REPLICAS=${APP_REPLICAS:-3}
 
-# Scale up (double the instances temporarily)
-TARGET_COUNT=$((CURRENT_COUNT > 0 ? CURRENT_COUNT * 2 : 6))
-echo "🟢 Scaling up to $TARGET_COUNT instances (green deployment)..."
+# Scale up (double the instances temporarily or at least +3 for zero downtime)
+# We want at least as many new containers as the final target
+TARGET_COUNT=$((REPLICAS * 2))
+echo "🟢 Scaling up to $TARGET_COUNT instances (green deployment, targeting $REPLICAS final)..."
 docker compose -f $COMPOSE_FILE up -d --scale app=$TARGET_COUNT --no-recreate
 
 # Wait for new instances to be healthy
@@ -48,10 +48,16 @@ done
 echo "📊 Running database migrations..."
 docker compose -f $COMPOSE_FILE exec -T app yarn migrate:shards || echo "Migration skipped or already up to date"
 
-# Replace old containers with new ones
-FINAL_COUNT=$((CURRENT_COUNT > 0 ? CURRENT_COUNT : 3))
-echo "🔄 Rolling update to $FINAL_COUNT instances..."
-docker compose -f $COMPOSE_FILE up -d --force-recreate --scale app=$FINAL_COUNT
+# Replace old containers with new ones (scale down to desired count)
+echo "🔄 Rolling update to $REPLICAS instances..."
+docker compose -f $COMPOSE_FILE up -d --force-recreate --scale app=$REPLICAS
+
+# Reload Nginx to ensure it picks up the new IP addresses if needed
+# (Docker internal DNS usually handles this, but a reload forces a DNS refresh in Nginx)
+if docker compose -f $COMPOSE_FILE ps nginx >/dev/null 2>&1; then
+    echo "🔄 Reloading Nginx configuration..."
+    docker compose -f $COMPOSE_FILE exec -T nginx nginx -s reload
+fi
 
 # Cleanup
 echo "🧹 Cleaning up..."
