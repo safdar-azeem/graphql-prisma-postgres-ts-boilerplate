@@ -69,7 +69,7 @@ async function startServer() {
 
       process.exit(0)
     } catch (err) {
-      app.log.error('Error during graceful shutdown:', err)
+      app.log.error('Error during graceful shutdown:', err as any)
       process.exit(1)
     }
   }
