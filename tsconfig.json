@@ -8,6 +8,12 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    "types": [
+      "graphql-upload-minimal",
+      "vitest/globals"
+    ],
     "paths": {
       "@/*": [
         "./src/*"
