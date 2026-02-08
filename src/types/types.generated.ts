@@ -145,7 +145,6 @@ export type MutationcancelUploadArgs = {
 }
 
 export type Mutationconfirm2faEnrollmentArgs = {
-  secret: Scalars['String']['input']
   token: Scalars['String']['input']
 }
 
@@ -625,7 +624,7 @@ export type MutationResolvers<
     ResolversTypes['Boolean'],
     ParentType,
     ContextType,
-    RequireFields<Mutationconfirm2faEnrollmentArgs, 'secret' | 'token'>
+    RequireFields<Mutationconfirm2faEnrollmentArgs, 'token'>
   >
   confirmUpload?: Resolver<
     ResolversTypes['File'],
