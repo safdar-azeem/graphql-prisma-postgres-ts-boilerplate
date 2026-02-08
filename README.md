@@ -35,7 +35,7 @@ This boilerplate uses **Fastify + Mercurius** instead of Express + Apollo Server
 ```bash
 git clone <repository_url>
 cd graphql-prisma-postgres-ts-boilerplate
-yarn docker:dev        # Start development environment
+yarn docker:dev        # Start development environment (uses .env.docker)
 yarn docker:migrate    # Run database migrations
 ```
 
@@ -44,6 +44,8 @@ Open http://localhost:3001/graphql
 ### Option 2: Local Development
 
 Prerequisites: Node.js v22+, PostgreSQL, Redis running locally
+
+> **Note:** Ensure your `.env` file uses `localhost` for `DATABASE_URL` and `REDIS_HOST`.
 
 ```bash
 git clone <repository_url>
@@ -169,9 +171,9 @@ curl -X POST http://localhost:4200/graphql \
 
 ```
 ├── Dockerfile               # Multi-stage (dev + prod stages)
-├── docker-compose.yml       # Development environment
-├── docker-compose.prod.yml  # Production environment
-├── .env                     # Configuration (committed)
+├── docker-compose.yml       # Development environment (uses .env.docker)
+├── docker-compose.prod.yml  # Production environment (uses .env)
+├── .env                     # Local/Prod Configuration
 └── nginx/nginx.conf         # Load balancer
 ```
 
