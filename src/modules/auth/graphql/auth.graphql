@@ -37,7 +37,7 @@ extend type Mutation {
 
   # 2FA
   init2faEnrollment(method: TwoFactorMethod!): Init2faResponse!
-  confirm2faEnrollment(token: String!, secret: String!): Boolean!
+  confirm2faEnrollment(token: String!): Boolean!
   disable2fa(password: String!): Boolean!
   verify2FA(token: String!): AuthPayload!
 
