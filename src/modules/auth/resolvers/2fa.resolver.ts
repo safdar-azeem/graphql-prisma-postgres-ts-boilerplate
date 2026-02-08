@@ -1,11 +1,12 @@
+import { cache } from '@/cache'
 import { requireAuth } from '@/guards'
+import { Prisma } from '@prisma/client'
 import { authLite } from '@/config/authlite'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
-import { comparePassword, generateToken } from '../utils/auth.utils'
-import { AuthenticationError, ValidationError, InternalError } from '@/errors'
-import { Prisma } from '@prisma/client'
-import { cache } from '@/cache'
+import { findUserAcrossShards } from '@/config/prisma'
+import { comparePassword, verifyToken } from '../utils/auth.utils'
+import { AuthenticationError, ValidationError } from '@/errors'
 
 export const twoFaResolvers: Resolvers<Context> = {
   Mutation: {
@@ -44,12 +45,12 @@ export const twoFaResolvers: Resolvers<Context> = {
       return { secret: encryptedSecret, qrCode, backupCodes }
     }),
 
-    confirm2faEnrollment: requireAuth(async (_parent, { token }, { user, client }) => {
+    confirm2faEnrollment: requireAuth(async (_parent, { otp }, { user, client }) => {
       const mfaSettings = user.mfaSettings
 
       if (mfaSettings?.method === 'AUTHENTICATOR') {
         if (!mfaSettings.secret) throw new ValidationError('MFA not initialized')
-        const isValid = authLite.mfa.verifyTotp({ token, secret: mfaSettings.secret })
+        const isValid = authLite.mfa.verifyTotp({ token: otp, secret: mfaSettings.secret })
         if (!isValid) throw new ValidationError('Invalid OTP code')
 
         await client.user.update({
@@ -109,25 +110,46 @@ export const twoFaResolvers: Resolvers<Context> = {
       }
     ),
 
-    verify2FA: async (_parent, { token }, { user, client }) => {
+    verify2FA: async (_parent, { otp, token }) => {
+      const bearerToken = token ? token.replace('Bearer ', '') : null
+
+      if (!bearerToken) {
+        throw new AuthenticationError('Authentication token must be provided')
+      }
+
+      const decoded = verifyToken(token)
+
+      if (!decoded?._id) {
+        throw new AuthenticationError(`Invalid token`)
+      }
+
+      const { result: user, client } = await findUserAcrossShards(async (shardClient) => {
+        return shardClient.user.findFirst({
+          where: { id: decoded._id },
+        })
+      })
+
+      if (!user || !client) {
+        throw new AuthenticationError('Account Not Found')
+      }
+
       const mfaSettings = user.mfaSettings
       if (!mfaSettings?.isEnabled) {
-        const jwt = generateToken({ _id: user.id, email: user.email })
-        return { token: jwt, user: user }
+        return { token, user: user }
       }
 
       let isValid = false
 
       if (mfaSettings.method === 'AUTHENTICATOR') {
         if (mfaSettings.secret) {
-          isValid = authLite.mfa.verifyTotp({ token, secret: mfaSettings.secret })
+          isValid = authLite.mfa.verifyTotp({ token: otp, secret: mfaSettings.secret })
         }
       } else if (mfaSettings.method === 'EMAIL') {
         const otpSettings = user.otp
         if (otpSettings?.code && otpSettings.expiresAt) {
           const now = new Date()
           const expires = new Date(otpSettings.expiresAt)
-          if (otpSettings.code === token && expires > now) {
+          if (otpSettings.code === otp && expires > now) {
             isValid = true
             await client.user.update({
               where: { id: user.id },
@@ -141,8 +163,7 @@ export const twoFaResolvers: Resolvers<Context> = {
 
       if (!isValid) throw new AuthenticationError('Invalid or expired 2FA code')
 
-      const jwt = generateToken({ _id: user.id, email: user.email })
-      return { token: jwt, user }
+      return { token, user }
     },
   },
 }
