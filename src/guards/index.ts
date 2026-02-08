@@ -24,7 +24,6 @@ export function requireAuth<TParent = any, TArgs = any, TResult = any>(
   options?: RequireAuthOptions
 ): ResolverFn<TParent, TArgs, TResult> {
   return async (parent, args, context, info) => {
-    console.log('context.user :>> ', context.user)
     // Check if user is authenticated
     if (!context.user) {
       throw new AuthenticationError()
