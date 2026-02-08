@@ -150,6 +150,7 @@ curl -X POST http://localhost:4200/graphql \
 | Command               | Description                         |
 | --------------------- | ----------------------------------- |
 | `yarn migrate:shards` | Apply schema to all database shards |
+| `yarn db:sync`        | Sync schema changes (Local Dev)     |
 | `yarn db:studio`      | Open Prisma Studio for all shards   |
 | `yarn test:shards`    | Test shard connectivity             |
 | `yarn docker:migrate` | Run migrations in Docker            |
