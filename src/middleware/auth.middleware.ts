@@ -12,7 +12,7 @@ export const createContext = async (token: string | undefined): Promise<Context>
       user: null as any,
       password: '',
       isAuthenticated: false,
-      client: null,
+      client: null as any,
     }
   }
 
@@ -27,7 +27,7 @@ export const createContext = async (token: string | undefined): Promise<Context>
         user: null as any,
         password: '',
         isAuthenticated: false,
-        client: null,
+        client: null as any,
       }
     }
 
@@ -38,7 +38,7 @@ export const createContext = async (token: string | undefined): Promise<Context>
         user: null as any,
         password: '',
         isAuthenticated: false,
-        client: null,
+        client: null as any,
       }
     }
 
@@ -57,7 +57,7 @@ export const createContext = async (token: string | undefined): Promise<Context>
       user: null as any,
       password: '',
       isAuthenticated: false,
-      client: null,
+      client: null as any,
     }
   }
 }
