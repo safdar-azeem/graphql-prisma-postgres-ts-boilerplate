@@ -259,7 +259,7 @@ export const typeDefs = {
           arguments: [
             {
               kind: 'InputValueDefinition',
-              name: { kind: 'Name', value: 'token' },
+              name: { kind: 'Name', value: 'otp' },
               type: {
                 kind: 'NonNullType',
                 type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
@@ -300,6 +300,15 @@ export const typeDefs = {
             {
               kind: 'InputValueDefinition',
               name: { kind: 'Name', value: 'token' },
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'otp' },
               type: {
                 kind: 'NonNullType',
                 type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
