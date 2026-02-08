@@ -142,3 +142,9 @@ echo "   - VPS_SSH_KEY"
 echo "   - GH_SECRET"
 echo "4. Push to main branch to trigger deployment"
 echo ""
+
+# Stay in the app directory and keep session open
+cd "$APP_DIR"
+echo "📂 Changed to: $(pwd)"
+echo ""
+exec bash
