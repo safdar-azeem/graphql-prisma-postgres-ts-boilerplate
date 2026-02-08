@@ -4,6 +4,11 @@
 # Usage:
 #   yarn docker:prod    - Build and start production environment
 #   VPS:                - GitHub Actions uses this automatically
+#
+# Container Naming:
+#   Set COMPOSE_PROJECT_NAME in .env or export before running.
+#   All containers will be prefixed with this project name automatically.
+#   Example: COMPOSE_PROJECT_NAME=myproject → myproject-nginx-1, myproject-redis-1
 # =============================================================================
 
 services:
@@ -12,10 +17,9 @@ services:
   # ===========================================================================
   nginx:
     image: nginx:alpine
-    container_name: nginx-lb
     ports:
-      - '3001:80'
-      - '443:443'
+      - '${PORT:-3001}:80'
+      - '${SSL_PORT:-443}:443'
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/ssl:/etc/nginx/ssl:ro
@@ -38,9 +42,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      target: production # Use production stage
+      target: production
     env_file:
       - .env
+    environment:
+      - REDIS_HOST=redis
+      - POSTGRES_HOST=postgres
     expose:
       - '4200'
     depends_on:
@@ -72,7 +79,6 @@ services:
   # ===========================================================================
   redis:
     image: redis:7-alpine
-    container_name: redis
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
@@ -90,7 +96,6 @@ services:
   # ===========================================================================
   postgres:
     image: postgres:16-alpine
-    container_name: postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
