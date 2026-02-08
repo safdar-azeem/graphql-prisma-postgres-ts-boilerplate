@@ -45,9 +45,6 @@ services:
       target: production
     env_file:
       - .env
-    environment:
-      - REDIS_HOST=redis
-      - POSTGRES_HOST=postgres
     expose:
       - '4200'
     depends_on:
