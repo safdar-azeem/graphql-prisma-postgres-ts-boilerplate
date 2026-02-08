@@ -46,13 +46,14 @@ yarn docker:prod:logs    # View logs
 
 ## Files
 
-| File                      | Purpose                        |
-| ------------------------- | ------------------------------ |
-| `Dockerfile`              | Multi-stage build (dev + prod) |
-| `docker-compose.yml`      | Development environment        |
-| `docker-compose.prod.yml` | Production environment         |
-| `.env`                    | Environment configuration      |
-| `nginx/nginx.conf`        | Load balancer config           |
+| File                      | Purpose                                      |
+| ------------------------- | -------------------------------------------- |
+| `Dockerfile`              | Multi-stage build (dev + prod)               |
+| `docker-compose.yml`      | Development environment (uses `.env.docker`) |
+| `docker-compose.prod.yml` | Production environment (uses `.env`)         |
+| `.env`                    | Local/Prod Configuration                     |
+| `.env.docker`             | Docker Development Configuration             |
+| `nginx/nginx.conf`        | Load balancer config                         |
 
 ## Dockerfile Stages
 
