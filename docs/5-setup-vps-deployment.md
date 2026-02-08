@@ -21,6 +21,8 @@ ssh root@YOUR_VPS_IP
 curl -fsSL https://raw.githubusercontent.com/safdar-azeem/graphql-prisma-postgres-ts-boilerplate/main/scripts/setup-vps.sh | bash
 ```
 
+And make sure that it is your VPS directory name should match to your GitHub repository name.
+
 ### Step 3: Verify Docker
 
 ```bash
