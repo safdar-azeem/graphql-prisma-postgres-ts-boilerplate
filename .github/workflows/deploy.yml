@@ -3,6 +3,10 @@
 # =============================================================================
 # Triggers on push to main branch
 # Deploys to VPS with zero-downtime blue-green deployment
+#
+# Container Naming:
+#   COMPOSE_PROJECT_NAME is derived from repository name, ensuring unique
+#   container names even when the same project is forked/duplicated.
 # =============================================================================
 
 name: Deploy to Production
@@ -82,42 +86,69 @@ jobs:
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -e
 
-            # Configuration
-            APP_DIR="/opt/app"
+            # =================================================================
+            # Dynamic Project Configuration
+            # =================================================================
+            # Extract repository name from full path (e.g., "owner/repo" -> "repo")
+            REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+
+            # Use repo name as project identifier (sanitized for Docker)
+            PROJECT_NAME=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-')
+
+            # Export for Docker Compose - ALL containers will be prefixed with this
+            export COMPOSE_PROJECT_NAME="$PROJECT_NAME"
+
+            # Project-specific paths
+            APP_DIR="/opt/$PROJECT_NAME"
             COMPOSE_FILE="$APP_DIR/docker-compose.prod.yml"
-            REPO_URL="https://github.com/${{ github.repository }}.git"
+            REPO_URL="https://${{ secrets.GH_SECRET }}@github.com/${{ github.repository }}.git"
 
-            # Ensure app directory exists and sets permissions
+            echo "🚀 Deploying project: $PROJECT_NAME"
+            echo "📁 App directory: $APP_DIR"
+
+            # =================================================================
+            # Repository Setup
+            # =================================================================
             mkdir -p $APP_DIR
+            cd $APP_DIR
 
-            # Clone if not exists, otherwise pull
-            if [ ! -d "$APP_DIR/.git" ]; then
-              echo "📂 Initializing repository in existing directory..."
-              cd $APP_DIR
+            if [ -d ".git" ]; then
+              if ! git rev-parse --verify main >/dev/null 2>&1; then
+                echo "📂 Incomplete git directory detected, re-initializing..."
+                rm -rf .git
+              fi
+            fi
+
+            if [ ! -d ".git" ]; then
+              echo "📂 Cloning repository..."
               git init
               git remote add origin $REPO_URL
               git fetch origin
               git checkout -f main
               git branch --set-upstream-to=origin/main main
             else
-              # Navigate to app directory
-              cd $APP_DIR
+              echo "📂 Pulling latest changes..."
+              git remote set-url origin $REPO_URL
+              git fetch origin
               git checkout main
-              git pull origin main
+              git reset --hard origin/main
             fi
 
-            # Login to GitHub Container Registry
+            # =================================================================
+            # Container Deployment
+            # =================================================================
             echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull latest image
             docker compose -f $COMPOSE_FILE pull
 
-            # Blue-Green Deployment
-            echo "🔵 Starting Blue-Green Deployment..."
+            echo "🔵 Starting Blue-Green Deployment for $PROJECT_NAME..."
+
+            # Stop and remove orphaned containers from this project only
+            docker compose -f $COMPOSE_FILE down --remove-orphans 2>/dev/null || true
 
             # Scale up new containers (green)
             docker compose -f $COMPOSE_FILE up -d --scale app=6 --no-recreate
@@ -125,25 +156,36 @@ jobs:
             # Wait for new containers to be healthy
             sleep 15
 
-            # Run database migrations on all shards
+            # Run database migrations
             echo "📊 Running database migrations..."
             docker compose -f $COMPOSE_FILE exec -T app yarn migrate:shards || true
 
             # Rolling restart (graceful)
             docker compose -f $COMPOSE_FILE up -d --force-recreate --scale app=3
 
-            # Cleanup old images
-            docker image prune -f
+            # =================================================================
+            # Cleanup
+            # =================================================================
+            echo "🧹 Cleaning up old images (keeping last 5)..."
+            docker images --format "{{.Repository}}:{{.Tag}} {{.ID}}" | grep "$PROJECT_NAME" | tail -n +6 | awk '{print $2}' | xargs -r docker rmi -f 2>/dev/null || true
 
-            echo "✅ Deployment complete!"
+            echo "✅ Deployment of $PROJECT_NAME complete!"
+            echo "📦 Containers: $(docker ps --filter "name=$PROJECT_NAME" --format '{{.Names}}' | tr '\n' ' ')"
 
       - name: Health Check
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
-          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+            PROJECT_NAME=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-')
+            APP_DIR="/opt/$PROJECT_NAME"
+
             sleep 10
-            curl -f http://localhost:3001/health || exit 1
-            echo "✅ Health check passed!"
+            cd $APP_DIR
+            source .env 2>/dev/null || true
+            PORT=${PORT:-3001}
+            curl -f http://localhost:$PORT/health || exit 1
+            echo "✅ Health check passed for $PROJECT_NAME!"
