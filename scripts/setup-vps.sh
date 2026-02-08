@@ -3,12 +3,44 @@
 # VPS Initial Setup Script
 # Run this script on a fresh Ubuntu VPS to prepare for deployment
 # =============================================================================
+# Usage: 
+#   PROJECT_NAME=my-project ./scripts/setup-vps.sh
+#   or
+#   ./scripts/setup-vps.sh  (will prompt for project name)
+# =============================================================================
 
 set -e
 
 echo "==========================================="
 echo "🚀 VPS Setup Script"
 echo "==========================================="
+
+# Get project name from environment or prompt
+if [ -z "$PROJECT_NAME" ]; then
+    # Try to get from git if in a repo
+    if [ -d ".git" ]; then
+        PROJECT_NAME=$(basename $(git rev-parse --show-toplevel 2>/dev/null) 2>/dev/null)
+    fi
+    
+    if [ -z "$PROJECT_NAME" ]; then
+        read -p "Enter project name: " PROJECT_NAME
+    fi
+fi
+
+# Sanitize project name for Docker (lowercase, alphanumeric and hyphens only)
+PROJECT_NAME=$(echo "$PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr -cd '[:alnum:]-')
+
+if [ -z "$PROJECT_NAME" ]; then
+    echo "❌ Error: Project name is required"
+    exit 1
+fi
+
+APP_DIR="/opt/$PROJECT_NAME"
+
+echo ""
+echo "📦 Project: $PROJECT_NAME"
+echo "📁 App Directory: $APP_DIR"
+echo ""
 
 # Update system
 echo "📦 Updating system packages..."
@@ -58,14 +90,14 @@ echo "🔒 Configuring fail2ban..."
 systemctl enable fail2ban
 systemctl start fail2ban
 
-# Create app directory
-echo "📁 Creating app directory..."
-mkdir -p /opt/app
-mkdir -p /opt/app/backups
-mkdir -p /opt/app/nginx/ssl
+# Create app directory with project-specific name
+echo "📁 Creating app directory: $APP_DIR..."
+mkdir -p "$APP_DIR"
+mkdir -p "$APP_DIR/backups"
+mkdir -p "$APP_DIR/nginx/ssl"
 
 # Set permissions
-chown -R root:root /opt/app
+chown -R root:root "$APP_DIR"
 
 # Setup swap (if not exists)
 echo "💾 Setting up swap..."
@@ -95,9 +127,16 @@ echo "==========================================="
 echo "✅ VPS Setup Complete!"
 echo "==========================================="
 echo ""
+echo "Project: $PROJECT_NAME"
+echo "App Directory: $APP_DIR"
+echo ""
 echo "Next steps:"
-echo "1. Clone your repository to /opt/app"
-echo "2. Create .env.production file"
-echo "3. Add GitHub secrets to your repository"
+echo "1. Clone your repository to $APP_DIR"
+echo "2. Create .env file in $APP_DIR"
+echo "3. Add GitHub secrets to your repository:"
+echo "   - VPS_HOST"
+echo "   - VPS_USERNAME"
+echo "   - VPS_SSH_KEY"
+echo "   - GH_SECRET"
 echo "4. Push to main branch to trigger deployment"
 echo ""
