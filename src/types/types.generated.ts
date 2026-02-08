@@ -145,7 +145,7 @@ export type MutationcancelUploadArgs = {
 }
 
 export type Mutationconfirm2faEnrollmentArgs = {
-  token: Scalars['String']['input']
+  otp: Scalars['String']['input']
 }
 
 export type MutationconfirmUploadArgs = {
@@ -220,6 +220,7 @@ export type MutationtoggleFilePublicArgs = {
 }
 
 export type Mutationverify2FAArgs = {
+  otp: Scalars['String']['input']
   token: Scalars['String']['input']
 }
 
@@ -624,7 +625,7 @@ export type MutationResolvers<
     ResolversTypes['Boolean'],
     ParentType,
     ContextType,
-    RequireFields<Mutationconfirm2faEnrollmentArgs, 'token'>
+    RequireFields<Mutationconfirm2faEnrollmentArgs, 'otp'>
   >
   confirmUpload?: Resolver<
     ResolversTypes['File'],
@@ -732,7 +733,7 @@ export type MutationResolvers<
     ResolversTypes['AuthPayload'],
     ParentType,
     ContextType,
-    RequireFields<Mutationverify2FAArgs, 'token'>
+    RequireFields<Mutationverify2FAArgs, 'otp' | 'token'>
   >
 }
 
