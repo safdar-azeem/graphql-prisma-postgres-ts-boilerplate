@@ -47,15 +47,27 @@ const shouldAllowOrigin = (origin: string | undefined): boolean => {
 /**
  * Get CORS configuration options for Fastify
  */
-export const getCorsOptions = (): FastifyCorsOptions => ({
-  origin: (origin, callback) => {
-    if (shouldAllowOrigin(origin)) {
-      callback(null, true)
-    } else {
-      callback(new Error('Not allowed by CORS policy'), false)
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'token', 'X-Requested-With'],
-})
+
+console.log('IS_DEVELOPMENT :>> ', IS_DEVELOPMENT)
+export const getCorsOptions = (): FastifyCorsOptions => {
+  const options: FastifyCorsOptions = {
+    origin: IS_DEVELOPMENT
+      ? true
+      : (origin, callback) => {
+          if (shouldAllowOrigin(origin)) {
+            callback(null, true)
+          } else {
+            callback(new Error('Not allowed by CORS policy'), false)
+          }
+        },
+    credentials: true,
+    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE', 'PATCH'],
+  }
+
+  // In production, enforce strict allowed headers
+  if (!IS_DEVELOPMENT) {
+    options.allowedHeaders = ['Content-Type', 'Authorization', 'token', 'X-Requested-With']
+  }
+
+  return options
+}
