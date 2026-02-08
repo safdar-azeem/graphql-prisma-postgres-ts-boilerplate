@@ -48,7 +48,6 @@ const shouldAllowOrigin = (origin: string | undefined): boolean => {
  * Get CORS configuration options for Fastify
  */
 
-console.log('IS_DEVELOPMENT :>> ', IS_DEVELOPMENT)
 export const getCorsOptions = (): FastifyCorsOptions => {
   const options: FastifyCorsOptions = {
     origin: IS_DEVELOPMENT
