@@ -1,10 +1,9 @@
-import jwt from 'jsonwebtoken'
-import { JWT_SECRET } from '@/constants'
-import { Context } from '@/types/context.type'
 import { cache } from '@/cache'
+import { verifyToken } from '@/modules/auth'
+import { Context } from '@/types/context.type'
 import { getShardForUser, sharding } from '@/config/prisma'
 
-export const createContext = async (token: string | undefined): Promise<Context> => {
+export const createContext = async (token: string): Promise<Context> => {
   const bearerToken = token ? token.replace('Bearer ', '') : null
 
   if (!bearerToken) {
@@ -17,12 +16,9 @@ export const createContext = async (token: string | undefined): Promise<Context>
   }
 
   try {
-    const decoded = jwt.verify(bearerToken, JWT_SECRET) as {
-      _id: string
-      email?: string
-    }
+    const decoded = verifyToken(token)
 
-    if (!decoded._id) {
+    if (!decoded?._id) {
       return {
         user: null as any,
         password: '',
