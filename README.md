@@ -224,11 +224,19 @@ src/
 
 ### VPS with GitHub Actions
 
-1. Set GitHub secrets: `VPS_HOST`, `VPS_USERNAME`, `VPS_PASSWORD`
-2. Update `.env` with production values
+This boilerplate uses **dynamic project naming** - your repository name becomes the project identifier, allowing multiple deployments on the same VPS without conflicts.
+
+**Setup:**
+
+1. Run on VPS: `curl -fsSL https://raw.githubusercontent.com/safdar-azeem/graphql-prisma-postgres-ts-boilerplate/main/scripts/setup-vps.sh | bash`
+2. Set GitHub secrets:
+   - `VPS_HOST` - Your VPS IP address
+   - `VPS_USERNAME` - SSH username (usually `root`)
+   - `VPS_SSH_KEY` - Private SSH key for authentication
+   - `GH_SECRET` - GitHub Personal Access Token
 3. Push to `main` branch → auto-deploys
 
-See [docs/setup-vps.md](docs/setup-vps.md) for detailed VPS setup.
+See [docs/5-setup-vps-deployment.md](docs/5-setup-vps-deployment.md) for detailed VPS setup.
 
 ---
 
