@@ -1,124 +1,155 @@
 # VPS Setup & Deployment Guide
 
-Complete guide for deploying to a fresh Ubuntu VPS with GitHub Actions.
+Complete guide for deploying to a fresh Ubuntu VPS with GitHub Actions using SSH key authentication.
 
 ## Prerequisites
 
 - Ubuntu 22.04+ VPS (minimum 2GB RAM, 2 vCPU)
 - GitHub repository with this code
+- SSH key pair for authentication
 
-## VPS Initial Setup
+---
 
-### Step 1: SSH into your VPS
+## Quick Setup
 
-```bash
-ssh root@YOUR_VPS_IP
-```
+### One-Line VPS Setup
 
-### Step 2: Run Setup Script
+SSH into your VPS and run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/safdar-azeem/graphql-prisma-postgres-ts-boilerplate/main/scripts/setup-vps.sh | bash
 ```
 
-And make sure that it is your VPS directory name should match to your GitHub repository name.
+This will:
 
-### Step 3: Verify Docker
+1. Prompt for your **project name** (use your GitHub repository name)
+2. Install Docker, configure firewall, create `/opt/{project-name}` directory
+3. Keep you in the project directory after completion
 
-```bash
-docker --version
-docker compose version
-```
+---
 
-## Configure Environment
+## Dynamic Project Naming
 
-### Step 1: Create .env on VPS
+This boilerplate uses **dynamic naming** based on your repository name:
 
-> **⚠️ Important:** The `.env` file must NOT contain quotes around values or comments. Docker Compose will not parse them correctly.
+| Repository Name | App Directory     | Container Names                            |
+| --------------- | ----------------- | ------------------------------------------ |
+| `my-project`    | `/opt/my-project` | `my-project-nginx-1`, `my-project-redis-1` |
+| `my-fork`       | `/opt/my-fork`    | `my-fork-nginx-1`, `my-fork-redis-1`       |
 
-Create the `.env` file on your VPS:
+**Benefits:**
 
-```bash
-cd /opt/app
-cat > .env << 'EOF'
-DATABASE_URL=postgresql://postgres:password@postgres:5432/production?schema=public
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=password
-POSTGRES_DB=production
-SHARD_COUNT=3
-SHARD_1_URL=postgresql://postgres:password@postgres:5432/shard1?schema=public
-SHARD_2_URL=postgresql://postgres:password@postgres:5432/shard2?schema=public
-SHARD_3_URL=postgresql://postgres:password@postgres:5432/shard3?schema=public
-SHARD_POOL_SIZE=10
-SHARD_IDLE_TIMEOUT_MS=10000
-SHARD_CONNECTION_TIMEOUT_MS=5000
-SHARD_HEALTH_CHECK_INTERVAL_MS=30000
-SHARD_CIRCUIT_BREAKER_THRESHOLD=3
-SHARD_ROUTING_STRATEGY=modulo
-REDIS_HOST=redis
-REDIS_PORT=6379
-PORT=4200
-NODE_ENV=production
-APP_REPLICAS=3
-JWT_SECRET=change-this-to-a-secure-secret-in-production
-MFA_ENCRYPTION_KEY=A9f3K2mQ7Xc8RZL4pWJ6N0H5sD1EYTUb
-EOF
-```
+- ✅ Fork/duplicate without conflicts
+- ✅ Multiple projects on same VPS
+- ✅ No hardcoded names to change
 
-**Replace these values:**
+---
 
-- `YOUR_SECURE_PASSWORD` - Strong database password
-- `YOUR_RANDOM_SECRET` - Generate with: `openssl rand -base64 32`
-- `YOUR_32_CHARACTER_KEY` - Must be exactly 32 characters
-
-## GitHub Secrets
+## GitHub Secrets Setup
 
 Add these secrets to your GitHub repository:
 
 **Settings → Secrets and variables → Actions → New repository secret**
 
-| Secret Name          | Value                                                                        |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `VPS_HOST`           | Your VPS IP address                                                          |
-| `VPS_USERNAME`       | `root`                                                                       |
-| `VPS_PASSWORD`       | Your SSH password                                                            |
-| `DATABASE_URL`       | `postgresql://postgres:YOUR_PASSWORD@postgres:5432/production?schema=public` |
-| `POSTGRES_USER`      | `postgres`                                                                   |
-| `POSTGRES_PASSWORD`  | Your secure database password                                                |
-| `POSTGRES_DB`        | `production`                                                                 |
-| `SHARD_1_URL`        | `postgresql://postgres:YOUR_PASSWORD@postgres:5432/shard1?schema=public`     |
-| `SHARD_2_URL`        | `postgresql://postgres:YOUR_PASSWORD@postgres:5432/shard2?schema=public`     |
-| `SHARD_3_URL`        | `postgresql://postgres:YOUR_PASSWORD@postgres:5432/shard3?schema=public`     |
-| `JWT_SECRET`         | Generate with: `openssl rand -base64 32`                                     |
-| `MFA_ENCRYPTION_KEY` | Exactly 32 characters                                                        |
+### Required Secrets
 
-> **Note:** Replace `YOUR_PASSWORD` with your `POSTGRES_PASSWORD` value in all database URLs.
+| Secret Name    | Description                                |
+| -------------- | ------------------------------------------ |
+| `VPS_HOST`     | Your VPS IP address (e.g., `123.45.67.89`) |
+| `VPS_USERNAME` | SSH username (usually `root`)              |
+| `VPS_SSH_KEY`  | Private SSH key (see below)                |
+| `GH_SECRET`    | GitHub Personal Access Token               |
+
+### Generate SSH Key
+
+On your **local machine**:
+
+```bash
+# Generate SSH key pair
+ssh-keygen -t ed25519 -C "github-actions" -f ~/.ssh/github_actions
+
+# Copy public key to VPS
+ssh-copy-id -i ~/.ssh/github_actions.pub root@YOUR_VPS_IP
+
+# Display private key (copy this to VPS_SSH_KEY secret)
+cat ~/.ssh/github_actions
+```
+
+### Generate GitHub Token
+
+1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Generate new token with `repo` scope
+3. Copy token to `GH_SECRET` secret
+
+---
+
+## Configure Environment
+
+### Create .env on VPS
+
+```bash
+cd /opt/{your-project-name}
+cat > .env << 'EOF'
+DATABASE_URL=postgresql://postgres:your-secure-password@postgres:5432/production?schema=public
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your-secure-password
+POSTGRES_DB=production
+SHARD_COUNT=3
+SHARD_1_URL=postgresql://postgres:your-secure-password@postgres:5432/shard1?schema=public
+SHARD_2_URL=postgresql://postgres:your-secure-password@postgres:5432/shard2?schema=public
+SHARD_3_URL=postgresql://postgres:your-secure-password@postgres:5432/shard3?schema=public
+REDIS_HOST=redis
+REDIS_PORT=6379
+PORT=3001
+SSL_PORT=443
+NODE_ENV=production
+APP_REPLICAS=3
+JWT_SECRET=generate-with-openssl-rand-base64-32
+MFA_ENCRYPTION_KEY=exactly-32-characters-here-now!
+EOF
+```
+
+**Generate secure values:**
+
+```bash
+# JWT_SECRET
+openssl rand -base64 32
+
+# MFA_ENCRYPTION_KEY (exactly 32 chars)
+openssl rand -base64 24
+```
+
+---
 
 ## Deployment
 
 ### Automatic (Recommended)
 
-Push to `main` branch → GitHub Actions auto-deploys
+Push to `main` branch → GitHub Actions auto-deploys with blue-green strategy
 
-### Manual
+### Manual Deployment
 
 ```bash
-cd /opt/app
-git pull origin main
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml exec app yarn migrate:shards
+cd /opt/{your-project-name}
+./scripts/deploy.sh
 ```
 
 ### Verify
 
 ```bash
+# Check health
 curl http://localhost:3001/health
+
+# View running containers
+docker ps --filter "name={your-project-name}"
 ```
 
-## Monitoring
+---
+
+## Monitoring & Management
 
 ```bash
-# View logs
+# View logs (all services)
 docker compose -f docker-compose.prod.yml logs -f
 
 # View app logs only
@@ -127,45 +158,74 @@ docker compose -f docker-compose.prod.yml logs -f app
 # Scale to 5 replicas
 docker compose -f docker-compose.prod.yml up -d --scale app=5
 
-# Restart
+# Restart all services
 docker compose -f docker-compose.prod.yml restart
 ```
+
+---
 
 ## Database Backup
 
 ```bash
+# Backup all databases
 docker compose -f docker-compose.prod.yml exec postgres \
-  pg_dumpall -U postgres > /opt/app/backups/backup-$(date +%Y%m%d).sql
+  pg_dumpall -U postgres > backups/backup-$(date +%Y%m%d).sql
+
+# Restore from backup
+docker compose -f docker-compose.prod.yml exec -T postgres \
+  psql -U postgres < backups/backup-20240101.sql
 ```
 
-## Commands Reference
+---
 
-| Command                                                                  | Description           |
-| ------------------------------------------------------------------------ | --------------------- |
-| `docker compose -f docker-compose.prod.yml up -d`                        | Start services        |
-| `docker compose -f docker-compose.prod.yml down`                         | Stop services         |
-| `docker compose -f docker-compose.prod.yml logs -f`                      | View logs             |
-| `docker compose -f docker-compose.prod.yml exec app yarn migrate:shards` | Run migrations        |
-| `./scripts/deploy.sh`                                                    | Blue-green deployment |
+## Multiple Projects on Same VPS
+
+You can run multiple projects on the same VPS. Each project needs:
+
+1. **Different PORT** in `.env`:
+   - Project A: `PORT=3001`, `SSL_PORT=443`
+   - Project B: `PORT=4000`, `SSL_PORT=4443`
+
+2. **Different repository name** → Different container names (automatic)
+
+Example:
+
+```bash
+docker ps
+# graphql-prisma-postgres-ts-boilerplate-nginx-1  0.0.0.0:3001->80/tcp
+# graphql-prisma-postgres-ts-boilerplate-app-1
+# vps-erp-api-nginx-1                             0.0.0.0:4000->80/tcp
+# vps-erp-api-app-1
+```
+
+---
 
 ## Troubleshooting
 
-```bash
-# Check logs
-docker compose -f docker-compose.prod.yml logs app
+| Issue                   | Solution                                                         |
+| ----------------------- | ---------------------------------------------------------------- |
+| SSH connection fails    | Verify `VPS_SSH_KEY` format (must include full key with headers) |
+| Port already in use     | Change `PORT` or `SSL_PORT` in `.env`                            |
+| Container name conflict | Old containers exist - run `docker rm -f {container-name}`       |
+| GitHub Actions timeout  | Increase `command_timeout` in deploy.yml                         |
 
-# Reset everything
+### Reset Everything
+
+```bash
+cd /opt/{your-project-name}
 docker compose -f docker-compose.prod.yml down -v
 docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml exec app yarn migrate:shards
 ```
 
+---
+
 ## Security Checklist
 
-- [ ] Change default SSH port
-- [ ] Use SSH keys instead of password
+- [x] Use SSH keys (not passwords)
+- [x] Firewall configured (ufw)
+- [x] fail2ban enabled
 - [ ] Set strong database passwords in `.env`
 - [ ] Enable SSL/TLS certificates
-- [ ] Configure fail2ban
-- [ ] Regular security updates
+- [ ] Regular security updates (`apt update && apt upgrade`)
 - [ ] Regular database backups
