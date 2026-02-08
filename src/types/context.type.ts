@@ -6,5 +6,5 @@ export interface Context {
   user: AuthUser
   password: string
   isAuthenticated: boolean
-  client: PrismaClient | null
+  client: PrismaClient
 }
