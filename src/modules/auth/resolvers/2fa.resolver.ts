@@ -10,8 +10,6 @@ import { cache } from '@/cache'
 export const twoFaResolvers: Resolvers<Context> = {
   Mutation: {
     init2faEnrollment: requireAuth(async (_parent, { method }, { user, client }) => {
-      if (!client) throw new InternalError('Database connection failed')
-
       const mfaSettings = user.mfaSettings
       if (mfaSettings?.isEnabled) {
         throw new ValidationError('MFA is already enabled')
@@ -47,8 +45,6 @@ export const twoFaResolvers: Resolvers<Context> = {
     }),
 
     confirm2faEnrollment: requireAuth(async (_parent, { token }, { user, client }) => {
-      if (!client) throw new InternalError('Database connection failed')
-
       const mfaSettings = user.mfaSettings
 
       if (mfaSettings?.method === 'AUTHENTICATOR') {
@@ -92,8 +88,6 @@ export const twoFaResolvers: Resolvers<Context> = {
 
     disable2fa: requireAuth(
       async (_parent, { password }, { user, client, password: userPassword }) => {
-        if (!client) throw new InternalError('Database connection failed')
-
         if (password) {
           const isValid = await comparePassword(password, userPassword)
           if (!isValid) throw new AuthenticationError('Invalid password')
@@ -123,13 +117,6 @@ export const twoFaResolvers: Resolvers<Context> = {
       }
 
       let isValid = false
-
-      // Since verify2FA relies on the user being in context (possibly via a temp token),
-      // and our middleware finds the user and shard, 'client' should be available.
-      if (!client) {
-        // Fallback or error if somehow user is present but client isn't which shouldn't happen with our middleware logic
-        throw new InternalError('Database connection failed')
-      }
 
       if (mfaSettings.method === 'AUTHENTICATOR') {
         if (mfaSettings.secret) {
