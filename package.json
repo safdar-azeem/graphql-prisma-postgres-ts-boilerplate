@@ -13,7 +13,6 @@
     "db:studio": "prisma-sharding-studio",
     "migrate:shards": "prisma-sharding-migrate",
     "test:shards": "prisma-sharding-test",
-    "prisma:generate": "npx prisma generate",
     "docker:dev": "docker compose up -d",
     "docker:dev:build": "docker compose up -d --build",
     "docker:dev:logs": "docker compose logs -f",
