@@ -23,7 +23,9 @@ if [ -z "$PROJECT_NAME" ]; then
     fi
     
     if [ -z "$PROJECT_NAME" ]; then
-        read -p "Enter project name: " PROJECT_NAME
+        # Read from /dev/tty to work when script is piped from curl
+        echo -n "Enter project name (e.g., my-project): "
+        read PROJECT_NAME < /dev/tty
     fi
 fi
 
