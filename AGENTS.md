@@ -153,7 +153,7 @@ yarn generate
 yarn migrate:shards
 
 # 3. Regenerate Prisma client
-yarn prisma:generate
+yarn db:sync
 ```
 
 ### Running Tests
