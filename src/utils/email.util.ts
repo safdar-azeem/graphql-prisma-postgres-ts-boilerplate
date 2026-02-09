@@ -39,10 +39,6 @@ emailQueue.process(10, async (job) => {
   // Process 10 jobs concurrently
   const { to, subject, html } = job.data
 
-  console.log(' process.env.EMAIL_USER :>> ', process.env.EMAIL_USER)
-  console.log(' process.env.EMAIL_PASS :>> ', process.env.EMAIL_PASS)
-  console.log(' process.env.EMAIL_HOST :>> ', process.env.EMAIL_HOST)
-
   const mailOptions = {
     from: {
       name: APP_NAME,
