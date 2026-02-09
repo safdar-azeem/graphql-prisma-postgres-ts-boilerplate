@@ -7,12 +7,23 @@ type User {
   id: ID!
   email: String!
   username: String!
+  avatar: String
   mfaSettings: MfaSettings
   createdAt: DateTime!
   updatedAt: DateTime!
 }
 
+input UpdateUserProfileInput {
+  username: String
+  avatar: String
+}
+
 # User Queries
 extend type Query {
   me: User
+}
+
+# User Mutations
+extend type Mutation {
+  updateUserProfile(data: UpdateUserProfileInput!): User!
 }
