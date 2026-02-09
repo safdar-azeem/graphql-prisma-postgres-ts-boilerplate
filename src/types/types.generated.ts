@@ -137,6 +137,7 @@ export type Mutation = {
   resetPassword: Scalars['Boolean']['output']
   signup: AuthPayload
   toggleFilePublic: File
+  updateUserProfile: User
   verify2FA: AuthPayload
 }
 
@@ -217,6 +218,10 @@ export type MutationsignupArgs = {
 
 export type MutationtoggleFilePublicArgs = {
   id: Scalars['ID']['input']
+}
+
+export type MutationupdateUserProfileArgs = {
+  data: UpdateUserProfileInput
 }
 
 export type Mutationverify2FAArgs = {
@@ -320,8 +325,14 @@ export type SignupInput = {
 
 export type TwoFactorMethod = 'AUTHENTICATOR' | 'EMAIL'
 
+export type UpdateUserProfileInput = {
+  avatar?: InputMaybe<Scalars['String']['input']>
+  username?: InputMaybe<Scalars['String']['input']>
+}
+
 export type User = {
   __typename?: 'User'
+  avatar?: Maybe<Scalars['String']['output']>
   createdAt: Scalars['DateTime']['output']
   email: Scalars['String']['output']
   id: Scalars['ID']['output']
@@ -469,6 +480,7 @@ export type ResolversTypes = {
   SignedUploadUrl: ResolverTypeWrapper<SignedUploadUrl>
   SignupInput: SignupInput
   TwoFactorMethod: ResolverTypeWrapper<'EMAIL' | 'AUTHENTICATOR'>
+  UpdateUserProfileInput: UpdateUserProfileInput
   Upload: ResolverTypeWrapper<Scalars['Upload']['output']>
   User: ResolverTypeWrapper<
     Omit<User, 'mfaSettings'> & { mfaSettings?: Maybe<ResolversTypes['MfaSettings']> }
@@ -511,6 +523,7 @@ export type ResolversParentTypes = {
   ShareLinkInput: ShareLinkInput
   SignedUploadUrl: SignedUploadUrl
   SignupInput: SignupInput
+  UpdateUserProfileInput: UpdateUserProfileInput
   Upload: Scalars['Upload']['output']
   User: Omit<User, 'mfaSettings'> & { mfaSettings?: Maybe<ResolversParentTypes['MfaSettings']> }
 }
@@ -729,6 +742,12 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationtoggleFilePublicArgs, 'id'>
   >
+  updateUserProfile?: Resolver<
+    ResolversTypes['User'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationupdateUserProfileArgs, 'data'>
+  >
   verify2FA?: Resolver<
     ResolversTypes['AuthPayload'],
     ParentType,
@@ -842,6 +861,7 @@ export type UserResolvers<
   ContextType = any,
   ParentType extends ResolversParentTypes['User'] = ResolversParentTypes['User'],
 > = {
+  avatar?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>
