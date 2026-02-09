@@ -7,6 +7,9 @@ import { Resolvers } from '@/types/types.generated'
 import { findUserAcrossShards } from '@/config/prisma'
 import { comparePassword, verifyToken } from '../utils/auth.utils'
 import { AuthenticationError, ValidationError } from '@/errors'
+import { sendEmail } from '@/utils/email.util'
+import { APP_NAME } from '@/constants'
+import { getOtpEmailTemplate } from '@/templates/otp-email.template'
 
 export const twoFaResolvers: Resolvers<Context> = {
   Mutation: {
@@ -14,6 +17,41 @@ export const twoFaResolvers: Resolvers<Context> = {
       const mfaSettings = user.mfaSettings
       if (mfaSettings?.isEnabled) {
         throw new ValidationError('MFA is already enabled')
+      }
+
+      if (method === 'EMAIL') {
+        const otp = Math.floor(100000 + Math.random() * 900000).toString()
+        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+
+        await client.user.update({
+          where: { id: user.id },
+          data: {
+            mfaSettings: {
+              isEnabled: false,
+              method,
+              secret: 'EMAIL_MODE',
+              backupCodes: [],
+            },
+            otp: {
+              code: otp,
+              expiresAt,
+            },
+          },
+        })
+
+        await cache.invalidateUser(user.id)
+
+        await sendEmail(
+          user.email,
+          `Confirm 2FA Enrollment - ${APP_NAME}`,
+          getOtpEmailTemplate({ otp })
+        )
+
+        return {
+          secret: 'EMAIL_MODE',
+          qrCode: '',
+          backupCodes: [],
+        }
       }
 
       const { encryptedSecret, qrCode, backupCodes } = await authLite.mfa.createEnrollment(
@@ -33,14 +71,6 @@ export const twoFaResolvers: Resolvers<Context> = {
       })
 
       await cache.invalidateUser(user.id)
-
-      if (method === 'EMAIL') {
-        return {
-          secret: 'EMAIL_MODE',
-          qrCode: '',
-          backupCodes: [],
-        }
-      }
 
       return { secret: encryptedSecret, qrCode, backupCodes }
     }),
@@ -69,6 +99,19 @@ export const twoFaResolvers: Resolvers<Context> = {
       }
 
       if (mfaSettings?.method === 'EMAIL') {
+        const otpSettings = user.otp
+
+        if (!otpSettings?.code || !otpSettings?.expiresAt) {
+          throw new ValidationError('No OTP found. Please request a new one.')
+        }
+
+        const now = new Date()
+        const expires = new Date(otpSettings.expiresAt)
+
+        if (otpSettings.code !== otp || expires < now) {
+          throw new ValidationError('Invalid or expired OTP')
+        }
+
         await client.user.update({
           where: { id: user.id },
           data: {
@@ -76,6 +119,7 @@ export const twoFaResolvers: Resolvers<Context> = {
               ...mfaSettings,
               isEnabled: true,
             },
+            otp: Prisma.DbNull,
           },
         })
 
@@ -167,3 +211,4 @@ export const twoFaResolvers: Resolvers<Context> = {
     },
   },
 }
+
