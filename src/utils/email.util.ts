@@ -1,35 +1,47 @@
 import Queue from 'bull'
 import nodemailer from 'nodemailer'
 import { APP_NAME } from '@/constants'
+import dotenv from 'dotenv'
+dotenv.config()
 
-const queueEmail = new Queue('email', {
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    password: process.env.REDIS_PASSWORD || undefined,
-  },
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: {
-      type: 'exponential',
-      delay: 5000, // Increased delay for Gmail rate limits
-    },
-  },
-})
+const redisUrl = process.env.REDIS_URL
+const isProduction = process.env.NODE_ENV === 'production'
+
+const emailQueue = redisUrl
+  ? new Queue('email', redisUrl, {
+      redis: isProduction
+        ? {
+            tls: { rejectUnauthorized: false },
+          }
+        : undefined,
+    })
+  : new Queue('email', {
+      redis: {
+        host: process.env.REDIS_HOST || '127.0.0.1',
+        port: Number(process.env.REDIS_PORT) || 6379,
+      },
+    })
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Use TLS
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT),
+  secure: false,
   auth: {
-    user: process.env.MAIL_USER || '',
-    pass: process.env.MAIL_PASS || '',
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+  tls: {
+    rejectUnauthorized: false,
   },
 })
 
-queueEmail.process(10, async (job) => {
+emailQueue.process(10, async (job) => {
   // Process 10 jobs concurrently
   const { to, subject, html } = job.data
+
+  console.log(' process.env.EMAIL_USER :>> ', process.env.EMAIL_USER)
+  console.log(' process.env.EMAIL_PASS :>> ', process.env.EMAIL_PASS)
+  console.log(' process.env.EMAIL_HOST :>> ', process.env.EMAIL_HOST)
 
   const mailOptions = {
     from: {
@@ -49,13 +61,13 @@ queueEmail.process(10, async (job) => {
   }
 })
 
-queueEmail.on('failed', (job, err) => {
+emailQueue.on('failed', (job, err) => {
   console.error(`Job ${job.id} failed after ${job.attemptsMade} attempts: ${err.message}`)
 })
 
 export const sendEmail = async (to: string, subject: string, html: string) => {
   try {
-    await queueEmail.add({ to, subject, html }, { attempts: 3 })
+    await emailQueue.add({ to, subject, html }, { attempts: 3 })
     return 'Email queued successfully'
   } catch (error: any) {
     console.error('Failed to queue email:', error.message)
