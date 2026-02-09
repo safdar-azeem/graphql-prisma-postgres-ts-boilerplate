@@ -22,6 +22,7 @@ model User {
   username String
   password String
   role     String @default("USER")
+  avatar   String?
 
   // Auth fields
   googleId String? @unique
