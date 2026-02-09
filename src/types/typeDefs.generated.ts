@@ -612,6 +612,29 @@ export const typeDefs = {
           },
           directives: [],
         },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'updateUserProfile' },
+          arguments: [
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'data' },
+              type: {
+                kind: 'NonNullType',
+                type: {
+                  kind: 'NamedType',
+                  name: { kind: 'Name', value: 'UpdateUserProfileInput' },
+                },
+              },
+              directives: [],
+            },
+          ],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'User' } },
+          },
+          directives: [],
+        },
       ],
       directives: [],
       interfaces: [],
@@ -1477,6 +1500,13 @@ export const typeDefs = {
         },
         {
           kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'avatar' },
+          arguments: [],
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
           name: { kind: 'Name', value: 'mfaSettings' },
           arguments: [],
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'MfaSettings' } },
@@ -1500,6 +1530,25 @@ export const typeDefs = {
             kind: 'NonNullType',
             type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateTime' } },
           },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'UpdateUserProfileInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'username' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'avatar' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
           directives: [],
         },
       ],
