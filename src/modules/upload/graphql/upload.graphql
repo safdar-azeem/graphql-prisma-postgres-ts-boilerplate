@@ -121,12 +121,16 @@ extend type Mutation {
   requestUploadUrl(input: RequestUploadInput!): SignedUploadUrl!
   confirmUpload(fileId: ID!): File!
   cancelUpload(fileId: ID!): Boolean!
+
   deleteFiles(ids: [String!]!): String!
   toggleFilePublic(id: ID!): File!
+
   createFolder(input: CreateFolderInput!): Folder!
   renameFolder(id: ID!, name: String!): Folder!
   moveFolder(id: ID!, parentId: String): Folder!
   deleteFolder(id: ID!): Boolean!
+
   createShareLink(input: ShareLinkInput!): ResourceShareLink!
+
   deleteShareLink(id: ID!): Boolean!
 }
