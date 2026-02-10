@@ -10,4 +10,5 @@
  */
 export type * from './models/Folder.js'
 export type * from './models/File.js'
+export type * from './models/ShareLink.js'
 export type * from './commonInputTypes.js'
