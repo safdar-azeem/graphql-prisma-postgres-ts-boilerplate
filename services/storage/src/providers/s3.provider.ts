@@ -4,6 +4,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  S3ClientConfig,
 } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 import {
@@ -22,13 +23,22 @@ export class S3StorageProvider extends BaseStorageProvider {
 
   constructor() {
     super()
-    this.client = new S3Client({
+    
+    const config: S3ClientConfig = {
       region: s3Config.region,
       credentials: {
         accessKeyId: s3Config.accessKeyId,
         secretAccessKey: s3Config.secretAccessKey,
       },
-    })
+    }
+
+    // Add endpoint configuration if exists
+    if (s3Config.endpoint) {
+      config.endpoint = s3Config.endpoint
+      config.forcePathStyle = s3Config.forcePathStyle
+    }
+
+    this.client = new S3Client(config)
     this.bucket = s3Config.bucket
   }
 
@@ -80,6 +90,27 @@ export class S3StorageProvider extends BaseStorageProvider {
   }
 
   getPublicUrl(key: string): string {
+    // If using a custom endpoint
+    if (s3Config.endpoint) {
+      const endpoint = s3Config.endpoint.replace(/\/$/, '')
+      
+      // Path Style: https://endpoint/bucket/key (Common for generic S3/MinIO)
+      if (s3Config.forcePathStyle) {
+        return `${endpoint}/${this.bucket}/${key}`
+      }
+      
+      // Virtual Hosted Style: https://bucket.endpoint/key (AWS Standard)
+      // We parse the protocol to construct the URL correctly
+      try {
+        const urlObj = new URL(endpoint)
+        return `${urlObj.protocol}//${this.bucket}.${urlObj.host}/${key}`
+      } catch {
+        // Fallback if parsing fails
+        return `${endpoint}/${this.bucket}/${key}`
+      }
+    }
+
+    // Standard AWS URL format
     return `https://${this.bucket}.s3.${s3Config.region}.amazonaws.com/${key}`
   }
 
@@ -92,11 +123,12 @@ export class S3StorageProvider extends BaseStorageProvider {
       await this.client.send(command)
       return true
     } catch (error: unknown) {
-      const err = error as { name?: string }
-      if (err.name === 'NotFound') {
+      const err = error as { name?: string; $metadata?: { httpStatusCode?: number } }
+      if (err.name === 'NotFound' || err.$metadata?.httpStatusCode === 404) {
         return false
       }
       throw error
     }
   }
 }
+
