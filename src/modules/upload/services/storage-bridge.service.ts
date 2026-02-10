@@ -51,6 +51,11 @@ class StorageBridgeService {
 
       clearTimeout(timeoutId)
 
+      // Handle 204 No Content (Deletion success)
+      if (response.status === 204) {
+        return true as unknown as T
+      }
+
       const data = (await response.json()) as ApiResponse<T>
 
       if (!response.ok) {
