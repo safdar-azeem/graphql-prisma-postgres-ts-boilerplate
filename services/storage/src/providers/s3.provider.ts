@@ -16,6 +16,7 @@ import {
 import { s3Config } from '../config/storage.config.js'
 import { SIGNED_URL_EXPIRY_SECONDS } from '../constants/index.js'
 import type { SignedUploadUrlResult, SignedDownloadUrlResult } from '../types/index.js'
+import type { Readable } from 'stream'
 
 export class S3StorageProvider extends BaseStorageProvider {
   readonly name = 's3'
@@ -128,7 +129,6 @@ export class S3StorageProvider extends BaseStorageProvider {
     }
   }
 
-  // NEW: Explicitly set ACL on the object
   async setFileVisibility(key: string, isPublic: boolean): Promise<void> {
     try {
       const command = new PutObjectAclCommand({
@@ -139,8 +139,16 @@ export class S3StorageProvider extends BaseStorageProvider {
       await this.client.send(command)
     } catch (error) {
       console.error('[S3] Failed to set file visibility:', error)
-      // We don't throw here to avoid breaking the confirm flow if ACLs are strict
     }
+  }
+
+  async getFileStream(key: string): Promise<Readable> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    })
+    const response = await this.client.send(command)
+    return response.Body as Readable
   }
 }
 
