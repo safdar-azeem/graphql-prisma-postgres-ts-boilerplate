@@ -7,7 +7,7 @@ import {
   GenerateDownloadUrlOptions,
 } from './base.provider.js'
 import { localConfig } from '../config/storage.config.js'
-import { SIGNED_URL_EXPIRY_SECONDS } from '../constants/index.js'
+import { SIGNED_URL_EXPIRY_SECONDS, PORT } from '../constants/index.js'
 import type { SignedUploadUrlResult, SignedDownloadUrlResult } from '../types/index.js'
 
 const signedTokens = new Map<
@@ -19,11 +19,16 @@ export class LocalStorageProvider extends BaseStorageProvider {
   readonly name = 'local'
   private storagePath: string
   private storageUrl: string
+  private apiUrl: string
 
   constructor() {
     super()
     this.storagePath = localConfig.storagePath
     this.storageUrl = localConfig.storageUrl
+    // Construct the API URL for uploads. Assuming the API is on the same host/port.
+    // If LOCAL_STORAGE_URL is http://localhost:4001/uploads, we want http://localhost:4001
+    const baseUrl = this.storageUrl.replace(/\/uploads\/?$/, '')
+    this.apiUrl = baseUrl || `http://localhost:${PORT}`
   }
 
   async initialize(): Promise<void> {
@@ -38,7 +43,8 @@ export class LocalStorageProvider extends BaseStorageProvider {
 
     signedTokens.set(token, { key, expiresAt, type: 'upload' })
 
-    const signedUrl = `${this.storageUrl}/upload?token=${token}`
+    // Point to the API route, not the static file route
+    const signedUrl = `${this.apiUrl}/api/local/upload?token=${token}`
     const publicUrl = `${this.storageUrl}/${key}`
 
     return { signedUrl, publicUrl, storageKey: key, expiresAt }
@@ -54,7 +60,7 @@ export class LocalStorageProvider extends BaseStorageProvider {
 
     signedTokens.set(token, { key, expiresAt, type: 'download' })
 
-    const signedUrl = `${this.storageUrl}/download?token=${token}`
+    const signedUrl = `${this.apiUrl}/api/local/download?token=${token}`
 
     return { signedUrl, expiresAt }
   }
@@ -110,18 +116,25 @@ export class LocalStorageProvider extends BaseStorageProvider {
     signedTokens.delete(token)
   }
 
-  async saveFile(key: string, buffer: Buffer): Promise<void> {
-    const filePath = path.join(this.storagePath, key)
-    const dir = path.dirname(filePath)
-    await fs.mkdir(dir, { recursive: true })
-    await fs.writeFile(filePath, buffer)
-  }
-
+  // Helper for saving stream directly (used in routes)
   async getFilePath(key: string): Promise<string> {
     return path.join(this.storagePath, key)
+  }
+
+  async ensureDir(filePath: string): Promise<void> {
+    const dir = path.dirname(filePath)
+    await fs.mkdir(dir, { recursive: true })
+  }
+
+  // Keep for backward compat or small file usage
+  async saveFile(key: string, buffer: Buffer): Promise<void> {
+    const filePath = await this.getFilePath(key)
+    await this.ensureDir(filePath)
+    await fs.writeFile(filePath, buffer)
   }
 
   getStoragePath(): string {
     return this.storagePath
   }
 }
+
