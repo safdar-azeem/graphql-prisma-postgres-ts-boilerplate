@@ -7,6 +7,7 @@ import {
 import { cloudinaryConfig } from '../config/storage.config.js'
 import { SIGNED_URL_EXPIRY_SECONDS } from '../constants/index.js'
 import type { SignedUploadUrlResult, SignedDownloadUrlResult } from '../types/index.js'
+import type { Readable } from 'stream'
 
 export class CloudinaryStorageProvider extends BaseStorageProvider {
   readonly name = 'cloudinary'
@@ -100,5 +101,30 @@ export class CloudinaryStorageProvider extends BaseStorageProvider {
       }
       throw error
     }
+  }
+
+  async setFileVisibility(_key: string, _isPublic: boolean): Promise<void> {
+    return
+  }
+
+  async getFileStream(key: string): Promise<Readable> {
+    const url = this.getPublicUrl(key)
+    const response = await fetch(url)
+    if (!response.ok || !response.body) {
+      throw new Error('Failed to fetch file from Cloudinary')
+    }
+    // Convert web stream to Node readable stream
+    const reader = response.body.getReader()
+    const { Readable } = await import('stream')
+    return new Readable({
+      async read() {
+        const { done, value } = await reader.read()
+        if (done) {
+          this.push(null)
+        } else {
+          this.push(Buffer.from(value))
+        }
+      },
+    })
   }
 }
