@@ -209,6 +209,7 @@ export type FolderWhereInput = {
   parent?: Prisma.XOR<Prisma.FolderNullableScalarRelationFilter, Prisma.FolderWhereInput> | null
   children?: Prisma.FolderListRelationFilter
   files?: Prisma.FileListRelationFilter
+  shareLinks?: Prisma.ShareLinkListRelationFilter
 }
 
 export type FolderOrderByWithRelationInput = {
@@ -223,6 +224,7 @@ export type FolderOrderByWithRelationInput = {
   parent?: Prisma.FolderOrderByWithRelationInput
   children?: Prisma.FolderOrderByRelationAggregateInput
   files?: Prisma.FileOrderByRelationAggregateInput
+  shareLinks?: Prisma.ShareLinkOrderByRelationAggregateInput
 }
 
 export type FolderWhereUniqueInput = Prisma.AtLeast<{
@@ -240,6 +242,7 @@ export type FolderWhereUniqueInput = Prisma.AtLeast<{
   parent?: Prisma.XOR<Prisma.FolderNullableScalarRelationFilter, Prisma.FolderWhereInput> | null
   children?: Prisma.FolderListRelationFilter
   files?: Prisma.FileListRelationFilter
+  shareLinks?: Prisma.ShareLinkListRelationFilter
 }, "id" | "path">
 
 export type FolderOrderByWithAggregationInput = {
@@ -281,6 +284,7 @@ export type FolderCreateInput = {
   parent?: Prisma.FolderCreateNestedOneWithoutChildrenInput
   children?: Prisma.FolderCreateNestedManyWithoutParentInput
   files?: Prisma.FileCreateNestedManyWithoutFolderInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutFolderInput
 }
 
 export type FolderUncheckedCreateInput = {
@@ -294,6 +298,7 @@ export type FolderUncheckedCreateInput = {
   updatedAt?: Date | string
   children?: Prisma.FolderUncheckedCreateNestedManyWithoutParentInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutFolderInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutFolderInput
 }
 
 export type FolderUpdateInput = {
@@ -307,6 +312,7 @@ export type FolderUpdateInput = {
   parent?: Prisma.FolderUpdateOneWithoutChildrenNestedInput
   children?: Prisma.FolderUpdateManyWithoutParentNestedInput
   files?: Prisma.FileUpdateManyWithoutFolderNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutFolderNestedInput
 }
 
 export type FolderUncheckedUpdateInput = {
@@ -320,6 +326,7 @@ export type FolderUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.FolderUncheckedUpdateManyWithoutParentNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutFolderNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutFolderNestedInput
 }
 
 export type FolderCreateManyInput = {
@@ -492,6 +499,22 @@ export type FolderUpdateOneWithoutFilesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.FolderUpdateToOneWithWhereWithoutFilesInput, Prisma.FolderUpdateWithoutFilesInput>, Prisma.FolderUncheckedUpdateWithoutFilesInput>
 }
 
+export type FolderCreateNestedOneWithoutShareLinksInput = {
+  create?: Prisma.XOR<Prisma.FolderCreateWithoutShareLinksInput, Prisma.FolderUncheckedCreateWithoutShareLinksInput>
+  connectOrCreate?: Prisma.FolderCreateOrConnectWithoutShareLinksInput
+  connect?: Prisma.FolderWhereUniqueInput
+}
+
+export type FolderUpdateOneWithoutShareLinksNestedInput = {
+  create?: Prisma.XOR<Prisma.FolderCreateWithoutShareLinksInput, Prisma.FolderUncheckedCreateWithoutShareLinksInput>
+  connectOrCreate?: Prisma.FolderCreateOrConnectWithoutShareLinksInput
+  upsert?: Prisma.FolderUpsertWithoutShareLinksInput
+  disconnect?: Prisma.FolderWhereInput | boolean
+  delete?: Prisma.FolderWhereInput | boolean
+  connect?: Prisma.FolderWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.FolderUpdateToOneWithWhereWithoutShareLinksInput, Prisma.FolderUpdateWithoutShareLinksInput>, Prisma.FolderUncheckedUpdateWithoutShareLinksInput>
+}
+
 export type FolderCreateWithoutChildrenInput = {
   id?: string
   name: string
@@ -502,6 +525,7 @@ export type FolderCreateWithoutChildrenInput = {
   updatedAt?: Date | string
   parent?: Prisma.FolderCreateNestedOneWithoutChildrenInput
   files?: Prisma.FileCreateNestedManyWithoutFolderInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutFolderInput
 }
 
 export type FolderUncheckedCreateWithoutChildrenInput = {
@@ -514,6 +538,7 @@ export type FolderUncheckedCreateWithoutChildrenInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   files?: Prisma.FileUncheckedCreateNestedManyWithoutFolderInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutFolderInput
 }
 
 export type FolderCreateOrConnectWithoutChildrenInput = {
@@ -531,6 +556,7 @@ export type FolderCreateWithoutParentInput = {
   updatedAt?: Date | string
   children?: Prisma.FolderCreateNestedManyWithoutParentInput
   files?: Prisma.FileCreateNestedManyWithoutFolderInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutFolderInput
 }
 
 export type FolderUncheckedCreateWithoutParentInput = {
@@ -543,6 +569,7 @@ export type FolderUncheckedCreateWithoutParentInput = {
   updatedAt?: Date | string
   children?: Prisma.FolderUncheckedCreateNestedManyWithoutParentInput
   files?: Prisma.FileUncheckedCreateNestedManyWithoutFolderInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutFolderInput
 }
 
 export type FolderCreateOrConnectWithoutParentInput = {
@@ -576,6 +603,7 @@ export type FolderUpdateWithoutChildrenInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   parent?: Prisma.FolderUpdateOneWithoutChildrenNestedInput
   files?: Prisma.FileUpdateManyWithoutFolderNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutFolderNestedInput
 }
 
 export type FolderUncheckedUpdateWithoutChildrenInput = {
@@ -588,6 +616,7 @@ export type FolderUncheckedUpdateWithoutChildrenInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   files?: Prisma.FileUncheckedUpdateManyWithoutFolderNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutFolderNestedInput
 }
 
 export type FolderUpsertWithWhereUniqueWithoutParentInput = {
@@ -630,6 +659,7 @@ export type FolderCreateWithoutFilesInput = {
   updatedAt?: Date | string
   parent?: Prisma.FolderCreateNestedOneWithoutChildrenInput
   children?: Prisma.FolderCreateNestedManyWithoutParentInput
+  shareLinks?: Prisma.ShareLinkCreateNestedManyWithoutFolderInput
 }
 
 export type FolderUncheckedCreateWithoutFilesInput = {
@@ -642,6 +672,7 @@ export type FolderUncheckedCreateWithoutFilesInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   children?: Prisma.FolderUncheckedCreateNestedManyWithoutParentInput
+  shareLinks?: Prisma.ShareLinkUncheckedCreateNestedManyWithoutFolderInput
 }
 
 export type FolderCreateOrConnectWithoutFilesInput = {
@@ -670,6 +701,7 @@ export type FolderUpdateWithoutFilesInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   parent?: Prisma.FolderUpdateOneWithoutChildrenNestedInput
   children?: Prisma.FolderUpdateManyWithoutParentNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutFolderNestedInput
 }
 
 export type FolderUncheckedUpdateWithoutFilesInput = {
@@ -682,6 +714,75 @@ export type FolderUncheckedUpdateWithoutFilesInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.FolderUncheckedUpdateManyWithoutParentNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutFolderNestedInput
+}
+
+export type FolderCreateWithoutShareLinksInput = {
+  id?: string
+  name: string
+  path: string
+  ownerId: string
+  isPublic?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  parent?: Prisma.FolderCreateNestedOneWithoutChildrenInput
+  children?: Prisma.FolderCreateNestedManyWithoutParentInput
+  files?: Prisma.FileCreateNestedManyWithoutFolderInput
+}
+
+export type FolderUncheckedCreateWithoutShareLinksInput = {
+  id?: string
+  name: string
+  path: string
+  parentId?: string | null
+  ownerId: string
+  isPublic?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  children?: Prisma.FolderUncheckedCreateNestedManyWithoutParentInput
+  files?: Prisma.FileUncheckedCreateNestedManyWithoutFolderInput
+}
+
+export type FolderCreateOrConnectWithoutShareLinksInput = {
+  where: Prisma.FolderWhereUniqueInput
+  create: Prisma.XOR<Prisma.FolderCreateWithoutShareLinksInput, Prisma.FolderUncheckedCreateWithoutShareLinksInput>
+}
+
+export type FolderUpsertWithoutShareLinksInput = {
+  update: Prisma.XOR<Prisma.FolderUpdateWithoutShareLinksInput, Prisma.FolderUncheckedUpdateWithoutShareLinksInput>
+  create: Prisma.XOR<Prisma.FolderCreateWithoutShareLinksInput, Prisma.FolderUncheckedCreateWithoutShareLinksInput>
+  where?: Prisma.FolderWhereInput
+}
+
+export type FolderUpdateToOneWithWhereWithoutShareLinksInput = {
+  where?: Prisma.FolderWhereInput
+  data: Prisma.XOR<Prisma.FolderUpdateWithoutShareLinksInput, Prisma.FolderUncheckedUpdateWithoutShareLinksInput>
+}
+
+export type FolderUpdateWithoutShareLinksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  path?: Prisma.StringFieldUpdateOperationsInput | string
+  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
+  isPublic?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  parent?: Prisma.FolderUpdateOneWithoutChildrenNestedInput
+  children?: Prisma.FolderUpdateManyWithoutParentNestedInput
+  files?: Prisma.FileUpdateManyWithoutFolderNestedInput
+}
+
+export type FolderUncheckedUpdateWithoutShareLinksInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  path?: Prisma.StringFieldUpdateOperationsInput | string
+  parentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ownerId?: Prisma.StringFieldUpdateOperationsInput | string
+  isPublic?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  children?: Prisma.FolderUncheckedUpdateManyWithoutParentNestedInput
+  files?: Prisma.FileUncheckedUpdateManyWithoutFolderNestedInput
 }
 
 export type FolderCreateManyParentInput = {
@@ -704,6 +805,7 @@ export type FolderUpdateWithoutParentInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.FolderUpdateManyWithoutParentNestedInput
   files?: Prisma.FileUpdateManyWithoutFolderNestedInput
+  shareLinks?: Prisma.ShareLinkUpdateManyWithoutFolderNestedInput
 }
 
 export type FolderUncheckedUpdateWithoutParentInput = {
@@ -716,6 +818,7 @@ export type FolderUncheckedUpdateWithoutParentInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   children?: Prisma.FolderUncheckedUpdateManyWithoutParentNestedInput
   files?: Prisma.FileUncheckedUpdateManyWithoutFolderNestedInput
+  shareLinks?: Prisma.ShareLinkUncheckedUpdateManyWithoutFolderNestedInput
 }
 
 export type FolderUncheckedUpdateManyWithoutParentInput = {
@@ -736,11 +839,13 @@ export type FolderUncheckedUpdateManyWithoutParentInput = {
 export type FolderCountOutputType = {
   children: number
   files: number
+  shareLinks: number
 }
 
 export type FolderCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   children?: boolean | FolderCountOutputTypeCountChildrenArgs
   files?: boolean | FolderCountOutputTypeCountFilesArgs
+  shareLinks?: boolean | FolderCountOutputTypeCountShareLinksArgs
 }
 
 /**
@@ -767,6 +872,13 @@ export type FolderCountOutputTypeCountFilesArgs<ExtArgs extends runtime.Types.Ex
   where?: Prisma.FileWhereInput
 }
 
+/**
+ * FolderCountOutputType without action
+ */
+export type FolderCountOutputTypeCountShareLinksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ShareLinkWhereInput
+}
+
 
 export type FolderSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -780,6 +892,7 @@ export type FolderSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
   parent?: boolean | Prisma.Folder$parentArgs<ExtArgs>
   children?: boolean | Prisma.Folder$childrenArgs<ExtArgs>
   files?: boolean | Prisma.Folder$filesArgs<ExtArgs>
+  shareLinks?: boolean | Prisma.Folder$shareLinksArgs<ExtArgs>
   _count?: boolean | Prisma.FolderCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["folder"]>
 
@@ -823,6 +936,7 @@ export type FolderInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   parent?: boolean | Prisma.Folder$parentArgs<ExtArgs>
   children?: boolean | Prisma.Folder$childrenArgs<ExtArgs>
   files?: boolean | Prisma.Folder$filesArgs<ExtArgs>
+  shareLinks?: boolean | Prisma.Folder$shareLinksArgs<ExtArgs>
   _count?: boolean | Prisma.FolderCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type FolderIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -838,6 +952,7 @@ export type $FolderPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
     parent: Prisma.$FolderPayload<ExtArgs> | null
     children: Prisma.$FolderPayload<ExtArgs>[]
     files: Prisma.$FilePayload<ExtArgs>[]
+    shareLinks: Prisma.$ShareLinkPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1245,6 +1360,7 @@ export interface Prisma__FolderClient<T, Null = never, ExtArgs extends runtime.T
   parent<T extends Prisma.Folder$parentArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Folder$parentArgs<ExtArgs>>): Prisma.Prisma__FolderClient<runtime.Types.Result.GetResult<Prisma.$FolderPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   children<T extends Prisma.Folder$childrenArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Folder$childrenArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FolderPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   files<T extends Prisma.Folder$filesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Folder$filesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FilePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  shareLinks<T extends Prisma.Folder$shareLinksArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Folder$shareLinksArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ShareLinkPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1742,6 +1858,30 @@ export type Folder$filesArgs<ExtArgs extends runtime.Types.Extensions.InternalAr
   take?: number
   skip?: number
   distinct?: Prisma.FileScalarFieldEnum | Prisma.FileScalarFieldEnum[]
+}
+
+/**
+ * Folder.shareLinks
+ */
+export type Folder$shareLinksArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ShareLink
+   */
+  select?: Prisma.ShareLinkSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ShareLink
+   */
+  omit?: Prisma.ShareLinkOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ShareLinkInclude<ExtArgs> | null
+  where?: Prisma.ShareLinkWhereInput
+  orderBy?: Prisma.ShareLinkOrderByWithRelationInput | Prisma.ShareLinkOrderByWithRelationInput[]
+  cursor?: Prisma.ShareLinkWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ShareLinkScalarFieldEnum | Prisma.ShareLinkScalarFieldEnum[]
 }
 
 /**
