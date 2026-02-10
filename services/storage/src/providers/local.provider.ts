@@ -2,139 +2,131 @@ import fs from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
 import {
-  BaseStorageProvider,
-  GenerateUploadUrlOptions,
-  GenerateDownloadUrlOptions,
+  BaseStorageProvider,
+  GenerateUploadUrlOptions,
+  GenerateDownloadUrlOptions,
 } from './base.provider.js'
 import { localConfig } from '../config/storage.config.js'
 import { SIGNED_URL_EXPIRY_SECONDS, PORT } from '../constants/index.js'
 import type { SignedUploadUrlResult, SignedDownloadUrlResult } from '../types/index.js'
 
 const signedTokens = new Map<
-  string,
-  { key: string; expiresAt: Date; type: 'upload' | 'download' }
+  string,
+  { key: string; expiresAt: Date; type: 'upload' | 'download' }
 >()
 
 export class LocalStorageProvider extends BaseStorageProvider {
-  readonly name = 'local'
-  private storagePath: string
-  private storageUrl: string
-  private apiUrl: string
+  readonly name = 'local'
+  private storagePath: string
+  private storageUrl: string
+  private apiUrl: string
 
-  constructor() {
-    super()
-    this.storagePath = localConfig.storagePath
-    this.storageUrl = localConfig.storageUrl
-    // Construct the API URL for uploads. Assuming the API is on the same host/port.
-    // If LOCAL_STORAGE_URL is http://localhost:4001/uploads, we want http://localhost:4001
-    const baseUrl = this.storageUrl.replace(/\/uploads\/?$/, '')
-    this.apiUrl = baseUrl || `http://localhost:${PORT}`
-  }
+  constructor() {
+    super()
+    this.storagePath = localConfig.storagePath
+    this.storageUrl = localConfig.storageUrl
+    const baseUrl = this.storageUrl.replace(/\/uploads\/?$/, '')
+    this.apiUrl = baseUrl || `http://localhost:${PORT}`
+  }
 
-  async initialize(): Promise<void> {
-    await fs.mkdir(this.storagePath, { recursive: true })
-  }
+  async initialize(): Promise<void> {
+    await fs.mkdir(this.storagePath, { recursive: true })
+  }
 
-  async generateSignedUploadUrl(options: GenerateUploadUrlOptions): Promise<SignedUploadUrlResult> {
-    const { key, expiresInSeconds = SIGNED_URL_EXPIRY_SECONDS } = options
+  async generateSignedUploadUrl(options: GenerateUploadUrlOptions): Promise<SignedUploadUrlResult> {
+    const { key, expiresInSeconds = SIGNED_URL_EXPIRY_SECONDS } = options
+    const token = crypto.randomBytes(32).toString('hex')
+    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000)
+    signedTokens.set(token, { key, expiresAt, type: 'upload' })
+    const signedUrl = `${this.apiUrl}/api/local/upload?token=${token}`
+    const publicUrl = `${this.storageUrl}/${key}`
+    return { signedUrl, publicUrl, storageKey: key, expiresAt }
+  }
 
-    const token = crypto.randomBytes(32).toString('hex')
-    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000)
+  async generateSignedDownloadUrl(
+    options: GenerateDownloadUrlOptions
+  ): Promise<SignedDownloadUrlResult> {
+    const { key, expiresInSeconds = SIGNED_URL_EXPIRY_SECONDS } = options
+    const token = crypto.randomBytes(32).toString('hex')
+    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000)
+    signedTokens.set(token, { key, expiresAt, type: 'download' })
+    const signedUrl = `${this.apiUrl}/api/local/download?token=${token}`
+    return { signedUrl, expiresAt }
+  }
 
-    signedTokens.set(token, { key, expiresAt, type: 'upload' })
+  async deleteFile(key: string): Promise<void> {
+    const filePath = path.join(this.storagePath, key)
+    try {
+      await fs.unlink(filePath)
+    } catch (error: unknown) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error
+      }
+    }
+  }
 
-    // Point to the API route, not the static file route
-    const signedUrl = `${this.apiUrl}/api/local/upload?token=${token}`
-    const publicUrl = `${this.storageUrl}/${key}`
+  getPublicUrl(key: string): string {
+    return `${this.storageUrl}/${key}`
+  }
 
-    return { signedUrl, publicUrl, storageKey: key, expiresAt }
-  }
+  async fileExists(key: string): Promise<boolean> {
+    const filePath = path.join(this.storagePath, key)
+    try {
+      await fs.access(filePath)
+      return true
+    } catch {
+      return false
+    }
+  }
 
-  async generateSignedDownloadUrl(
-    options: GenerateDownloadUrlOptions
-  ): Promise<SignedDownloadUrlResult> {
-    const { key, expiresInSeconds = SIGNED_URL_EXPIRY_SECONDS } = options
+  validateUploadToken(token: string): { key: string } | null {
+    const tokenData = signedTokens.get(token)
+    if (!tokenData) return null
+    if (tokenData.type !== 'upload') return null
+    if (new Date() > tokenData.expiresAt) {
+      signedTokens.delete(token)
+      return null
+    }
+    return { key: tokenData.key }
+  }
 
-    const token = crypto.randomBytes(32).toString('hex')
-    const expiresAt = new Date(Date.now() + expiresInSeconds * 1000)
+  validateDownloadToken(token: string): { key: string } | null {
+    const tokenData = signedTokens.get(token)
+    if (!tokenData) return null
+    if (tokenData.type !== 'download') return null
+    if (new Date() > tokenData.expiresAt) {
+      signedTokens.delete(token)
+      return null
+    }
+    return { key: tokenData.key }
+  }
 
-    signedTokens.set(token, { key, expiresAt, type: 'download' })
+  consumeUploadToken(token: string): void {
+    signedTokens.delete(token)
+  }
 
-    const signedUrl = `${this.apiUrl}/api/local/download?token=${token}`
+  async getFilePath(key: string): Promise<string> {
+    return path.join(this.storagePath, key)
+  }
 
-    return { signedUrl, expiresAt }
-  }
+  async ensureDir(filePath: string): Promise<void> {
+    const dir = path.dirname(filePath)
+    await fs.mkdir(dir, { recursive: true })
+  }
 
-  async deleteFile(key: string): Promise<void> {
-    const filePath = path.join(this.storagePath, key)
-    try {
-      await fs.unlink(filePath)
-    } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error
-      }
-    }
-  }
+  async saveFile(key: string, buffer: Buffer): Promise<void> {
+    const filePath = await this.getFilePath(key)
+    await this.ensureDir(filePath)
+    await fs.writeFile(filePath, buffer)
+  }
 
-  getPublicUrl(key: string): string {
-    return `${this.storageUrl}/${key}`
-  }
+  getStoragePath(): string {
+    return this.storagePath
+  }
 
-  async fileExists(key: string): Promise<boolean> {
-    const filePath = path.join(this.storagePath, key)
-    try {
-      await fs.access(filePath)
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  validateUploadToken(token: string): { key: string } | null {
-    const tokenData = signedTokens.get(token)
-    if (!tokenData) return null
-    if (tokenData.type !== 'upload') return null
-    if (new Date() > tokenData.expiresAt) {
-      signedTokens.delete(token)
-      return null
-    }
-    return { key: tokenData.key }
-  }
-
-  validateDownloadToken(token: string): { key: string } | null {
-    const tokenData = signedTokens.get(token)
-    if (!tokenData) return null
-    if (tokenData.type !== 'download') return null
-    if (new Date() > tokenData.expiresAt) {
-      signedTokens.delete(token)
-      return null
-    }
-    return { key: tokenData.key }
-  }
-
-  consumeUploadToken(token: string): void {
-    signedTokens.delete(token)
-  }
-
-  // Helper for saving stream directly (used in routes)
-  async getFilePath(key: string): Promise<string> {
-    return path.join(this.storagePath, key)
-  }
-
-  async ensureDir(filePath: string): Promise<void> {
-    const dir = path.dirname(filePath)
-    await fs.mkdir(dir, { recursive: true })
-  }
-
-  // Keep for backward compat or small file usage
-  async saveFile(key: string, buffer: Buffer): Promise<void> {
-    const filePath = await this.getFilePath(key)
-    await this.ensureDir(filePath)
-    await fs.writeFile(filePath, buffer)
-  }
-
-  getStoragePath(): string {
-    return this.storagePath
-  }
+  async setFileVisibility(_key: string, _isPublic: boolean): Promise<void> {
+    // Local storage visibility is handled by static file serving configuration
+    return
+  }
 }
 
