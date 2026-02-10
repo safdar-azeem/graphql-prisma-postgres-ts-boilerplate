@@ -27,3 +27,8 @@ export type Folder = Prisma.FolderModel
  * 
  */
 export type File = Prisma.FileModel
+/**
+ * Model ShareLink
+ * 
+ */
+export type ShareLink = Prisma.ShareLinkModel
