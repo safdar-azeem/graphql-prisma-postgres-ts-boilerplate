@@ -3,6 +3,8 @@ export interface S3Config {
   secretAccessKey: string
   region: string
   bucket: string
+  endpoint?: string
+  forcePathStyle?: boolean
 }
 
 export interface CloudinaryConfig {
@@ -27,6 +29,8 @@ export const s3Config: S3Config = {
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
   region: process.env.AWS_REGION || 'us-east-1',
   bucket: process.env.AWS_S3_BUCKET || '',
+  endpoint: process.env.AWS_S3_ENDPOINT || undefined,
+  forcePathStyle: process.env.AWS_S3_FORCE_PATH_STYLE === 'true',
 }
 
 export const cloudinaryConfig: CloudinaryConfig = {
@@ -45,3 +49,4 @@ export const localConfig: LocalConfig = {
   storagePath: process.env.LOCAL_STORAGE_PATH || './uploads',
   storageUrl: process.env.LOCAL_STORAGE_URL || 'http://localhost:4001/uploads',
 }
+
