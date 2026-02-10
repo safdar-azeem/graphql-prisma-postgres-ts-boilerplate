@@ -300,6 +300,9 @@ export const uploadResolver: Resolvers<Context> = {
 
     deleteShareLink: requireAuth(async (_parent, { id }, context) => {
       try {
+        // Validation: id must be a string. 
+        // If the client sent an array in the request variables, GraphQL validation would fail 
+        // before reaching here. This code assumes valid scalar input.
         const token = getInternalToken(context)
         return await storageBridge.deleteShareLink(id, token)
       } catch (error) {
