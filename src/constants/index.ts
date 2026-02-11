@@ -11,7 +11,7 @@ export const APP_NAME = 'Builto'
 export const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
 export const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || ''
 
-export const STORAGE_SERVICE_URL = process.env.STORAGE_SERVICE_URL || 'http://localhost:4001'
+export const STORAGE_SERVICE_URL = process.env.STORAGE_SERVICE_URL || 'http://localhost:4201'
 
 // Unique instance ID for this server replica
 export const INSTANCE_ID = `app-${process.pid}-${Math.random().toString(36).substring(2, 8)}`
