@@ -60,7 +60,7 @@ yarn build
 yarn start
 ```
 
-The service runs on `http://localhost:4001` by default.
+The service runs on `http://localhost:4201` by default.
 
 ## Configuration
 
@@ -69,7 +69,7 @@ The service runs on `http://localhost:4001` by default.
 | Variable             | Description                                       | Default     |
 | -------------------- | ------------------------------------------------- | ----------- |
 | `DATABASE_URL`       | PostgreSQL connection string                      | Required    |
-| `PORT`               | Service port                                      | `4001`      |
+| `PORT`               | Service port                                      | `4201`      |
 | `JWT_SECRET`         | JWT secret (must match main service)              | Required    |
 | `STORAGE_TYPE`       | Provider: `local`, `s3`, `cloudinary`, `imagekit` | `local`     |
 | `STORAGE_PUBLIC_URL` | Public URL for share links                        | Service URL |
@@ -81,7 +81,7 @@ The service runs on `http://localhost:4001` by default.
 ```env
 STORAGE_TYPE="local"
 LOCAL_STORAGE_PATH="./uploads"
-LOCAL_STORAGE_URL="http://localhost:4001/uploads"
+LOCAL_STORAGE_URL="http://localhost:4201/uploads"
 ```
 
 #### AWS S3
@@ -352,7 +352,7 @@ Content-Type: application/json
   "data": {
     "id": "share-link-id",
     "token": "abc123...",
-    "url": "http://localhost:4001/api/share/abc123...",
+    "url": "http://localhost:4201/api/share/abc123...",
     "expiresAt": "2024-01-08T12:00:00.000Z",
     "createdAt": "2024-01-01T12:00:00.000Z"
   }
@@ -546,7 +546,7 @@ const response = await fetch('/api/share-links', {
 })
 
 const { url } = await response.json().then((r) => r.data)
-// url: "http://localhost:4001/api/share/abc123..."
+// url: "http://localhost:4201/api/share/abc123..."
 ```
 
 ### Sharing a Folder
