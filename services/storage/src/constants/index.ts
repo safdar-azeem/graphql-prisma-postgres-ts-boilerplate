@@ -2,7 +2,7 @@ export const NODE_ENV = process.env.NODE_ENV || 'development'
 export const IS_PRODUCTION = NODE_ENV === 'production'
 export const IS_DEVELOPMENT = NODE_ENV === 'development'
 
-export const PORT = parseInt(process.env.PORT || '4001', 10)
+export const PORT = parseInt(process.env.PORT || '4201', 10)
 export const JWT_SECRET = process.env.JWT_SECRET as string
 
 export const STORAGE_TYPE = (process.env.STORAGE_TYPE || 'local') as
