@@ -23,7 +23,7 @@ The storage service is designed as a standalone microservice that handles all fi
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │                 │     │                 │     │                 │
 │  Frontend App   │────▶│  GraphQL API    │────▶│ Storage Service │
-│                 │     │   (Port 4200)   │     │   (Port 4001)   │
+│                 │     │   (Port 4200)   │     │   (Port 4201)   │
 │                 │     │                 │     │                 │
 └─────────────────┘     └─────────────────┘     └────────┬────────┘
         │                                                │
@@ -449,23 +449,23 @@ export const uploadResolver: Resolvers<Context> = {
 TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
 # Request signed URL
-curl -X POST http://localhost:4001/api/upload/signed-url \
+curl -X POST http://localhost:4201/api/upload/signed-url \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"filename":"test.txt","mimeType":"text/plain","size":100}'
 
 # Upload file (local provider)
-curl -X PUT "http://localhost:4001/api/local/upload?token=<token>" \
+curl -X PUT "http://localhost:4201/api/local/upload?token=<token>" \
   -F "file=@./test.txt"
 
 # Confirm upload
-curl -X POST http://localhost:4001/api/upload/confirm \
+curl -X POST http://localhost:4201/api/upload/confirm \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"fileId":"<file-id>"}'
 
 # List files
-curl http://localhost:4001/api/files \
+curl http://localhost:4201/api/files \
   -H "Authorization: Bearer $TOKEN"
 ```
 
