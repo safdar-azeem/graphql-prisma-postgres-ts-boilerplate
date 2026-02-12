@@ -61,9 +61,20 @@ router.get(
       const ownerId = req.context.user!.id
       const { page, limit, search, parentId } = req.query
 
+      // 1. Parse Parent ID logic (Mirroring File Route Logic)
+      // - 'null' -> Root Level (parentId = null)
+      // - undefined -> Global Search (Ignore parentId constraint)
+      // - UUID -> Specific Subfolder
+      let parsedParentId: string | null | undefined = undefined
+      if (parentId === 'null') {
+        parsedParentId = null
+      } else if (typeof parentId === 'string') {
+        parsedParentId = parentId
+      }
+
       const filter = {
         search: search || null,
-        parentId: parentId === 'null' ? null : parentId || null,
+        parentId: parsedParentId,
       }
 
       const pagination = {
