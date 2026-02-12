@@ -37,25 +37,31 @@ router.get(
       const user = req.context.user!
       const { page, limit, search, uploadedBy, folderId, dateFrom, dateTo } = req.query
 
-      // If user is ADMIN, they can filter by uploadedBy, otherwise strict owner check
+      // 1. Determine Target Owner
       let targetOwnerId = user.id
       if (user.role === 'ADMIN' && uploadedBy) {
         targetOwnerId = uploadedBy
       }
 
+      // 2. Parse Folder ID (Crucial for Search)
+      // - 'null' string -> Root Folder (parentId = null)
+      // - undefined/missing -> Global Search (Ignore parentId)
+      // - UUID string -> Specific Folder
+      let parsedFolderId: string | null | undefined = undefined
+      if (folderId === 'null') {
+        parsedFolderId = null
+      } else if (typeof folderId === 'string') {
+        parsedFolderId = folderId
+      }
+      // If folderId is undefined in query, parsedFolderId remains undefined (Global Search)
+
       const filter = {
         search: search || null,
-        uploadedBy: user.role === 'ADMIN' ? uploadedBy || null : user.id, // For Admin list all if null
-        folderId: folderId === 'null' ? null : folderId || null,
+        uploadedBy: user.role === 'ADMIN' ? uploadedBy || null : user.id,
+        folderId: parsedFolderId, 
         dateFrom: dateFrom ? new Date(dateFrom) : null,
         dateTo: dateTo ? new Date(dateTo) : null,
       }
-
-      // If Admin and no specific uploadedBy, we pass the current admin ID but let service handle empty filter?
-      // Actually, our service implementation defaults to passed ownerId if filter.uploadedBy is null.
-      // Let's adjust the call:
-      const ownerIdArg = user.role === 'ADMIN' && !uploadedBy ? '' : targetOwnerId // Hack to indicate "all" if empty string?
-      // Better: Update service to handle this, but for now we rely on the filter object priority in service.
 
       const pagination = {
         page: page ? parseInt(page) : 1,
@@ -77,10 +83,6 @@ router.get(
     try {
       const { id } = req.params
       const ownerId = req.context.user!.id
-
-      // If Admin, we should allow access.
-      // Pass a flag or check in service. For now, we assume user is owner.
-      // Refactoring service to accept user role would be cleaner, but using ownerId.
 
       const file = await getFileById(id, ownerId)
 
@@ -116,8 +118,6 @@ router.get(
 )
 
 // PROXY CONTENT ROUTE
-// This route streams the file content from the provider to the client
-// It uses a query token for authentication to support <img> tags etc.
 router.get(
   '/:id/content',
   async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
