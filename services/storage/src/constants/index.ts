@@ -26,3 +26,11 @@ export const PENDING_FILE_CLEANUP_HOURS = parseInt(
 // false = Direct provider URL (S3/Cloudinary)
 export const FILE_PROXY_MODE = process.env.FILE_PROXY_MODE === 'true'
 
+// CORS: Comma-separated allowed origins (e.g., "https://app.example.com,https://admin.example.com")
+export const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || ''
+
+// Stream proxy timeout in milliseconds (default: 30 seconds)
+export const STREAM_TIMEOUT_MS = parseInt(process.env.STREAM_TIMEOUT_MS || '30000', 10)
+
+// Proxy token expiry (default: 15 minutes)
+export const PROXY_TOKEN_EXPIRY = process.env.PROXY_TOKEN_EXPIRY || '15m'
