@@ -1,6 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import { pipeline } from 'stream/promises'
-import { getShareLinkByToken, getSharedFolderContents } from '../services/share-link.service.js'
+import {
+  getShareLinkByToken,
+  getSharedFolderContents,
+  verifyShareLinkPassword,
+  incrementShareLinkViews,
+} from '../services/share-link.service.js'
 import { getStorageProvider } from '../providers/index.js'
 import { prisma } from '../config/prisma.js'
 import { sendError } from '../utils/response.util.js'
@@ -69,6 +74,30 @@ router.get(
         res.status(404).send(generateSharedFolderHtml('Link Expired', '', [], [], token, true))
         return
       }
+
+      // SEC-5: Password verification for protected share links
+      if (shareLink.password) {
+        const password =
+          (req.query.password as string) || (req.headers['x-share-password'] as string)
+        if (!password || !verifyShareLinkPassword(shareLink, password)) {
+          res.setHeader('Cache-Control', 'no-store')
+          res
+            .status(403)
+            .send(
+              '<!DOCTYPE html><html><head><title>Password Required</title></head>' +
+                '<body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f5f5f5">' +
+                '<div style="text-align:center;padding:2rem;background:white;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">' +
+                '<h2>🔒 Password Required</h2>' +
+                '<p>This shared link is password protected.</p>' +
+                '<p style="color:#666;font-size:0.9em">Include password as <code>?password=...</code> query parameter or <code>x-share-password</code> header.</p>' +
+                '</div></body></html>'
+            )
+          return
+        }
+      }
+
+      // Increment view count
+      await incrementShareLinkViews(shareLink.id)
 
       // CASE A: Shared Resource is a FILE
       if (shareLink.fileId && shareLink.file) {
