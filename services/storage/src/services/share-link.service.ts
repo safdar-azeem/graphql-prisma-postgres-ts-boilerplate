@@ -9,7 +9,14 @@ interface CreateShareLinkInput {
 }
 
 interface ShareLinkWithResource extends ShareLink {
-  file?: { id: string; originalName: string; mimeType: string; size: number } | null
+  file?: {
+    id: string
+    originalName: string
+    mimeType: string
+    size: number
+    storageKey: string
+    status: string
+  } | null
   folder?: { id: string; name: string; path: string } | null
 }
 
@@ -80,7 +87,14 @@ export const getShareLinkByToken = async (token: string): Promise<ShareLinkWithR
     where: { token },
     include: {
       file: {
-        select: { id: true, originalName: true, mimeType: true, size: true, storageKey: true },
+        select: {
+          id: true,
+          originalName: true,
+          mimeType: true,
+          size: true,
+          storageKey: true,
+          status: true,
+        },
       },
       folder: {
         select: { id: true, name: true, path: true },
