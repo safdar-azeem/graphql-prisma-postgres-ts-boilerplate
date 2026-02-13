@@ -1,8 +1,10 @@
-import { MfaSettings, OtpSettings } from './db.types'
+import { MfaSettings, OtpSettings, PasswordResetSettings } from './db.types'
 
 declare global {
-  namespace PrismaJson {
-    type MfaSettingsType = MfaSettings
-    type OtpSettingsType = OtpSettings
-  }
+	namespace PrismaJson {
+		type MfaSettingsType = MfaSettings
+		type OtpSettingsType = OtpSettings
+		type PasswordResetSettingsType = PasswordResetSettings
+	}
 }
+
