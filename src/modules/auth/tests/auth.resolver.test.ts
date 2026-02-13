@@ -5,6 +5,8 @@ import { mockDeep, DeepMockProxy } from 'vitest-mock-extended'
 import { AuthenticationError, ValidationError } from '@/errors'
 import * as PrismaConfig from '@/config/prisma'
 import * as AuthUtils from '../utils/auth.utils'
+import * as TokenConfig from '@/config/tokens'
+import * as RefreshTokenCache from '@/cache/refreshToken.cache'
 import { authLite } from '@/config/authlite'
 
 // Mock external dependencies
@@ -21,11 +23,24 @@ vi.mock('../utils/auth.utils', () => ({
   generateToken: vi.fn(),
 }))
 
+vi.mock('@/config/tokens', () => ({
+  generateTokenPair: vi.fn(),
+  generateAccessToken: vi.fn(),
+}))
+
+vi.mock('@/cache/refreshToken.cache', () => ({
+  storeRefreshToken: vi.fn(),
+}))
+
 vi.mock('@/config/authlite', () => ({
   authLite: {
     google: {
       verify: vi.fn(),
     },
+  },
+  mfa: {
+    createEnrollment: vi.fn(),
+    verifyTotp: vi.fn(),
   },
 }))
 
@@ -60,7 +75,8 @@ describe('Auth Resolver Integration Tests', () => {
       // GIVEN
       const inputData = { email: 'test@example.com', username: 'testuser', password: 'password123' }
       const hashedPassword = 'hashedPassword'
-      const token = 'jwt.token'
+      const accessToken = 'jwt.access.token'
+      const refreshToken = 'jwt.refresh.token'
       const createdUser = { id: '1', ...inputData, password: hashedPassword }
 
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
@@ -70,7 +86,12 @@ describe('Auth Resolver Integration Tests', () => {
       vi.mocked(AuthUtils.hashPassword).mockResolvedValue(hashedPassword)
       vi.mocked(PrismaConfig.sharding.getRandomShard).mockReturnValue(mockShardClient)
       mockShardClient.user.create.mockResolvedValue(createdUser)
-      vi.mocked(AuthUtils.generateToken).mockReturnValue(token)
+
+      vi.mocked(TokenConfig.generateTokenPair).mockReturnValue({
+        accessToken,
+        refreshToken,
+        jti: 'jti-uuid',
+      })
 
       // WHEN
       const result = await (authResolver.Mutation?.signup as any)(
@@ -91,11 +112,14 @@ describe('Auth Resolver Integration Tests', () => {
           password: hashedPassword,
         },
       })
-      expect(AuthUtils.generateToken).toHaveBeenCalledWith({
-        _id: createdUser.id,
-        email: createdUser.email,
-      })
-      expect(result).toEqual({ token, user: createdUser })
+      expect(TokenConfig.generateTokenPair).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: createdUser.id,
+          email: createdUser.email,
+        })
+      )
+      expect(RefreshTokenCache.storeRefreshToken).toHaveBeenCalledWith(createdUser.id, 'jti-uuid')
+      expect(result).toEqual({ token: accessToken, refreshToken, user: createdUser })
     })
 
     it('Create a new user (Existing)', async () => {
@@ -123,14 +147,19 @@ describe('Auth Resolver Integration Tests', () => {
         password: hashedPassword,
         username: 'testuser',
       }
-      const token = 'jwt.token'
+      const accessToken = 'jwt.access.token'
+      const refreshToken = 'jwt.refresh.token'
 
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: user,
         client: mockShardClient,
       } as any)
       vi.mocked(AuthUtils.comparePassword).mockResolvedValue(true)
-      vi.mocked(AuthUtils.generateToken).mockReturnValue(token)
+      vi.mocked(TokenConfig.generateTokenPair).mockReturnValue({
+        accessToken,
+        refreshToken,
+        jti: 'jti-uuid',
+      })
 
       const { password: _, ...userWithoutPassword } = user
 
@@ -143,8 +172,9 @@ describe('Auth Resolver Integration Tests', () => {
 
       expect(PrismaConfig.findUserAcrossShards).toHaveBeenCalled()
       expect(AuthUtils.comparePassword).toHaveBeenCalledWith(inputData.password, user.password)
-      expect(AuthUtils.generateToken).toHaveBeenCalled()
-      expect(result).toEqual({ token, user: userWithoutPassword })
+      expect(TokenConfig.generateTokenPair).toHaveBeenCalled()
+      expect(RefreshTokenCache.storeRefreshToken).toHaveBeenCalledWith(user.id, 'jti-uuid')
+      expect(result).toEqual({ token: accessToken, refreshToken, user: userWithoutPassword })
     })
 
     it('Login user (Invalid Password)', async () => {
@@ -191,14 +221,19 @@ describe('Auth Resolver Integration Tests', () => {
         username: 'Test User',
         googleId: '123',
       }
-      const token = 'jwt.token'
+      const accessToken = 'jwt.access.token'
+      const refreshToken = 'jwt.refresh.token'
 
       vi.mocked(authLite.google.verify).mockResolvedValue(googleUser as any)
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: existingUser,
         client: mockShardClient,
       } as any)
-      vi.mocked(AuthUtils.generateToken).mockReturnValue(token)
+      vi.mocked(TokenConfig.generateTokenPair).mockReturnValue({
+        accessToken,
+        refreshToken,
+        jti: 'jti-uuid',
+      })
 
       const result = await (authResolver.Mutation?.googleLogin as any)(
         {},
@@ -207,9 +242,10 @@ describe('Auth Resolver Integration Tests', () => {
         {}
       )
 
-      const { password: _, ...expectedUser } = existingUser as any
-      expect(result.token).toBe(token)
+      expect(result.token).toBe(accessToken)
+      expect(result.refreshToken).toBe(refreshToken)
       expect(result.user).toEqual(expect.objectContaining({ email: existingUser.email }))
+      expect(RefreshTokenCache.storeRefreshToken).toHaveBeenCalledWith(existingUser.id, 'jti-uuid')
     })
   })
 
