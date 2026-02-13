@@ -6,9 +6,35 @@ import {
   PORT,
   JWT_SECRET,
   FILE_PROXY_MODE,
+  PROXY_TOKEN_EXPIRY,
 } from '../constants/index.js'
 import type { File, Prisma } from '../../generated/prisma/client.js'
 import type { Readable } from 'stream'
+
+// --- Proxy URL Cache (CACHE-3) ---
+// Avoids redundant JWT signing when the same file is requested multiple times within the token window.
+const proxyUrlCache = new Map<string, { url: string; expiresAt: number }>()
+const PROXY_CACHE_MARGIN_MS = 60_000 // Evict 1 minute before actual token expiry
+
+const getCachedProxyUrl = (fileId: string): string | null => {
+  const cached = proxyUrlCache.get(fileId)
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.url
+  }
+  proxyUrlCache.delete(fileId)
+  return null
+}
+
+const setCachedProxyUrl = (fileId: string, url: string, ttlMs: number): void => {
+  proxyUrlCache.set(fileId, { url, expiresAt: Date.now() + ttlMs - PROXY_CACHE_MARGIN_MS })
+  // Periodic cleanup: cap cache size to prevent unbounded growth
+  if (proxyUrlCache.size > 10_000) {
+    const now = Date.now()
+    for (const [key, value] of proxyUrlCache) {
+      if (now >= value.expiresAt) proxyUrlCache.delete(key)
+    }
+  }
+}
 
 interface FilesFilterInput {
   search?: string | null
@@ -42,15 +68,22 @@ interface FileWithUrl extends File {
 
 // 1. Masked/Proxy URL Generator
 const getProxyUrl = (file: File): string => {
+  // Check cache first to avoid redundant JWT signing (CACHE-3)
+  const cached = getCachedProxyUrl(file.id)
+  if (cached) return cached
+
   const baseUrl = process.env.STORAGE_PUBLIC_URL || `http://localhost:${PORT}`
-  // Generate a short-lived token specifically for this file access
-  // This allows the /content endpoint to validate access without requiring a full user login session if shared
+  // Generate a short-lived token specifically for this file access (SEC-3: reduced from 1h → 15m)
   const token = jwt.sign(
     { fileId: file.id, ownerId: file.ownerId, type: 'file_view' },
     JWT_SECRET,
-    { expiresIn: '1h' }
+    { expiresIn: PROXY_TOKEN_EXPIRY } as jwt.SignOptions
   )
-  return `${baseUrl}/api/files/${file.id}/content?token=${token}`
+  const url = `${baseUrl}/api/files/${file.id}/content?token=${token}`
+
+  // Cache the URL (default 15 min minus 1 min margin)
+  setCachedProxyUrl(file.id, url, 14 * 60 * 1000)
+  return url
 }
 
 // 2. Main Resolution Strategy
@@ -86,11 +119,9 @@ export const getFileById = async (id: string, ownerId: string): Promise<FileWith
 
   if (!file) return null
 
-  // Authorization check
+  // Authorization check (SEC-1: enforce access control)
   if (!file.isPublic && file.ownerId !== ownerId) {
-    // Note: Admin logic should be handled by caller/controller guards
-    // For strictly private files, we could throw here, but returning null or handling upstream is also valid.
-    // Assuming controller checks 'ownership' or 'admin role'.
+    throw Object.assign(new Error('Access denied'), { statusCode: 403 })
   }
 
   // Resolve URL dynamically based on ENV configuration
@@ -179,6 +210,11 @@ export const getFileDownloadUrl = async (id: string, ownerId: string): Promise<s
     throw Object.assign(new Error('File not found'), { statusCode: 404 })
   }
 
+  // Authorization check (SEC-7: enforce ownership for download URLs)
+  if (!file.isPublic && file.ownerId !== ownerId) {
+    throw Object.assign(new Error('Access denied'), { statusCode: 403 })
+  }
+
   // Re-use the main resolution logic.
   // Even for "Download", if we are in Proxy mode, we want to hide the S3 URL.
   // If we are in Direct mode, we give them the direct S3 download link.
@@ -229,15 +265,30 @@ export const deleteFiles = async (ids: string[], ownerId: string): Promise<strin
 
   const provider = getStorageProvider()
 
+  // ARCH-5: Log failed storage deletions instead of silently swallowing
+  const deletionErrors: { fileId: string; storageKey: string; error: string }[] = []
   await Promise.all(
     files.map(async (file) => {
       try {
         await provider.deleteFile(file.storageKey)
-      } catch {
-        // Continue even if storage deletion fails
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        deletionErrors.push({ fileId: file.id, storageKey: file.storageKey, error: message })
+        console.error(`[Storage] Failed to delete file from provider:`, {
+          fileId: file.id,
+          storageKey: file.storageKey,
+          error: message,
+        })
       }
     })
   )
+
+  if (deletionErrors.length > 0) {
+    console.warn(
+      `[Storage] ${deletionErrors.length}/${files.length} file(s) failed to delete from provider. ` +
+        `DB records marked DELETED but storage objects may be orphaned.`
+    )
+  }
 
   await prisma.file.updateMany({
     where: { id: { in: ids } },
@@ -302,4 +353,3 @@ export const updateFile = async (
 
   return updatedFile
 }
-
