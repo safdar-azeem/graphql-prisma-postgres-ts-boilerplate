@@ -20,3 +20,9 @@ export const PENDING_FILE_CLEANUP_HOURS = parseInt(
   process.env.PENDING_FILE_CLEANUP_HOURS || '24',
   10
 )
+
+// NEW: Configurable URL Masking
+// true = Proxy through backend (Masked)
+// false = Direct provider URL (S3/Cloudinary)
+export const FILE_PROXY_MODE = process.env.FILE_PROXY_MODE === 'true'
+
