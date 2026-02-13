@@ -1,9 +1,6 @@
 import { prisma } from '../config/prisma.js'
 import { getStorageProvider } from '../providers/index.js'
-import {
-  PORT,
-  FILE_PROXY_MODE,
-} from '../constants/index.js'
+import { PORT, FILE_PROXY_MODE } from '../constants/index.js'
 import type { File, Prisma } from '../../generated/prisma/client.js'
 import type { Readable } from 'stream'
 
@@ -44,7 +41,7 @@ const getProxyUrl = (file: File): string => {
 }
 
 // 2. Main Resolution Strategy
-const resolveFileUrl = async (file: File): Promise<string> => {
+export const resolveFileUrl = async (file: File): Promise<string> => {
   // Option A: Masked Mode (Proxy through API)
   if (FILE_PROXY_MODE) {
     return getProxyUrl(file)
