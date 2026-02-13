@@ -19,24 +19,26 @@ This document provides a detailed walkthrough of the storage service architectur
 
 The storage service is designed as a standalone microservice that handles all file storage operations. It communicates with the main GraphQL service via REST API calls.
 
+
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
+
+┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
+│                 │      │                 │      │                 │
 │  Frontend App   │────▶│  GraphQL API    │────▶│ Storage Service │
-│                 │     │   (Port 4200)   │     │   (Port 4201)   │
-│                 │     │                 │     │                 │
-└─────────────────┘     └─────────────────┘     └────────┬────────┘
-        │                                                │
-        │                                                │
-        │    ┌───────────────────────────────────────────┤
-        │    │                                           │
-        ▼    ▼                                           ▼
+│                 │      │   (Port 4200)   │      │   (Port 4201)   │
+│                 │      │                 │      │                 │
+└─────────────────┘      └─────────────────┘      └────────┬────────┘
+│                                                  │
+│  (Uploads)                                       │ (Management)
+│                                                  │
+▼                                                  ▼
 ┌─────────────────┐                             ┌─────────────────┐
 │                 │                             │                 │
-│ Storage Provider│◀────────────────────────────│   PostgreSQL    │
-│ (S3/Cloudinary) │                             │    Database     │
+│ Storage Provider│◀────────────────────────────│    PostgreSQL   │
+│ (S3/Cloudinary) │                             │     Database    │
 │                 │                             │                 │
 └─────────────────┘                             └─────────────────┘
+
 ```
 
 ### Key Design Decisions
@@ -45,6 +47,7 @@ The storage service is designed as a standalone microservice that handles all fi
 2. **Pre-signed URLs**: Direct client-to-provider uploads reduce server load
 3. **Provider Abstraction**: Easy to add new storage providers
 4. **Shared JWT**: Uses same JWT secret as main service for seamless auth
+5. **Configurable Proxying**: Can toggle between proxying file content or serving direct provider URLs via `FILE_PROXY_MODE`.
 
 ---
 
@@ -77,7 +80,11 @@ export abstract class BaseStorageProvider {
 
   // Check if file exists in storage
   abstract fileExists(key: string): Promise<boolean>
+
+  // Stream file content (used for Proxy Mode)
+  abstract getFileStream(key: string): Promise<Readable>
 }
+
 ```
 
 ### Provider Selection
@@ -99,65 +106,7 @@ export const getStorageProvider = (): BaseStorageProvider => {
       return new LocalStorageProvider()
   }
 }
-```
 
-### Provider-Specific Implementations
-
-#### S3 Provider
-
-Uses AWS SDK v3 with `@aws-sdk/s3-request-presigner`:
-
-```typescript
-async generateSignedUploadUrl(options: GenerateUploadUrlOptions) {
-  const command = new PutObjectCommand({
-    Bucket: this.bucket,
-    Key: key,
-    ContentType: contentType,
-  })
-
-  const signedUrl = await getSignedUrl(this.client, command, {
-    expiresIn: expiresInSeconds,
-  })
-
-  return { signedUrl, publicUrl, storageKey: key, expiresAt }
-}
-```
-
-#### Cloudinary Provider
-
-Returns upload parameters instead of direct URL (Cloudinary's approach):
-
-```typescript
-async generateSignedUploadUrl(options: GenerateUploadUrlOptions) {
-  const signature = cloudinary.utils.api_sign_request(
-    { timestamp, folder, public_id: publicId },
-    cloudinaryConfig.apiSecret
-  )
-
-  // Returns JSON with URL and params for client to use
-  return {
-    signedUrl: JSON.stringify({
-      url: 'https://api.cloudinary.com/v1_1/.../upload',
-      params: { api_key, timestamp, signature, folder, public_id }
-    }),
-    ...
-  }
-}
-```
-
-#### Local Provider
-
-Uses token-based URLs for development:
-
-```typescript
-async generateSignedUploadUrl(options: GenerateUploadUrlOptions) {
-  const token = crypto.randomBytes(32).toString('hex')
-  signedTokens.set(token, { key, expiresAt, type: 'upload' })
-
-  // Client uploads to local endpoint with token
-  const signedUrl = `${this.storageUrl}/upload?token=${token}`
-  return { signedUrl, publicUrl, storageKey: key, expiresAt }
-}
 ```
 
 ---
@@ -173,6 +122,7 @@ POST /api/upload/signed-url
   "mimeType": "image/jpeg",
   "size": 1024000
 }
+
 ```
 
 What happens:
@@ -213,6 +163,7 @@ export const createSignedUploadUrl = async (input: CreateSignedUrlInput) => {
 
   return { signedUrl, fileId: file.id, publicUrl, storageKey, expiresAt }
 }
+
 ```
 
 ### Step 2: Direct Upload to Provider
@@ -227,6 +178,7 @@ await fetch(signedUrl, {
   body: file,
   headers: { 'Content-Type': file.type },
 })
+
 ```
 
 **For Local Development:**
@@ -235,6 +187,7 @@ await fetch(signedUrl, {
 const formData = new FormData()
 formData.append('file', file)
 await fetch(signedUrl, { method: 'PUT', body: formData })
+
 ```
 
 ### Step 3: Confirm Upload
@@ -242,6 +195,7 @@ await fetch(signedUrl, { method: 'PUT', body: formData })
 ```
 POST /api/upload/confirm
 { "fileId": "clxyz123..." }
+
 ```
 
 What happens:
@@ -251,47 +205,47 @@ What happens:
 3. Update status to `UPLOADED`
 4. Clear expiration timestamp
 
-```typescript
-export const confirmUpload = async (fileId: string, ownerId: string) => {
-  const file = await prisma.file.findUnique({ where: { id: fileId } })
-
-  // Verify ownership
-  if (file.ownerId !== ownerId) {
-    throw new Error('Access denied')
-  }
-
-  // Verify file exists in storage
-  const exists = await provider.fileExists(file.storageKey)
-  if (!exists) {
-    await prisma.file.update({ where: { id: fileId }, data: { status: 'FAILED' } })
-    throw new Error('File not found in storage')
-  }
-
-  // Mark as uploaded
-  return prisma.file.update({
-    where: { id: fileId },
-    data: { status: 'UPLOADED', expiresAt: null },
-  })
-}
-```
-
 ---
 
 ## File & Folder Management
 
-### Storage Key Structure
+### File Access Control & URL Resolution
 
-Files are organized by user and folder:
+Access control logic handles both authorization (Who can access?) and URL generation (How do they access?).
 
-```
-{userId}/
-├── file1_uuid.jpg           # Root level file
-├── Documents/
-│   ├── report_uuid.pdf      # File in folder
-│   └── Invoices/
-│       └── invoice_uuid.pdf # File in nested folder
-└── Images/
-    └── photo_uuid.jpg
+**Logic Flow:**
+
+1. Check Database: Does file exist?
+2. Check Auth: Is file public? If not, is user the owner or admin?
+3. Generate URL: Based on `FILE_PROXY_MODE`.
+
+```typescript
+const resolveFileUrl = async (file: File): Promise<string> => {
+  // Option A: Masked Mode (Proxy through API)
+  // Used when FILE_PROXY_MODE=true
+  if (FILE_PROXY_MODE) {
+    // Returns: [http://api.service.com/api/files/:id/content?token=](http://api.service.com/api/files/:id/content?token=)...
+    return getProxyUrl(file)
+  }
+
+  // Option B: Direct Mode (Direct Provider URL)
+  // Used when FILE_PROXY_MODE=false
+  const provider = getStorageProvider()
+
+  // B1. If Public, return the public CDN/Bucket URL
+  if (file.isPublic) {
+    return provider.getPublicUrl(file.storageKey)
+  }
+
+  // B2. If Private, generate a direct Signed URL (Time-limited)
+  const { signedUrl } = await provider.generateSignedDownloadUrl({
+    key: file.storageKey,
+    expiresInSeconds: 3600,
+  })
+
+  return signedUrl
+}
+
 ```
 
 ### Folder Path Management
@@ -314,36 +268,7 @@ for (const child of childFolders) {
     data: { path: child.path.replace(oldPath, newPath) },
   })
 }
-```
 
-### File Access Control
-
-Files respect ownership and public flags:
-
-```typescript
-export const getFileById = async (id: string, ownerId: string) => {
-  const file = await prisma.file.findUnique({ where: { id } })
-
-  // Check access
-  if (!file.isPublic && file.ownerId !== ownerId) {
-    throw new Error('Access denied')
-  }
-
-  // Generate URL based on visibility
-  let url: string | null = null
-  if (file.status === 'UPLOADED') {
-    if (file.isPublic) {
-      url = provider.getPublicUrl(file.storageKey)
-    } else {
-      const signedUrl = await provider.generateSignedDownloadUrl({
-        key: file.storageKey,
-      })
-      url = signedUrl.signedUrl
-    }
-  }
-
-  return { ...file, url }
-}
 ```
 
 ---
@@ -376,17 +301,7 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 
   next()
 }
-```
 
-### Route Protection
-
-Protected routes use the `requireAuth` middleware:
-
-```typescript
-router.post('/signed-url', requireAuth, async (req, res, next) => {
-  const ownerId = req.context.user!.id // Safe to access after requireAuth
-  // ...
-})
 ```
 
 ---
@@ -419,23 +334,7 @@ class StorageBridgeService {
     return this.request('POST', '/upload/signed-url', token, input)
   }
 }
-```
 
-### GraphQL Resolvers
-
-Resolvers delegate to the storage bridge:
-
-```typescript
-// src/modules/upload/resolvers/upload.resolver.ts
-export const uploadResolver: Resolvers<Context> = {
-  Mutation: {
-    requestUploadUrl: requireAuth(async (_parent, { input }, context) => {
-      const token = generateToken({ _id: context.user.id, email: context.user.email })
-      const result = await storageBridge.requestUploadUrl(input, token)
-      return { ...result, expiresAt: new Date(result.expiresAt) }
-    }),
-  },
-}
 ```
 
 ---
@@ -464,9 +363,10 @@ curl -X POST http://localhost:4201/api/upload/confirm \
   -H "Content-Type: application/json" \
   -d '{"fileId":"<file-id>"}'
 
-# List files
+# List files (Check returned URL type)
 curl http://localhost:4201/api/files \
   -H "Authorization: Bearer $TOKEN"
+
 ```
 
 ### Testing Different Providers
@@ -475,58 +375,6 @@ curl http://localhost:4201/api/files \
 2. **S3**: Set S3 credentials, check bucket in AWS console
 3. **Cloudinary**: Set credentials, check Media Library
 4. **ImageKit**: Set credentials, check File Manager
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-#### "File not found in storage" on confirm
-
-**Cause**: File wasn't actually uploaded to provider  
-**Solution**:
-
-- Check network requests for upload errors
-- Verify signed URL wasn't expired
-- Check provider dashboard for upload
-
-#### "Access denied" errors
-
-**Cause**: JWT token invalid or user doesn't own resource  
-**Solution**:
-
-- Verify `JWT_SECRET` matches between services
-- Check user ID in JWT matches file/folder owner
-
-#### Local provider files not serving
-
-**Cause**: Static file serving not configured correctly  
-**Solution**:
-
-- Check `LOCAL_STORAGE_PATH` exists
-- Verify `LOCAL_STORAGE_URL` matches server URL
-
-### Debug Mode
-
-Enable detailed logging in development:
-
-```typescript
-// Errors are logged in development mode
-if (IS_DEVELOPMENT) {
-  console.error('[Error]', { message: err.message, stack: err.stack })
-}
-```
-
-### Database Issues
-
-```bash
-# Reset database
-npx prisma db push --force-reset
-
-# View database
-npx prisma studio
-```
 
 ---
 
@@ -549,4 +397,6 @@ setInterval(
   },
   60 * 60 * 1000
 ) // Every hour
+
 ```
+
