@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { prisma } from '../config/prisma.js'
 import type { ShareLink } from '../../generated/prisma/client.js'
 
@@ -6,6 +7,8 @@ interface CreateShareLinkInput {
   folderId?: string | null
   ownerId: string
   expiresInMinutes?: number
+  maxViews?: number | null
+  password?: string | null
 }
 
 interface ShareLinkWithResource extends ShareLink {
@@ -23,7 +26,14 @@ interface ShareLinkWithResource extends ShareLink {
 const DEFAULT_EXPIRY_MINUTES = 60 * 24 * 7 // 7 days
 
 export const createShareLink = async (input: CreateShareLinkInput): Promise<ShareLink> => {
-  const { fileId, folderId, ownerId, expiresInMinutes = DEFAULT_EXPIRY_MINUTES } = input
+  const {
+    fileId,
+    folderId,
+    ownerId,
+    expiresInMinutes = DEFAULT_EXPIRY_MINUTES,
+    maxViews,
+    password,
+  } = input
 
   if (!fileId && !folderId) {
     throw Object.assign(new Error('Either fileId or folderId is required'), { statusCode: 400 })
@@ -70,12 +80,19 @@ export const createShareLink = async (input: CreateShareLinkInput): Promise<Shar
 
   const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000)
 
+  // Hash password if provided
+  const hashedPassword = password
+    ? crypto.createHash('sha256').update(password).digest('hex')
+    : null
+
   const shareLink = await prisma.shareLink.create({
     data: {
       fileId,
       folderId,
       ownerId,
       expiresAt,
+      maxViews: maxViews ?? null,
+      password: hashedPassword,
     },
   })
 
@@ -109,7 +126,27 @@ export const getShareLinkByToken = async (token: string): Promise<ShareLinkWithR
     return null
   }
 
+  // Check max views
+  if (shareLink.maxViews !== null && shareLink.views >= shareLink.maxViews) {
+    return null
+  }
+
   return shareLink
+}
+
+// Verify password for password-protected share links
+export const verifyShareLinkPassword = (shareLink: ShareLink, password: string): boolean => {
+  if (!shareLink.password) return true // No password set
+  const hashedInput = crypto.createHash('sha256').update(password).digest('hex')
+  return hashedInput === shareLink.password
+}
+
+// Increment view count atomically
+export const incrementShareLinkViews = async (id: string): Promise<void> => {
+  await prisma.shareLink.update({
+    where: { id },
+    data: { views: { increment: 1 } },
+  })
 }
 
 export const getFileShareLinks = async (fileId: string, ownerId: string): Promise<ShareLink[]> => {
