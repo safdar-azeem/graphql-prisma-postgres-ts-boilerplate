@@ -1,7 +1,12 @@
 import jwt from 'jsonwebtoken'
 import { prisma } from '../config/prisma.js'
 import { getStorageProvider } from '../providers/index.js'
-import { SIGNED_URL_EXPIRY_SECONDS, PORT, JWT_SECRET } from '../constants/index.js'
+import {
+  SIGNED_URL_EXPIRY_SECONDS,
+  PORT,
+  JWT_SECRET,
+  FILE_PROXY_MODE,
+} from '../constants/index.js'
 import type { File, Prisma } from '../../generated/prisma/client.js'
 import type { Readable } from 'stream'
 
@@ -33,18 +38,46 @@ interface FileWithUrl extends File {
   url: string | null
 }
 
-// Generate a specialized short-lived token for file access
-const generateFileViewToken = (fileId: string, ownerId: string): string => {
-  return jwt.sign({ fileId, ownerId, type: 'file_view' }, JWT_SECRET, {
-    expiresIn: '1h', // Valid for 1 hour
-  })
-}
+// --- URL Generation Logic ---
 
+// 1. Masked/Proxy URL Generator
 const getProxyUrl = (file: File): string => {
   const baseUrl = process.env.STORAGE_PUBLIC_URL || `http://localhost:${PORT}`
-  const token = generateFileViewToken(file.id, file.ownerId)
+  // Generate a short-lived token specifically for this file access
+  // This allows the /content endpoint to validate access without requiring a full user login session if shared
+  const token = jwt.sign(
+    { fileId: file.id, ownerId: file.ownerId, type: 'file_view' },
+    JWT_SECRET,
+    { expiresIn: '1h' }
+  )
   return `${baseUrl}/api/files/${file.id}/content?token=${token}`
 }
+
+// 2. Main Resolution Strategy
+const resolveFileUrl = async (file: File): Promise<string> => {
+  // Option A: Masked Mode (Proxy through API)
+  if (FILE_PROXY_MODE) {
+    return getProxyUrl(file)
+  }
+
+  // Option B: Direct Mode (Direct Provider URL)
+  const provider = getStorageProvider()
+
+  // B1. If Public, return the public CDN/Bucket URL
+  if (file.isPublic) {
+    return provider.getPublicUrl(file.storageKey)
+  }
+
+  // B2. If Private, generate a direct Signed URL (Time-limited)
+  const { signedUrl } = await provider.generateSignedDownloadUrl({
+    key: file.storageKey,
+    expiresInSeconds: 3600, // 1 hour link
+  })
+
+  return signedUrl
+}
+
+// --- Service Methods ---
 
 export const getFileById = async (id: string, ownerId: string): Promise<FileWithUrl | null> => {
   const file = await prisma.file.findUnique({
@@ -53,20 +86,17 @@ export const getFileById = async (id: string, ownerId: string): Promise<FileWith
 
   if (!file) return null
 
-  // Admin check would happen in the resolver/route, but we check owner here for safety
-  // For Admin role support: we assume the caller checks role before passing data or we update this logic
-  // For now, we return the proxy URL if they have access
-
+  // Authorization check
   if (!file.isPublic && file.ownerId !== ownerId) {
-    // If user is admin (passed in via context potentially), this check should be skipped
-    // However, to keep service signature clean, we assume the controller handles permission checks
-    // or we pass user role. For this implementation, we allow generation of the token
-    // and the token validation logic in /content route will handle final enforcement if needed.
-    // BUT, strict security:
-    // We will assume the caller has already verified permissions (Admin or Owner)
+    // Note: Admin logic should be handled by caller/controller guards
+    // For strictly private files, we could throw here, but returning null or handling upstream is also valid.
+    // Assuming controller checks 'ownership' or 'admin role'.
   }
 
-  return { ...file, url: getProxyUrl(file) }
+  // Resolve URL dynamically based on ENV configuration
+  const url = await resolveFileUrl(file)
+
+  return { ...file, url }
 }
 
 export const getFiles = async (
@@ -82,18 +112,9 @@ export const getFiles = async (
     status: 'UPLOADED',
   }
 
-  // Admin Logic: If uploadedBy is provided, filter by it.
-  // If not provided, and user is admin, they might want to see all.
-  // However, for standard usage, we default to ownerId unless strictly overridden.
-  // Here we respect the passed filter. If uploadedBy is null, and we are regular user, controller forces ownerId.
-  // If admin, they can pass null to see all.
   if (filter?.uploadedBy) {
     where.ownerId = filter.uploadedBy
   } else {
-    // Default to current user if no specific uploader requested (Standard User behavior)
-    // The controller is responsible for setting this filter correctly based on role.
-    // If this is an Admin request wanting ALL files, they should pass explicit filter or handle at controller.
-    // We will modify this to: If ownerId provided, use it.
     where.ownerId = ownerId
   }
 
@@ -128,15 +149,19 @@ export const getFiles = async (
     prisma.file.count({ where }),
   ])
 
+  // Resolve URLs for all items in parallel
+  // This is efficient because signed URL generation is usually a local computation (crypto), not a network call
+  const itemsWithUrl = await Promise.all(
+    items.map(async (file) => ({
+      ...file,
+      url: await resolveFileUrl(file),
+    }))
+  )
+
   const totalPages = Math.ceil(totalItems / limit)
 
-  const itemsWithProxyUrl = items.map((file) => ({
-    ...file,
-    url: getProxyUrl(file),
-  }))
-
   return {
-    items: itemsWithProxyUrl,
+    items: itemsWithUrl,
     pageInfo: {
       currentPage: page,
       totalPages,
@@ -154,8 +179,10 @@ export const getFileDownloadUrl = async (id: string, ownerId: string): Promise<s
     throw Object.assign(new Error('File not found'), { statusCode: 404 })
   }
 
-  // We return the Proxy URL for download as well to hide the source
-  return getProxyUrl(file)
+  // Re-use the main resolution logic.
+  // Even for "Download", if we are in Proxy mode, we want to hide the S3 URL.
+  // If we are in Direct mode, we give them the direct S3 download link.
+  return resolveFileUrl(file)
 }
 
 export const getFileStream = async (
@@ -275,3 +302,4 @@ export const updateFile = async (
 
   return updatedFile
 }
+
