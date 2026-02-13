@@ -7,7 +7,9 @@ import { sendEmail } from '@/utils/email.util'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
 import { AuthenticationError, ValidationError } from '@/errors'
-import { hashPassword, comparePassword, generateToken } from '../utils/auth.utils'
+import { hashPassword, comparePassword } from '../utils/auth.utils'
+import { generateTokenPair, generateAccessToken } from '@/config/tokens'
+import { storeRefreshToken } from '@/cache/refreshToken.cache'
 import { getOtpEmailTemplate } from '@/templates/otp-email.template'
 import { getResetPasswordEmailTemplate } from '@/templates/reset-password.template'
 import { cache } from '@/cache'
@@ -42,12 +44,14 @@ export const authResolver: Resolvers<Context> = {
         },
       })
 
-      const token = generateToken({
-        _id: user.id,
-        email: user.email,
-      })
+      const tokens = generateTokenPair(user)
+      await storeRefreshToken(user.id, tokens.jti)
 
-      return { token, user }
+      return {
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        user,
+      }
     },
 
     login: async (_parent, { data }) => {
@@ -77,7 +81,7 @@ export const authResolver: Resolvers<Context> = {
 
       if (mfaSettings?.isEnabled) {
         if (mfaSettings.method === 'EMAIL') {
-          const otp = Math.floor(100000 + Math.random() * 900000).toString()
+          const otp = crypto.randomInt(100000, 1000000).toString()
           const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
           const otpSettings: OtpSettings = {
@@ -101,21 +105,30 @@ export const authResolver: Resolvers<Context> = {
           )
         }
 
-        const tempToken = generateToken({
+        const tempToken = generateAccessToken({
           _id: user.id,
           email: user.email,
           is2faPending: true,
         })
 
-        return { token: tempToken, user: userWithOutPassword }
+        // Return empty refresh token for 2FA pending state, or handle differently
+        // Schema requires non-nullable refreshToken. We can return empty string or a temp placeholder.
+        // Or updated schema to allow nullable.
+        // Standard practice: 2FA pending step usually returns a temp token, not a full pair.
+        // But the return type is AuthPayload which has required fields.
+        // Let's modify schema to make refreshToken nullable? Or return empty string.
+        // The user won't get full access yet anyway.
+        return { token: tempToken, refreshToken: '', user: userWithOutPassword }
       }
 
-      const token = generateToken({
-        _id: user.id,
-        email: user.email,
-      })
+      const tokens = generateTokenPair(user)
+      await storeRefreshToken(user.id, tokens.jti)
 
-      return { token, user: userWithOutPassword }
+      return {
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        user: userWithOutPassword,
+      }
     },
 
     googleLogin: async (_parent, { token }) => {
@@ -163,7 +176,7 @@ export const authResolver: Resolvers<Context> = {
 
         if (mfaSettings?.isEnabled) {
           if (mfaSettings.method === 'EMAIL') {
-            const otp = Math.floor(100000 + Math.random() * 900000).toString()
+            const otp = crypto.randomInt(100000, 1000000).toString()
             const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
             const otpSettings: OtpSettings = {
@@ -181,17 +194,23 @@ export const authResolver: Resolvers<Context> = {
             sendEmail(user.email, `Your Login OTP for ${APP_NAME}`, getOtpEmailTemplate({ otp }))
           }
 
-          const tempToken = generateToken({
+          const tempToken = generateAccessToken({
             _id: user.id,
             email: user.email,
             is2faPending: true,
           })
 
-          return { token: tempToken, user: userWithOutPassword }
+          return { token: tempToken, refreshToken: '', user: userWithOutPassword }
         }
 
-        const jwt = generateToken({ _id: user.id, email: user.email })
-        return { token: jwt, user: userWithOutPassword }
+        const tokens = generateTokenPair(user)
+        await storeRefreshToken(user.id, tokens.jti)
+
+        return {
+          token: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          user: userWithOutPassword,
+        }
       } catch (error) {
         console.error('Google Login Error:', error)
         throw new AuthenticationError('Google authentication failed')
