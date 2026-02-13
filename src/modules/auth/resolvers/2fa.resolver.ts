@@ -5,11 +5,17 @@ import { authLite } from '@/config/authlite'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
 import { findUserAcrossShards } from '@/config/prisma'
-import { comparePassword, verifyToken } from '../utils/auth.utils'
+import { comparePassword } from '../utils/auth.utils'
+import { generateTokenPair, verifyAccessToken } from '@/config/tokens'
+import { storeRefreshToken } from '@/cache/refreshToken.cache'
 import { AuthenticationError, ValidationError } from '@/errors'
 import { sendEmail } from '@/utils/email.util'
 import { APP_NAME } from '@/constants'
 import { getOtpEmailTemplate } from '@/templates/otp-email.template'
+
+import crypto from 'crypto'
+
+// ... existing imports
 
 export const twoFaResolvers: Resolvers<Context> = {
   Mutation: {
@@ -20,7 +26,7 @@ export const twoFaResolvers: Resolvers<Context> = {
       }
 
       if (method === 'EMAIL') {
-        const otp = Math.floor(100000 + Math.random() * 900000).toString()
+        const otp = crypto.randomInt(100000, 1000000).toString()
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
         await client.user.update({
@@ -161,7 +167,7 @@ export const twoFaResolvers: Resolvers<Context> = {
         throw new AuthenticationError('Authentication token must be provided')
       }
 
-      const decoded = verifyToken(token)
+      const decoded = verifyAccessToken(bearerToken)
 
       if (!decoded?._id) {
         throw new AuthenticationError(`Invalid token`)
@@ -179,7 +185,15 @@ export const twoFaResolvers: Resolvers<Context> = {
 
       const mfaSettings = user.mfaSettings
       if (!mfaSettings?.isEnabled) {
-        return { token, user: user }
+        // Return existing tokens if MFA not enabled (edge case)
+        // Or generate new ones
+        const tokens = generateTokenPair(user)
+        await storeRefreshToken(user.id, tokens.jti)
+        return {
+          token: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          user: user,
+        }
       }
 
       let isValid = false
@@ -207,8 +221,14 @@ export const twoFaResolvers: Resolvers<Context> = {
 
       if (!isValid) throw new AuthenticationError('Invalid or expired 2FA code')
 
-      return { token, user }
+      const tokens = generateTokenPair(user)
+      await storeRefreshToken(user.id, tokens.jti)
+
+      return {
+        token: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        user: user,
+      }
     },
   },
 }
-
