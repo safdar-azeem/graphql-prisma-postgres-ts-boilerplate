@@ -13,8 +13,24 @@ declare global {
 }
 
 export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
-  const authHeader = req.headers.authorization
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : authHeader
+  let token = req.headers.authorization
+
+  if (token && token.startsWith('Bearer ')) {
+    token = token.slice(7)
+  }
+
+  // Handle Cookies for seamless image loading (<img> tags)
+  if (!token && req.cookies?.token) {
+    token = req.cookies.token
+  }
+  if (!token && req.cookies?.accessToken) {
+    token = req.cookies.accessToken
+  }
+
+  // Handle query parameter (fallback)
+  if (!token && req.query?.token) {
+    token = req.query.token as string
+  }
 
   if (!token) {
     req.context = {
