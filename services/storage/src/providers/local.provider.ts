@@ -17,6 +17,24 @@ const signedTokens = new Map<
   { key: string; expiresAt: Date; type: 'upload' | 'download' }
 >()
 
+// SEC-6: Periodic cleanup of expired tokens to prevent unbounded memory growth
+const TOKEN_CLEANUP_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
+setInterval(() => {
+  const now = new Date()
+  let cleaned = 0
+  for (const [token, data] of signedTokens) {
+    if (data.expiresAt < now) {
+      signedTokens.delete(token)
+      cleaned++
+    }
+  }
+  if (cleaned > 0) {
+    console.log(
+      `[LocalProvider] Cleaned up ${cleaned} expired token(s). Active: ${signedTokens.size}`
+    )
+  }
+}, TOKEN_CLEANUP_INTERVAL_MS).unref() // unref() prevents this timer from keeping the process alive
+
 export class LocalStorageProvider extends BaseStorageProvider {
   readonly name = 'local'
   private storagePath: string
