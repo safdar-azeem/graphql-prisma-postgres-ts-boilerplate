@@ -20,8 +20,20 @@ export type ShareLinkModel = runtime.Types.Result.DefaultSelection<Prisma.$Share
 
 export type AggregateShareLink = {
   _count: ShareLinkCountAggregateOutputType | null
+  _avg: ShareLinkAvgAggregateOutputType | null
+  _sum: ShareLinkSumAggregateOutputType | null
   _min: ShareLinkMinAggregateOutputType | null
   _max: ShareLinkMaxAggregateOutputType | null
+}
+
+export type ShareLinkAvgAggregateOutputType = {
+  maxViews: number | null
+  views: number | null
+}
+
+export type ShareLinkSumAggregateOutputType = {
+  maxViews: number | null
+  views: number | null
 }
 
 export type ShareLinkMinAggregateOutputType = {
@@ -31,6 +43,9 @@ export type ShareLinkMinAggregateOutputType = {
   folderId: string | null
   ownerId: string | null
   expiresAt: Date | null
+  maxViews: number | null
+  views: number | null
+  password: string | null
   createdAt: Date | null
 }
 
@@ -41,6 +56,9 @@ export type ShareLinkMaxAggregateOutputType = {
   folderId: string | null
   ownerId: string | null
   expiresAt: Date | null
+  maxViews: number | null
+  views: number | null
+  password: string | null
   createdAt: Date | null
 }
 
@@ -51,10 +69,23 @@ export type ShareLinkCountAggregateOutputType = {
   folderId: number
   ownerId: number
   expiresAt: number
+  maxViews: number
+  views: number
+  password: number
   createdAt: number
   _all: number
 }
 
+
+export type ShareLinkAvgAggregateInputType = {
+  maxViews?: true
+  views?: true
+}
+
+export type ShareLinkSumAggregateInputType = {
+  maxViews?: true
+  views?: true
+}
 
 export type ShareLinkMinAggregateInputType = {
   id?: true
@@ -63,6 +94,9 @@ export type ShareLinkMinAggregateInputType = {
   folderId?: true
   ownerId?: true
   expiresAt?: true
+  maxViews?: true
+  views?: true
+  password?: true
   createdAt?: true
 }
 
@@ -73,6 +107,9 @@ export type ShareLinkMaxAggregateInputType = {
   folderId?: true
   ownerId?: true
   expiresAt?: true
+  maxViews?: true
+  views?: true
+  password?: true
   createdAt?: true
 }
 
@@ -83,6 +120,9 @@ export type ShareLinkCountAggregateInputType = {
   folderId?: true
   ownerId?: true
   expiresAt?: true
+  maxViews?: true
+  views?: true
+  password?: true
   createdAt?: true
   _all?: true
 }
@@ -125,6 +165,18 @@ export type ShareLinkAggregateArgs<ExtArgs extends runtime.Types.Extensions.Inte
   /**
    * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
    * 
+   * Select which fields to average
+  **/
+  _avg?: ShareLinkAvgAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to sum
+  **/
+  _sum?: ShareLinkSumAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
    * Select which fields to find the minimum value
   **/
   _min?: ShareLinkMinAggregateInputType
@@ -155,6 +207,8 @@ export type ShareLinkGroupByArgs<ExtArgs extends runtime.Types.Extensions.Intern
   take?: number
   skip?: number
   _count?: ShareLinkCountAggregateInputType | true
+  _avg?: ShareLinkAvgAggregateInputType
+  _sum?: ShareLinkSumAggregateInputType
   _min?: ShareLinkMinAggregateInputType
   _max?: ShareLinkMaxAggregateInputType
 }
@@ -166,8 +220,13 @@ export type ShareLinkGroupByOutputType = {
   folderId: string | null
   ownerId: string
   expiresAt: Date
+  maxViews: number | null
+  views: number
+  password: string | null
   createdAt: Date
   _count: ShareLinkCountAggregateOutputType | null
+  _avg: ShareLinkAvgAggregateOutputType | null
+  _sum: ShareLinkSumAggregateOutputType | null
   _min: ShareLinkMinAggregateOutputType | null
   _max: ShareLinkMaxAggregateOutputType | null
 }
@@ -197,6 +256,9 @@ export type ShareLinkWhereInput = {
   folderId?: Prisma.StringNullableFilter<"ShareLink"> | string | null
   ownerId?: Prisma.StringFilter<"ShareLink"> | string
   expiresAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
+  maxViews?: Prisma.IntNullableFilter<"ShareLink"> | number | null
+  views?: Prisma.IntFilter<"ShareLink"> | number
+  password?: Prisma.StringNullableFilter<"ShareLink"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
   file?: Prisma.XOR<Prisma.FileNullableScalarRelationFilter, Prisma.FileWhereInput> | null
   folder?: Prisma.XOR<Prisma.FolderNullableScalarRelationFilter, Prisma.FolderWhereInput> | null
@@ -209,6 +271,9 @@ export type ShareLinkOrderByWithRelationInput = {
   folderId?: Prisma.SortOrderInput | Prisma.SortOrder
   ownerId?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  maxViews?: Prisma.SortOrderInput | Prisma.SortOrder
+  views?: Prisma.SortOrder
+  password?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   file?: Prisma.FileOrderByWithRelationInput
   folder?: Prisma.FolderOrderByWithRelationInput
@@ -224,6 +289,9 @@ export type ShareLinkWhereUniqueInput = Prisma.AtLeast<{
   folderId?: Prisma.StringNullableFilter<"ShareLink"> | string | null
   ownerId?: Prisma.StringFilter<"ShareLink"> | string
   expiresAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
+  maxViews?: Prisma.IntNullableFilter<"ShareLink"> | number | null
+  views?: Prisma.IntFilter<"ShareLink"> | number
+  password?: Prisma.StringNullableFilter<"ShareLink"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
   file?: Prisma.XOR<Prisma.FileNullableScalarRelationFilter, Prisma.FileWhereInput> | null
   folder?: Prisma.XOR<Prisma.FolderNullableScalarRelationFilter, Prisma.FolderWhereInput> | null
@@ -236,10 +304,15 @@ export type ShareLinkOrderByWithAggregationInput = {
   folderId?: Prisma.SortOrderInput | Prisma.SortOrder
   ownerId?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  maxViews?: Prisma.SortOrderInput | Prisma.SortOrder
+  views?: Prisma.SortOrder
+  password?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   _count?: Prisma.ShareLinkCountOrderByAggregateInput
+  _avg?: Prisma.ShareLinkAvgOrderByAggregateInput
   _max?: Prisma.ShareLinkMaxOrderByAggregateInput
   _min?: Prisma.ShareLinkMinOrderByAggregateInput
+  _sum?: Prisma.ShareLinkSumOrderByAggregateInput
 }
 
 export type ShareLinkScalarWhereWithAggregatesInput = {
@@ -252,6 +325,9 @@ export type ShareLinkScalarWhereWithAggregatesInput = {
   folderId?: Prisma.StringNullableWithAggregatesFilter<"ShareLink"> | string | null
   ownerId?: Prisma.StringWithAggregatesFilter<"ShareLink"> | string
   expiresAt?: Prisma.DateTimeWithAggregatesFilter<"ShareLink"> | Date | string
+  maxViews?: Prisma.IntNullableWithAggregatesFilter<"ShareLink"> | number | null
+  views?: Prisma.IntWithAggregatesFilter<"ShareLink"> | number
+  password?: Prisma.StringNullableWithAggregatesFilter<"ShareLink"> | string | null
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ShareLink"> | Date | string
 }
 
@@ -260,6 +336,9 @@ export type ShareLinkCreateInput = {
   token?: string
   ownerId: string
   expiresAt: Date | string
+  maxViews?: number | null
+  views?: number
+  password?: string | null
   createdAt?: Date | string
   file?: Prisma.FileCreateNestedOneWithoutShareLinksInput
   folder?: Prisma.FolderCreateNestedOneWithoutShareLinksInput
@@ -272,6 +351,9 @@ export type ShareLinkUncheckedCreateInput = {
   folderId?: string | null
   ownerId: string
   expiresAt: Date | string
+  maxViews?: number | null
+  views?: number
+  password?: string | null
   createdAt?: Date | string
 }
 
@@ -280,6 +362,9 @@ export type ShareLinkUpdateInput = {
   token?: Prisma.StringFieldUpdateOperationsInput | string
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  maxViews?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  views?: Prisma.IntFieldUpdateOperationsInput | number
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   file?: Prisma.FileUpdateOneWithoutShareLinksNestedInput
   folder?: Prisma.FolderUpdateOneWithoutShareLinksNestedInput
@@ -292,6 +377,9 @@ export type ShareLinkUncheckedUpdateInput = {
   folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  maxViews?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  views?: Prisma.IntFieldUpdateOperationsInput | number
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -302,6 +390,9 @@ export type ShareLinkCreateManyInput = {
   folderId?: string | null
   ownerId: string
   expiresAt: Date | string
+  maxViews?: number | null
+  views?: number
+  password?: string | null
   createdAt?: Date | string
 }
 
@@ -310,6 +401,9 @@ export type ShareLinkUpdateManyMutationInput = {
   token?: Prisma.StringFieldUpdateOperationsInput | string
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  maxViews?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  views?: Prisma.IntFieldUpdateOperationsInput | number
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -320,6 +414,9 @@ export type ShareLinkUncheckedUpdateManyInput = {
   folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  maxViews?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  views?: Prisma.IntFieldUpdateOperationsInput | number
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -340,7 +437,15 @@ export type ShareLinkCountOrderByAggregateInput = {
   folderId?: Prisma.SortOrder
   ownerId?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  maxViews?: Prisma.SortOrder
+  views?: Prisma.SortOrder
+  password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+}
+
+export type ShareLinkAvgOrderByAggregateInput = {
+  maxViews?: Prisma.SortOrder
+  views?: Prisma.SortOrder
 }
 
 export type ShareLinkMaxOrderByAggregateInput = {
@@ -350,6 +455,9 @@ export type ShareLinkMaxOrderByAggregateInput = {
   folderId?: Prisma.SortOrder
   ownerId?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  maxViews?: Prisma.SortOrder
+  views?: Prisma.SortOrder
+  password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
 }
 
@@ -360,7 +468,15 @@ export type ShareLinkMinOrderByAggregateInput = {
   folderId?: Prisma.SortOrder
   ownerId?: Prisma.SortOrder
   expiresAt?: Prisma.SortOrder
+  maxViews?: Prisma.SortOrder
+  views?: Prisma.SortOrder
+  password?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
+}
+
+export type ShareLinkSumOrderByAggregateInput = {
+  maxViews?: Prisma.SortOrder
+  views?: Prisma.SortOrder
 }
 
 export type ShareLinkCreateNestedManyWithoutFolderInput = {
@@ -447,11 +563,22 @@ export type ShareLinkUncheckedUpdateManyWithoutFileNestedInput = {
   deleteMany?: Prisma.ShareLinkScalarWhereInput | Prisma.ShareLinkScalarWhereInput[]
 }
 
+export type NullableIntFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
 export type ShareLinkCreateWithoutFolderInput = {
   id?: string
   token?: string
   ownerId: string
   expiresAt: Date | string
+  maxViews?: number | null
+  views?: number
+  password?: string | null
   createdAt?: Date | string
   file?: Prisma.FileCreateNestedOneWithoutShareLinksInput
 }
@@ -462,6 +589,9 @@ export type ShareLinkUncheckedCreateWithoutFolderInput = {
   fileId?: string | null
   ownerId: string
   expiresAt: Date | string
+  maxViews?: number | null
+  views?: number
+  password?: string | null
   createdAt?: Date | string
 }
 
@@ -501,6 +631,9 @@ export type ShareLinkScalarWhereInput = {
   folderId?: Prisma.StringNullableFilter<"ShareLink"> | string | null
   ownerId?: Prisma.StringFilter<"ShareLink"> | string
   expiresAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
+  maxViews?: Prisma.IntNullableFilter<"ShareLink"> | number | null
+  views?: Prisma.IntFilter<"ShareLink"> | number
+  password?: Prisma.StringNullableFilter<"ShareLink"> | string | null
   createdAt?: Prisma.DateTimeFilter<"ShareLink"> | Date | string
 }
 
@@ -509,6 +642,9 @@ export type ShareLinkCreateWithoutFileInput = {
   token?: string
   ownerId: string
   expiresAt: Date | string
+  maxViews?: number | null
+  views?: number
+  password?: string | null
   createdAt?: Date | string
   folder?: Prisma.FolderCreateNestedOneWithoutShareLinksInput
 }
@@ -519,6 +655,9 @@ export type ShareLinkUncheckedCreateWithoutFileInput = {
   folderId?: string | null
   ownerId: string
   expiresAt: Date | string
+  maxViews?: number | null
+  views?: number
+  password?: string | null
   createdAt?: Date | string
 }
 
@@ -554,6 +693,9 @@ export type ShareLinkCreateManyFolderInput = {
   fileId?: string | null
   ownerId: string
   expiresAt: Date | string
+  maxViews?: number | null
+  views?: number
+  password?: string | null
   createdAt?: Date | string
 }
 
@@ -562,6 +704,9 @@ export type ShareLinkUpdateWithoutFolderInput = {
   token?: Prisma.StringFieldUpdateOperationsInput | string
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  maxViews?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  views?: Prisma.IntFieldUpdateOperationsInput | number
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   file?: Prisma.FileUpdateOneWithoutShareLinksNestedInput
 }
@@ -572,6 +717,9 @@ export type ShareLinkUncheckedUpdateWithoutFolderInput = {
   fileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  maxViews?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  views?: Prisma.IntFieldUpdateOperationsInput | number
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -581,6 +729,9 @@ export type ShareLinkUncheckedUpdateManyWithoutFolderInput = {
   fileId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  maxViews?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  views?: Prisma.IntFieldUpdateOperationsInput | number
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -590,6 +741,9 @@ export type ShareLinkCreateManyFileInput = {
   folderId?: string | null
   ownerId: string
   expiresAt: Date | string
+  maxViews?: number | null
+  views?: number
+  password?: string | null
   createdAt?: Date | string
 }
 
@@ -598,6 +752,9 @@ export type ShareLinkUpdateWithoutFileInput = {
   token?: Prisma.StringFieldUpdateOperationsInput | string
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  maxViews?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  views?: Prisma.IntFieldUpdateOperationsInput | number
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   folder?: Prisma.FolderUpdateOneWithoutShareLinksNestedInput
 }
@@ -608,6 +765,9 @@ export type ShareLinkUncheckedUpdateWithoutFileInput = {
   folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  maxViews?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  views?: Prisma.IntFieldUpdateOperationsInput | number
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -617,6 +777,9 @@ export type ShareLinkUncheckedUpdateManyWithoutFileInput = {
   folderId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ownerId?: Prisma.StringFieldUpdateOperationsInput | string
   expiresAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  maxViews?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  views?: Prisma.IntFieldUpdateOperationsInput | number
+  password?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -629,6 +792,9 @@ export type ShareLinkSelect<ExtArgs extends runtime.Types.Extensions.InternalArg
   folderId?: boolean
   ownerId?: boolean
   expiresAt?: boolean
+  maxViews?: boolean
+  views?: boolean
+  password?: boolean
   createdAt?: boolean
   file?: boolean | Prisma.ShareLink$fileArgs<ExtArgs>
   folder?: boolean | Prisma.ShareLink$folderArgs<ExtArgs>
@@ -641,6 +807,9 @@ export type ShareLinkSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ext
   folderId?: boolean
   ownerId?: boolean
   expiresAt?: boolean
+  maxViews?: boolean
+  views?: boolean
+  password?: boolean
   createdAt?: boolean
   file?: boolean | Prisma.ShareLink$fileArgs<ExtArgs>
   folder?: boolean | Prisma.ShareLink$folderArgs<ExtArgs>
@@ -653,6 +822,9 @@ export type ShareLinkSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ext
   folderId?: boolean
   ownerId?: boolean
   expiresAt?: boolean
+  maxViews?: boolean
+  views?: boolean
+  password?: boolean
   createdAt?: boolean
   file?: boolean | Prisma.ShareLink$fileArgs<ExtArgs>
   folder?: boolean | Prisma.ShareLink$folderArgs<ExtArgs>
@@ -665,10 +837,13 @@ export type ShareLinkSelectScalar = {
   folderId?: boolean
   ownerId?: boolean
   expiresAt?: boolean
+  maxViews?: boolean
+  views?: boolean
+  password?: boolean
   createdAt?: boolean
 }
 
-export type ShareLinkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "token" | "fileId" | "folderId" | "ownerId" | "expiresAt" | "createdAt", ExtArgs["result"]["shareLink"]>
+export type ShareLinkOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "token" | "fileId" | "folderId" | "ownerId" | "expiresAt" | "maxViews" | "views" | "password" | "createdAt", ExtArgs["result"]["shareLink"]>
 export type ShareLinkInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   file?: boolean | Prisma.ShareLink$fileArgs<ExtArgs>
   folder?: boolean | Prisma.ShareLink$folderArgs<ExtArgs>
@@ -695,6 +870,9 @@ export type $ShareLinkPayload<ExtArgs extends runtime.Types.Extensions.InternalA
     folderId: string | null
     ownerId: string
     expiresAt: Date
+    maxViews: number | null
+    views: number
+    password: string | null
     createdAt: Date
   }, ExtArgs["result"]["shareLink"]>
   composites: {}
@@ -1127,6 +1305,9 @@ export interface ShareLinkFieldRefs {
   readonly folderId: Prisma.FieldRef<"ShareLink", 'String'>
   readonly ownerId: Prisma.FieldRef<"ShareLink", 'String'>
   readonly expiresAt: Prisma.FieldRef<"ShareLink", 'DateTime'>
+  readonly maxViews: Prisma.FieldRef<"ShareLink", 'Int'>
+  readonly views: Prisma.FieldRef<"ShareLink", 'Int'>
+  readonly password: Prisma.FieldRef<"ShareLink", 'String'>
   readonly createdAt: Prisma.FieldRef<"ShareLink", 'DateTime'>
 }
     
