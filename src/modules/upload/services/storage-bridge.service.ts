@@ -24,6 +24,12 @@ class StorageBridgeService {
   private baseUrl: string
   private timeout: number
 
+  // CACHE-4: Circuit breaker state
+  private consecutiveFailures = 0
+  private circuitOpenUntil: number | null = null
+  private readonly CIRCUIT_FAILURE_THRESHOLD = 5
+  private readonly CIRCUIT_COOLDOWN_MS = 30_000 // 30 seconds
+
   constructor() {
     this.baseUrl = STORAGE_SERVICE_URL
     this.timeout = 30000
@@ -35,6 +41,18 @@ class StorageBridgeService {
     token: string,
     body?: unknown
   ): Promise<T> {
+    // CACHE-4: Fail fast if circuit is open
+    if (this.circuitOpenUntil !== null) {
+      if (Date.now() < this.circuitOpenUntil) {
+        throw new Error(
+          `Storage service circuit breaker open (${this.consecutiveFailures} consecutive failures). ` +
+            `Retrying in ${Math.ceil((this.circuitOpenUntil - Date.now()) / 1000)}s.`
+        )
+      }
+      // Cooldown elapsed — attempt reconnection (half-open)
+      this.circuitOpenUntil = null
+    }
+
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
@@ -53,6 +71,7 @@ class StorageBridgeService {
 
       // Handle 204 No Content (Deletion success)
       if (response.status === 204) {
+        this.consecutiveFailures = 0 // Reset on success
         return true as unknown as T
       }
 
@@ -66,9 +85,21 @@ class StorageBridgeService {
         throw new Error(data.error || 'Request failed')
       }
 
+      this.consecutiveFailures = 0 // Reset on success
       return data.data as T
     } catch (error) {
       clearTimeout(timeoutId)
+
+      // CACHE-4: Track consecutive failures and open circuit if threshold exceeded
+      this.consecutiveFailures++
+      if (this.consecutiveFailures >= this.CIRCUIT_FAILURE_THRESHOLD) {
+        this.circuitOpenUntil = Date.now() + this.CIRCUIT_COOLDOWN_MS
+        console.error(
+          `[StorageBridge] Circuit breaker opened after ${this.consecutiveFailures} consecutive failures. ` +
+            `Cooldown: ${this.CIRCUIT_COOLDOWN_MS / 1000}s`
+        )
+      }
+
       if (error instanceof Error && error.name === 'AbortError') {
         throw new Error('Storage service request timeout')
       }
