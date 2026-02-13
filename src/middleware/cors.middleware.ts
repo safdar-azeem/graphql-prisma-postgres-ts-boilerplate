@@ -41,7 +41,7 @@ const shouldAllowOrigin = (origin: string | undefined): boolean => {
   }
 
   // Check if origin is explicitly allowed
-  return allowedOrigins.some((allowed) => origin === allowed || origin.startsWith(allowed))
+  return allowedOrigins.some((allowed) => origin === allowed)
 }
 
 /**
