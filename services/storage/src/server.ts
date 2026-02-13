@@ -12,7 +12,7 @@ import {
 } from './constants/index.js'
 import { authMiddleware } from './middleware/auth.middleware.js'
 import { errorMiddleware, notFoundMiddleware } from './middleware/error.middleware.js'
-import { initializeProvider, getLocalProvider } from './providers/index.js'
+import { initializeProvider } from './providers/index.js'
 import { prisma } from './config/prisma.js'
 
 // --- SEC-2: CORS Configuration (mirrors gateway pattern) ---
@@ -63,12 +63,9 @@ async function startServer() {
 
   app.use(authMiddleware)
 
-  if (STORAGE_TYPE === 'local') {
-    const localProvider = getLocalProvider()
-    if (localProvider) {
-      app.use('/uploads', express.static(localProvider.getStoragePath()))
-    }
-  }
+  // SEC-6: Removed express.static('/uploads') — it was serving local files
+  // without any authentication, bypassing all access control.
+  // All file access now goes through the authenticated /api/files/:id/content proxy route.
 
   app.get('/health', (_req, res) => {
     res.json({
