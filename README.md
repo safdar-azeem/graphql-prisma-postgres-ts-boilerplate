@@ -9,8 +9,10 @@ A production-ready GraphQL API boilerplate with built-in database sharding, auth
 - **Framework**: Fastify 5 + Mercurius (GraphQL)
 - **Database**: PostgreSQL with Prisma ORM
 - **Sharding**: [prisma-sharding](https://github.com/safdar-azeem/prisma-sharding)
-- **Authentication**: [AuthLite](https://github.com/safdar-azeem/authlite)
-- **Caching**: Redis
+- **Authentication**: [AuthLite](https://github.com/safdar-azeem/authlite) + Refresh Token Rotation
+- **Caching**: Resilient Redis (Graceful Degradation)
+- **Queue**: BullMQ with Dashboard
+- **Security**: Helmet, Rate Limiting, CORS, OTP
 - **Deployment**: Docker + Nginx load balancer
 - **Testing**: [Vitest](https://vitest.dev/)
 
@@ -55,7 +57,50 @@ yarn migrate:shards    # Run database migrations
 yarn dev               # Start development server
 ```
 
-Server will start at: http://localhost:4200/graphql
+- **GraphQL API**: http://localhost:4200/graphql
+- **Queue Dashboard**: http://localhost:4200/admin/queues (Dev only)
+
+---
+
+## 🛡️ Security Features
+
+This boilerplate comes hardened by default:
+
+- **Helmet**: Adds secure HTTP headers (CSP, HSTS, X-Frame-Options, etc.)
+- **Rate Limiting**: Hybrid IP/User-based limiting with Redis backing (1000 req/min auth, 60 req/min anon)
+- **CORS**: Strict origin matching (no wildcard subdomains)
+- **OTP**: Cryptographically secure 6-digit codes (`crypto.randomInt`)
+- **GraphQL**:
+  - **Query Depth**: Max depth of 10 to prevent nested attacks
+  - **Introspection**: Disabled in production (`NODE_ENV=production`)
+
+## 🔐 Authentication Flow
+
+Implements a secure **Access + Refresh Token** strategy:
+
+1. **Login/Signup**: Returns `{ token, refreshToken, user }`
+   - `token`: Short-lived (15m), sent in `Authorization: Bearer` header
+   - `refreshToken`: Long-lived (7d), used to get new tokens
+2. **Refresh**: Call `refreshTokens(refreshToken)` mutation to get a new pair.
+   - Old refresh token is revoked (Reuse Detection).
+3. **Logout**: `logout` or `logoutAll` to revoke tokens.
+4. **Storage**: Refresh tokens are stored in Redis with whitelist for validation.
+
+## 📨 Job Queues (BullMQ)
+
+Asynchronous tasks are handled by **BullMQ** on Redis.
+
+- **Workers**: Located in `src/queues/*.queue.ts`
+- **Dashboard**: Visit `/admin/queues` to monitor jobs (Auto-disabled in Production)
+- **Resilience**:
+  - Automatic retries with exponential backoff
+  - Dead Letter Queue (DLQ) for failed jobs
+  - Graceful shutdown of workers
+
+## 🧱 Resilience
+
+- **Redis**: The app starts even if Redis is down. Caching and Rate Limiting degrade gracefully to in-memory fallback.
+- **Database**: Circuit breakers for extensive sharding operations.
 
 ---
 
@@ -77,8 +122,8 @@ Create a new user : SUCCESS
 Login user : SUCCESS
 ...
 --- Test Summary ---
-Total: 12
-Passed: 12
+Total: 25
+Passed: 25
 Failed: 0
 ```
 
@@ -211,9 +256,12 @@ src/
 │   └── <module>/
 │       ├── graphql/   # GraphQL schema
 │       └── resolvers/ # Business logic
-├── config/            # Prisma, Redis, AuthLite config
-├── middleware/        # Auth, CORS configuration
+│       └── tests/     # Unit tests
+├── config/            # Prisma, Redis, AuthLite, Tokens, Queues
+├── middleware/        # Auth, CORS, Rate Limit
+├── queues/            # BullMQ definitions & workers
 ├── guards/            # Authentication guards
+├── cache/             # Redis caching strategies
 ├── errors/            # Error handling & formatters
 ├── graphql/           # Scalars & base schema
 ├── types/             # Generated TypeScript types
