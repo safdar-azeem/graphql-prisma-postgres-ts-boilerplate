@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
+import crypto from 'crypto'
+import { pipeline } from 'stream/promises'
 import { requireAuth, requireRole } from '../middleware/auth.middleware.js'
 import { sendSuccess, sendNoContent } from '../utils/response.util.js'
 import {
@@ -11,7 +13,7 @@ import {
   updateFile,
   getFileStream,
 } from '../services/file.service.js'
-import { JWT_SECRET } from '../constants/index.js'
+import { JWT_SECRET, STREAM_TIMEOUT_MS } from '../constants/index.js'
 
 const router = Router()
 
@@ -58,7 +60,7 @@ router.get(
       const filter = {
         search: search || null,
         uploadedBy: user.role === 'ADMIN' ? uploadedBy || null : user.id,
-        folderId: parsedFolderId, 
+        folderId: parsedFolderId,
         dateFrom: dateFrom ? new Date(dateFrom) : null,
         dateTo: dateTo ? new Date(dateTo) : null,
       }
@@ -143,15 +145,36 @@ router.get(
 
       const { stream, mimeType, size, filename } = await getFileStream(id)
 
-      res.setHeader('Content-Type', mimeType)
-      res.setHeader('Content-Length', size)
-      res.setHeader('Cache-Control', 'public, max-age=31536000') // Cache for 1 year
-      res.setHeader('Content-Disposition', `inline; filename="${filename}"`)
+      // CACHE-2: Generate ETag from fileId + size for conditional request support
+      const etag = `"${crypto.createHash('md5').update(`${id}-${size}`).digest('hex')}"`
+      const ifNoneMatch = req.headers['if-none-match']
+      if (ifNoneMatch === etag) {
+        res.status(304).end()
+        return
+      }
 
-      stream.pipe(res)
+      res.setHeader('Content-Type', mimeType)
+      // PERF-2: Omit Content-Length to use chunked transfer encoding, avoiding mismatch risk
+      // with the DB-stored size vs. actual storage object size
+      res.setHeader('Cache-Control', 'private, max-age=900, must-revalidate') // CACHE-1: Match 15min token lifetime
+      res.setHeader('ETag', etag) // CACHE-2: Enable conditional requests
+      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`)
+      res.setHeader('X-Content-Type-Options', 'nosniff') // SEC-3: Prevent MIME sniffing
+
+      // PERF-1: Stream with timeout to prevent indefinite hangs
+      const timer = setTimeout(() => {
+        stream.destroy(new Error('Stream timeout'))
+      }, STREAM_TIMEOUT_MS)
+
+      stream.on('end', () => clearTimeout(timer))
+      stream.on('error', () => clearTimeout(timer))
+
+      await pipeline(stream, res)
     } catch (error) {
       console.error('Proxy Error:', error)
-      res.status(404).send('File not found')
+      if (!res.headersSent) {
+        res.status(404).send('File not found')
+      }
     }
   }
 )
