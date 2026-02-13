@@ -21,7 +21,7 @@ router.post(
   requireAuth,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { fileId, folderId, expiresInMinutes } = req.body
+      const { fileId, folderId, expiresInMinutes, maxViews, password } = req.body
       const ownerId = req.context.user!.id
 
       if (!fileId && !folderId) {
@@ -37,11 +37,14 @@ router.post(
         folderId,
         ownerId,
         expiresInMinutes,
+        maxViews,
+        password,
       })
 
       sendCreated(res, {
         ...shareLink,
         url: getShareUrl(shareLink.token),
+        hasPassword: !!password,
       })
     } catch (error) {
       next(error)
