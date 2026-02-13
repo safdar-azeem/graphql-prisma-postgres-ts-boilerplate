@@ -219,6 +219,14 @@ src/
 ├── types/             # Generated TypeScript types
 ├── utils/             # Shared utilities
 └── server.ts          # Fastify entry point
+
+services/storage/      # 📦 Storage Microservice
+├── src/
+│   ├── providers/     # S3, Cloudinary, ImageKit, Local
+│   ├── services/      # File, upload, folder, share-link logic
+│   ├── routes/        # REST API endpoints
+│   └── server.ts      # Express entry point
+└── README.md          # Full API reference
 ```
 
 ---
@@ -262,6 +270,8 @@ See [docs/5-setup-vps-deployment.md](docs/5-setup-vps-deployment.md) for detaile
 - [GraphQL API Guide](docs/3-graphql-guide.md)
 - [Sharding Design](docs/4-database-sharding.md)
 - [VPS Setup](docs/5-setup-vps-deployment.md)
+- [Storage Service](services/storage/README.md)
+- [Storage Walkthrough](services/storage/WALKTHROUGH.md)
 
 ---
 
