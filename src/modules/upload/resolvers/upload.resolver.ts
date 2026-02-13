@@ -5,8 +5,14 @@ import { storageBridge } from '../services/storage-bridge.service'
 import { ValidationError, InternalError } from '@/errors'
 import { generateToken } from '@/modules/auth'
 
+// ARCH-2: Cache the internal token on context to avoid re-signing JWTs for every operation
 const getInternalToken = (context: Context): string => {
-  return generateToken({ _id: context.user.id, email: context.user.email })
+  if ((context as any)._internalStorageToken) {
+    return (context as any)._internalStorageToken
+  }
+  const token = generateToken({ _id: context.user.id, email: context.user.email })
+  ;(context as any)._internalStorageToken = token
+  return token
 }
 
 export const uploadResolver: Resolvers<Context> = {
@@ -300,8 +306,8 @@ export const uploadResolver: Resolvers<Context> = {
 
     deleteShareLink: requireAuth(async (_parent, { id }, context) => {
       try {
-        // Validation: id must be a string. 
-        // If the client sent an array in the request variables, GraphQL validation would fail 
+        // Validation: id must be a string.
+        // If the client sent an array in the request variables, GraphQL validation would fail
         // before reaching here. This code assumes valid scalar input.
         const token = getInternalToken(context)
         return await storageBridge.deleteShareLink(id, token)
