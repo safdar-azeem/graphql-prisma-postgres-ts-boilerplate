@@ -1,9 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express'
-import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { pipeline } from 'stream/promises'
-import { requireAuth, requireRole } from '../middleware/auth.middleware.js'
+import { requireAuth } from '../middleware/auth.middleware.js'
 import { sendSuccess, sendNoContent } from '../utils/response.util.js'
+import { prisma } from '../config/prisma.js'
 import {
   getFileById,
   getFiles,
@@ -13,7 +13,7 @@ import {
   updateFile,
   getFileStream,
 } from '../services/file.service.js'
-import { JWT_SECRET, STREAM_TIMEOUT_MS } from '../constants/index.js'
+import { STREAM_TIMEOUT_MS } from '../constants/index.js'
 
 const router = Router()
 
@@ -45,17 +45,12 @@ router.get(
         targetOwnerId = uploadedBy
       }
 
-      // 2. Parse Folder ID (Crucial for Search)
-      // - 'null' string -> Root Folder (parentId = null)
-      // - undefined/missing -> Global Search (Ignore parentId)
-      // - UUID string -> Specific Folder
       let parsedFolderId: string | null | undefined = undefined
       if (folderId === 'null') {
         parsedFolderId = null
       } else if (typeof folderId === 'string') {
         parsedFolderId = folderId
       }
-      // If folderId is undefined in query, parsedFolderId remains undefined (Global Search)
 
       const filter = {
         search: search || null,
@@ -125,43 +120,44 @@ router.get(
   async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params
-      const token = req.query.token as string
 
-      if (!token) {
-        res.status(401).send('Missing access token')
+      const file = await prisma.file.findUnique({ where: { id } })
+      if (!file || file.status !== 'UPLOADED') {
+        res.status(404).send('File not found')
         return
       }
 
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { fileId: string; type: string }
-        if (decoded.fileId !== id || decoded.type !== 'file_view') {
-          res.status(403).send('Invalid token')
+      // Authorization Logic
+      if (!file.isPublic) {
+        // Enforce Authentication
+        if (!req.context?.isAuthenticated || !req.context?.user) {
+          res.status(401).send('Authentication required')
           return
         }
-      } catch (e) {
-        res.status(403).send('Token expired or invalid')
-        return
+        
+        // Enforce Ownership or Admin Roles
+        if (file.ownerId !== req.context.user.id && req.context.user.role !== 'ADMIN') {
+          res.status(403).send('Access denied')
+          return
+        }
       }
 
       const { stream, mimeType, size, filename } = await getFileStream(id)
 
-      // CACHE-2: Generate ETag from fileId + size for conditional request support
       const etag = `"${crypto.createHash('md5').update(`${id}-${size}`).digest('hex')}"`
       const ifNoneMatch = req.headers['if-none-match']
+      
       if (ifNoneMatch === etag) {
         res.status(304).end()
         return
       }
 
       res.setHeader('Content-Type', mimeType)
-      // PERF-2: Omit Content-Length to use chunked transfer encoding, avoiding mismatch risk
-      // with the DB-stored size vs. actual storage object size
-      res.setHeader('Cache-Control', 'private, max-age=900, must-revalidate') // CACHE-1: Match 15min token lifetime
-      res.setHeader('ETag', etag) // CACHE-2: Enable conditional requests
+      res.setHeader('Cache-Control', 'public, max-age=31536000') // Permanent cache allowed now since URL is static
+      res.setHeader('ETag', etag)
       res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`)
-      res.setHeader('X-Content-Type-Options', 'nosniff') // SEC-3: Prevent MIME sniffing
+      res.setHeader('X-Content-Type-Options', 'nosniff')
 
-      // PERF-1: Stream with timeout to prevent indefinite hangs
       const timer = setTimeout(() => {
         stream.destroy(new Error('Stream timeout'))
       }, STREAM_TIMEOUT_MS)
