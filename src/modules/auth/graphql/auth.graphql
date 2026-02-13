@@ -1,6 +1,7 @@
 # Auth Types
 type AuthPayload {
   token: String!
+  refreshToken: String!
   user: User!
 }
 
@@ -27,7 +28,6 @@ enum TwoFactorMethod {
   AUTHENTICATOR
 }
 
-# Auth Mutations
 extend type Mutation {
   signup(data: SignupInput!): AuthPayload!
   login(data: LoginInput!): AuthPayload!
@@ -44,4 +44,9 @@ extend type Mutation {
   # Password Reset
   forgotPassword(email: String!): Boolean!
   resetPassword(token: String!, password: String!): Boolean!
+
+  # Token Management
+  refreshTokens(refreshToken: String!): AuthPayload!
+  logout: Boolean!
+  logoutAll: Boolean!
 }
