@@ -1,7 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import routes from './routes/index.js'
-import { PORT, IS_DEVELOPMENT, STORAGE_TYPE } from './constants/index.js'
+import { PORT, IS_DEVELOPMENT, STORAGE_TYPE, FILE_PROXY_MODE } from './constants/index.js'
 import { authMiddleware } from './middleware/auth.middleware.js'
 import { errorMiddleware, notFoundMiddleware } from './middleware/error.middleware.js'
 import { initializeProvider, getLocalProvider } from './providers/index.js'
@@ -28,6 +28,7 @@ async function startServer() {
     res.json({
       status: 'ok',
       provider: STORAGE_TYPE,
+      proxyMode: FILE_PROXY_MODE,
       timestamp: new Date().toISOString(),
     })
   })
@@ -40,6 +41,7 @@ async function startServer() {
   app.listen(PORT, () => {
     console.log(`🗄️  Storage service ready at http://localhost:${PORT}`)
     console.log(`   Provider: ${STORAGE_TYPE}`)
+    console.log(`   URL Mode: ${FILE_PROXY_MODE ? 'MASKED (Proxy)' : 'DIRECT (Provider URL)'}`)
     if (IS_DEVELOPMENT) {
       console.log(`   Health check: http://localhost:${PORT}/health`)
     }
@@ -50,3 +52,4 @@ startServer().catch((error) => {
   console.error('Failed to start storage service:', error)
   process.exit(1)
 })
+
