@@ -1,40 +1,11 @@
-import jwt from 'jsonwebtoken'
 import { prisma } from '../config/prisma.js'
 import { getStorageProvider } from '../providers/index.js'
 import {
-  SIGNED_URL_EXPIRY_SECONDS,
   PORT,
-  JWT_SECRET,
   FILE_PROXY_MODE,
-  PROXY_TOKEN_EXPIRY,
 } from '../constants/index.js'
 import type { File, Prisma } from '../../generated/prisma/client.js'
 import type { Readable } from 'stream'
-
-// --- Proxy URL Cache (CACHE-3) ---
-// Avoids redundant JWT signing when the same file is requested multiple times within the token window.
-const proxyUrlCache = new Map<string, { url: string; expiresAt: number }>()
-const PROXY_CACHE_MARGIN_MS = 60_000 // Evict 1 minute before actual token expiry
-
-const getCachedProxyUrl = (fileId: string): string | null => {
-  const cached = proxyUrlCache.get(fileId)
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.url
-  }
-  proxyUrlCache.delete(fileId)
-  return null
-}
-
-const setCachedProxyUrl = (fileId: string, url: string, ttlMs: number): void => {
-  proxyUrlCache.set(fileId, { url, expiresAt: Date.now() + ttlMs - PROXY_CACHE_MARGIN_MS })
-  // Periodic cleanup: cap cache size to prevent unbounded growth
-  if (proxyUrlCache.size > 10_000) {
-    const now = Date.now()
-    for (const [key, value] of proxyUrlCache) {
-      if (now >= value.expiresAt) proxyUrlCache.delete(key)
-    }
-  }
-}
 
 interface FilesFilterInput {
   search?: string | null
@@ -66,24 +37,10 @@ interface FileWithUrl extends File {
 
 // --- URL Generation Logic ---
 
-// 1. Masked/Proxy URL Generator
+// 1. Masked/Proxy URL Generator (Clean URLs with no query parameters)
 const getProxyUrl = (file: File): string => {
-  // Check cache first to avoid redundant JWT signing (CACHE-3)
-  const cached = getCachedProxyUrl(file.id)
-  if (cached) return cached
-
   const baseUrl = process.env.STORAGE_PUBLIC_URL || `http://localhost:${PORT}`
-  // Generate a short-lived token specifically for this file access (SEC-3: reduced from 1h → 15m)
-  const token = jwt.sign(
-    { fileId: file.id, ownerId: file.ownerId, type: 'file_view' },
-    JWT_SECRET,
-    { expiresIn: PROXY_TOKEN_EXPIRY } as jwt.SignOptions
-  )
-  const url = `${baseUrl}/api/files/${file.id}/content?token=${token}`
-
-  // Cache the URL (default 15 min minus 1 min margin)
-  setCachedProxyUrl(file.id, url, 14 * 60 * 1000)
-  return url
+  return `${baseUrl}/api/files/${file.id}/content`
 }
 
 // 2. Main Resolution Strategy
@@ -180,8 +137,6 @@ export const getFiles = async (
     prisma.file.count({ where }),
   ])
 
-  // Resolve URLs for all items in parallel
-  // This is efficient because signed URL generation is usually a local computation (crypto), not a network call
   const itemsWithUrl = await Promise.all(
     items.map(async (file) => ({
       ...file,
@@ -215,9 +170,6 @@ export const getFileDownloadUrl = async (id: string, ownerId: string): Promise<s
     throw Object.assign(new Error('Access denied'), { statusCode: 403 })
   }
 
-  // Re-use the main resolution logic.
-  // Even for "Download", if we are in Proxy mode, we want to hide the S3 URL.
-  // If we are in Direct mode, we give them the direct S3 download link.
   return resolveFileUrl(file)
 }
 
