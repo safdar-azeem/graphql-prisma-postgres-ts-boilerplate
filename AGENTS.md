@@ -51,11 +51,22 @@ src/
 ├── modules/               # 📦 Feature Modules (Domain Driven)
 │   ├── auth/              # Login, Signup, 2FA
 │   ├── user/              # User profile & management
-│   ├── upload/            # File handling bridge
+│   ├── upload/            # File handling bridge → Storage Service
 │   └── index.ts           # Resolver merger
 ├── graphql/               # Global schemas (Scalars, Base)
 └── utils/                 # Shared utilities (Email, Crypto)
 
+services/storage/          # 📦 Storage Microservice (Express + Prisma)
+├── src/
+│   ├── server.ts          # Express entry point (CORS, body limits, graceful shutdown)
+│   ├── constants/         # Env vars (PORT, JWT_SECRET, CORS, PROXY_TOKEN_EXPIRY, etc.)
+│   ├── config/            # Prisma client, storage provider configs
+│   ├── providers/         # Storage backends (S3, Cloudinary, ImageKit, Local)
+│   ├── services/          # Business logic (file, upload, folder, share-link)
+│   ├── routes/            # REST API endpoints
+│   ├── middleware/        # Auth, error handling
+│   └── types/             # TypeScript interfaces
+└── prisma/                # Storage database schema
 ```
 
 ## 🧩 Module Pattern
@@ -246,6 +257,44 @@ in resolvers, access Prisa Client via context.
 3. **Context**: Attaches `user` and `client` (the specific DB shard for that user) to GraphQL context.
 4. **Guards**: `requireAuth` wrapper protects resolvers.
 5. **AuthLite**: Uses AuthLite with JWT tokens:
+
+---
+
+## Storage Service
+
+The storage service is a separate Express microservice at `services/storage/` that handles file operations.
+
+### Quick Reference
+
+| Action       | Command              | Directory           |
+| ------------ | -------------------- | ------------------- |
+| Install deps | `yarn install`       | `services/storage/` |
+| Dev server   | `yarn dev`           | `services/storage/` |
+| Build        | `yarn build`         | `services/storage/` |
+| DB push      | `npx prisma db push` | `services/storage/` |
+| Type check   | `npx tsc --noEmit`   | `services/storage/` |
+
+### Key Environment Variables
+
+| Variable               | Description                             | Default  |
+| ---------------------- | --------------------------------------- | -------- |
+| `DATABASE_URL`         | Storage PostgreSQL connection           | Required |
+| `JWT_SECRET`           | Must match main service                 | Required |
+| `STORAGE_TYPE`         | `local`, `s3`, `cloudinary`, `imagekit` | `local`  |
+| `FILE_PROXY_MODE`      | `true` = mask URLs, `false` = direct    | `true`   |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins         | `""`     |
+| `STREAM_TIMEOUT_MS`    | Proxy stream timeout (ms)               | `30000`  |
+| `PROXY_TOKEN_EXPIRY`   | Proxy token lifetime (ms/s/m/h)         | `15m`    |
+
+### Architecture Notes
+
+- **Gateway → Storage**: The `StorageBridgeService` in `src/modules/upload/services/` communicates via REST. Includes circuit breaker (5 failures → 30s cooldown).
+- **JWT Caching**: Internal tokens are cached on GraphQL request context to avoid re-signing per resolver.
+- **Provider Singleton**: `getStorageProvider()` returns a cached instance. Use `resetProvider()` in tests.
+- **Security**: CORS restrictions, CSP/X-Frame-Options on share pages, nosniff on all proxy responses, strict owner-based access control.
+- **Graceful Shutdown**: Handles SIGTERM/SIGINT with connection draining and DB disconnect.
+
+For full API reference, see `services/storage/README.md` and `services/storage/WALKTHROUGH.md`.
 
 ---
 
