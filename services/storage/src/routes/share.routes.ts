@@ -1,9 +1,11 @@
 import { Router, Request, Response, NextFunction } from 'express'
+import { pipeline } from 'stream/promises'
 import { getShareLinkByToken, getSharedFolderContents } from '../services/share-link.service.js'
 import { getStorageProvider } from '../providers/index.js'
 import { prisma } from '../config/prisma.js'
 import { sendError } from '../utils/response.util.js'
 import { generateSharedFolderHtml } from '../utils/htmlTemplates.js'
+import { STREAM_TIMEOUT_MS } from '../constants/index.js'
 import type { Readable } from 'stream'
 
 const router = Router()
@@ -25,9 +27,11 @@ const streamFileResponse = async (
 
     res.setHeader('Content-Type', meta.mimeType)
     res.setHeader('Content-Length', meta.size)
-    
+
     // Cache for performance (1 hour)
     res.setHeader('Cache-Control', 'public, max-age=3600')
+    // SEC-5: Security headers for streamed content
+    res.setHeader('X-Content-Type-Options', 'nosniff')
 
     // Disposition: 'attachment' forces download, 'inline' shows in browser
     const disposition = meta.download ? 'attachment' : 'inline'
@@ -36,14 +40,17 @@ const streamFileResponse = async (
       `${disposition}; filename="${encodeURIComponent(meta.filename)}"`
     )
 
-    stream.pipe(res)
-    
-    stream.on('error', (err) => {
-      console.error('Stream error:', err)
-      if (!res.headersSent) res.status(500).end()
-    })
+    // PERF-1: Stream with timeout to prevent indefinite hangs
+    const timer = setTimeout(() => {
+      stream.destroy(new Error('Stream timeout'))
+    }, STREAM_TIMEOUT_MS)
+
+    stream.on('end', () => clearTimeout(timer))
+    stream.on('error', () => clearTimeout(timer))
+
+    await pipeline(stream, res)
   } catch (error) {
-    console.error('Proxy error:', error)
+    console.error('Stream error:', error)
     if (!res.headersSent) res.status(404).send('File not found or inaccessible')
   }
 }
@@ -70,7 +77,7 @@ router.get(
           mimeType: shareLink.file.mimeType,
           size: shareLink.file.size,
           filename: shareLink.file.originalName,
-          download: false // Show inline by default for main link
+          download: false, // Show inline by default for main link
         })
         return
       }
@@ -79,7 +86,7 @@ router.get(
       if (shareLink.folderId) {
         try {
           const contents = await getSharedFolderContents(shareLink.folderId, subPath)
-          
+
           const html = generateSharedFolderHtml(
             contents.folder.name,
             contents.folder.path,
@@ -89,12 +96,19 @@ router.get(
             false,
             subPath
           )
-          
+
+          // SEC-5: Security headers for HTML responses
+          res.setHeader('X-Frame-Options', 'DENY')
+          res.setHeader('X-Content-Type-Options', 'nosniff')
+          res.setHeader(
+            'Content-Security-Policy',
+            "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; script-src 'none'; frame-ancestors 'none'"
+          )
           res.send(html)
           return
         } catch (err) {
-           res.status(404).send('Folder path not found')
-           return
+          res.status(404).send('Folder path not found')
+          return
         }
       }
 
@@ -122,7 +136,7 @@ router.get(
         mimeType: shareLink.file.mimeType,
         size: shareLink.file.size,
         filename: shareLink.file.originalName,
-        download: true // Force download
+        download: true, // Force download
       })
     } catch (error) {
       next(error)
@@ -171,8 +185,8 @@ router.get(
       }
 
       // Check hierarchy: File must be directly in folder OR in a subfolder of root
-      const isAuthorized = 
-        file.folderId === rootFolder.id || 
+      const isAuthorized =
+        file.folderId === rootFolder.id ||
         (file.folder && file.folder.path.startsWith(rootFolder.path + '/'))
 
       if (!isAuthorized) {
@@ -185,9 +199,8 @@ router.get(
         mimeType: file.mimeType,
         size: file.size,
         filename: file.originalName,
-        download: download
+        download: download,
       })
-
     } catch (error) {
       next(error)
     }
