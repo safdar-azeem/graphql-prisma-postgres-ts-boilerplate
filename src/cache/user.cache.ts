@@ -1,4 +1,4 @@
-import { redis } from '@/config/redis'
+import { redis, isRedisHealthy } from '@/config/redis'
 import { getShardForUser, findUserAcrossShards } from '@/config/prisma'
 import { AuthUser } from '@/types/context.type'
 import { serialize, deserialize } from '@/utils/serializer.util'
@@ -56,6 +56,8 @@ export const getUser = async (userId: string): Promise<CachedUser | null> => {
 }
 
 export const setUser = async (userId: string, data: CachedUser): Promise<void> => {
+  if (!isRedisHealthy()) return
+
   const cacheKey = getUserCacheKey(userId)
 
   try {
@@ -66,6 +68,8 @@ export const setUser = async (userId: string, data: CachedUser): Promise<void> =
 }
 
 export const invalidateUser = async (userId: string): Promise<void> => {
+  if (!isRedisHealthy()) return
+
   const cacheKey = getUserCacheKey(userId)
 
   try {
@@ -76,6 +80,7 @@ export const invalidateUser = async (userId: string): Promise<void> => {
 }
 
 export const invalidateUsers = async (userIds: string[]): Promise<void> => {
+  if (!isRedisHealthy()) return
   if (userIds.length === 0) return
 
   const cacheKeys = userIds.map(getUserCacheKey)
