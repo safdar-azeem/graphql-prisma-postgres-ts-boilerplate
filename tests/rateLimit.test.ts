@@ -5,23 +5,23 @@ import jwt from 'jsonwebtoken'
 // Mock dependencies
 vi.mock('@/config/redis', () => ({
   redis: {
-    // Minimal mock for Redis client
     call: vi.fn(),
   },
+  isRedisHealthy: vi.fn(() => true),
 }))
 
 vi.mock('@/constants', async (importOriginal) => {
-  const actual = await importOriginal() as any
+  const actual = (await importOriginal()) as any
   return {
     ...actual,
     // Ensure consistent environment for testing limits
-    IS_PRODUCTION: true, 
+    IS_PRODUCTION: true,
   }
 })
 
 describe('Rate Limit Middleware', () => {
   let options: any
-  
+
   beforeEach(() => {
     options = getRateLimitOptions()
   })
@@ -99,24 +99,24 @@ describe('Rate Limit Middleware', () => {
     it('should return AUTHENTICATED limit for user keys', () => {
       // GIVEN
       const key = 'user:123'
-      
+
       // WHEN
       const limit = options.max({}, key)
 
       // THEN
       // Based on IS_PRODUCTION: true mock above
-      expect(limit).toBe(1000) 
+      expect(limit).toBe(1000)
     })
 
     it('should return ANONYMOUS limit for ip keys', () => {
       // GIVEN
       const key = 'ip:192.168.1.1'
-      
+
       // WHEN
       const limit = options.max({}, key)
 
       // THEN
-      expect(limit).toBe(60) 
+      expect(limit).toBe(60)
     })
   })
 
@@ -141,10 +141,9 @@ describe('Rate Limit Middleware', () => {
           code: 'RATE_LIMIT_EXCEEDED',
           retryAfter: '45',
           limit: 60,
-          remaining: 0
-        }
+          remaining: 0,
+        },
       })
     })
   })
 })
-
