@@ -19,7 +19,6 @@ This document provides a detailed walkthrough of the storage service architectur
 
 The storage service is designed as a standalone microservice that handles all file storage operations. It communicates with the main GraphQL service via REST API calls.
 
-
 ```
 
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
@@ -45,9 +44,12 @@ The storage service is designed as a standalone microservice that handles all fi
 
 1. **Separate Microservice**: Allows independent scaling and deployment
 2. **Pre-signed URLs**: Direct client-to-provider uploads reduce server load
-3. **Provider Abstraction**: Easy to add new storage providers
+3. **Provider Abstraction**: Easy to add new storage providers via `resetProvider()`
 4. **Shared JWT**: Uses same JWT secret as main service for seamless auth
-5. **Configurable Proxying**: Can toggle between proxying file content or serving direct provider URLs via `FILE_PROXY_MODE`.
+5. **Configurable Proxying**: Toggle between proxying file content or serving direct provider URLs via `FILE_PROXY_MODE`
+6. **Circuit Breaker**: Gateway bridge service fails fast after 5 consecutive failures (30s cooldown)
+7. **Graceful Shutdown**: SIGTERM/SIGINT signals are handled to drain connections and close DB
+8. **Security Headers**: CSP, X-Frame-Options, and nosniff headers on all streaming/share responses
 
 ---
 
@@ -84,7 +86,6 @@ export abstract class BaseStorageProvider {
   // Stream file content (used for Proxy Mode)
   abstract getFileStream(key: string): Promise<Readable>
 }
-
 ```
 
 ### Provider Selection
@@ -93,20 +94,32 @@ The provider is selected based on `STORAGE_TYPE` environment variable:
 
 ```typescript
 // src/providers/index.ts
+let providerInstance: BaseStorageProvider | null = null
+
 export const getStorageProvider = (): BaseStorageProvider => {
+  if (providerInstance) return providerInstance
+
   switch (STORAGE_TYPE) {
     case 's3':
-      return new S3StorageProvider()
+      providerInstance = new S3StorageProvider()
+      break
     case 'cloudinary':
-      return new CloudinaryStorageProvider()
+      providerInstance = new CloudinaryStorageProvider()
+      break
     case 'imagekit':
-      return new ImageKitStorageProvider()
+      providerInstance = new ImageKitStorageProvider()
+      break
     case 'local':
     default:
-      return new LocalStorageProvider()
+      providerInstance = new LocalStorageProvider()
   }
+  return providerInstance
 }
 
+// Reset provider instance (for testing or hot-swap)
+export const resetProvider = (): void => {
+  providerInstance = null
+}
 ```
 
 ---
@@ -162,8 +175,8 @@ export const createSignedUploadUrl = async (input: CreateSignedUrlInput) => {
   })
 
   return { signedUrl, fileId: file.id, publicUrl, storageKey, expiresAt }
+  // Note: In FILE_PROXY_MODE=true, publicUrl and storageKey are stripped (empty strings)
 }
-
 ```
 
 ### Step 2: Direct Upload to Provider
@@ -178,7 +191,6 @@ await fetch(signedUrl, {
   body: file,
   headers: { 'Content-Type': file.type },
 })
-
 ```
 
 **For Local Development:**
@@ -187,7 +199,6 @@ await fetch(signedUrl, {
 const formData = new FormData()
 formData.append('file', file)
 await fetch(signedUrl, { method: 'PUT', body: formData })
-
 ```
 
 ### Step 3: Confirm Upload
@@ -224,7 +235,9 @@ const resolveFileUrl = async (file: File): Promise<string> => {
   // Option A: Masked Mode (Proxy through API)
   // Used when FILE_PROXY_MODE=true
   if (FILE_PROXY_MODE) {
-    // Returns: [http://api.service.com/api/files/:id/content?token=](http://api.service.com/api/files/:id/content?token=)...
+    // Returns: http://api.service.com/api/files/:id/content?token=...
+    // Token is a short-lived JWT (default: 15 minutes, configurable via PROXY_TOKEN_EXPIRY)
+    // Proxy URLs are cached in-memory to reduce JWT signing overhead
     return getProxyUrl(file)
   }
 
@@ -245,8 +258,16 @@ const resolveFileUrl = async (file: File): Promise<string> => {
 
   return signedUrl
 }
-
 ```
+
+### Proxy Content Endpoint Behavior
+
+When a client requests `/api/files/:id/content?token=...`:
+
+1. **Token validation**: JWT is verified for `fileId`, `ownerId`, `type: file_view`
+2. **ETag check**: `If-None-Match` header is compared against `ETag` — returns `304 Not Modified` if unchanged
+3. **Streaming**: File is streamed from the storage provider with a configurable timeout (`STREAM_TIMEOUT_MS`, default: 30s)
+4. **Response headers**: `Cache-Control: private, max-age=900`, `ETag`, `X-Content-Type-Options: nosniff`
 
 ### Folder Path Management
 
@@ -268,7 +289,6 @@ for (const child of childFolders) {
     data: { path: child.path.replace(oldPath, newPath) },
   })
 }
-
 ```
 
 ---
@@ -301,7 +321,6 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
 
   next()
 }
-
 ```
 
 ---
@@ -315,7 +334,21 @@ The main GraphQL service communicates with storage via HTTP:
 ```typescript
 // src/modules/upload/services/storage-bridge.service.ts
 class StorageBridgeService {
+  private baseUrl: string
+  private timeout: number
+
+  // Circuit breaker: fails fast after 5 consecutive failures (30s cooldown)
+  private consecutiveFailures = 0
+  private circuitOpenUntil: number | null = null
+  private readonly CIRCUIT_FAILURE_THRESHOLD = 5
+  private readonly CIRCUIT_COOLDOWN_MS = 30_000
+
   private async request<T>(method: string, endpoint: string, token: string, body?: unknown) {
+    // Fail fast if circuit is open
+    if (this.circuitOpenUntil !== null && Date.now() < this.circuitOpenUntil) {
+      throw new Error('Storage service circuit breaker open')
+    }
+
     const response = await fetch(`${STORAGE_SERVICE_URL}/api${endpoint}`, {
       method,
       headers: {
@@ -327,15 +360,14 @@ class StorageBridgeService {
 
     const data = await response.json()
     if (!data.success) throw new Error(data.error)
+
+    this.consecutiveFailures = 0 // Reset on success
     return data.data
   }
-
-  async requestUploadUrl(input: RequestUploadInput, token: string) {
-    return this.request('POST', '/upload/signed-url', token, input)
-  }
 }
-
 ```
+
+> **Note:** The internal JWT is cached on the GraphQL request context to avoid re-signing for every resolver call within the same request.
 
 ---
 
@@ -385,6 +417,9 @@ curl http://localhost:4201/api/files \
 3. **Use folders** - Organize files for better management
 4. **Set appropriate visibility** - Default to private, make public only when needed
 5. **Clean up pending files** - Run cleanup job periodically
+6. **Configure CORS in production** - Set `CORS_ALLOWED_ORIGINS` to your frontend domains
+7. **Monitor circuit breaker** - Watch for `[StorageBridge] Circuit breaker opened` log messages
+8. **Use proxy mode in production** - Set `FILE_PROXY_MODE=true` to hide bucket URLs
 
 ```typescript
 // Periodic cleanup of expired pending files
@@ -397,6 +432,6 @@ setInterval(
   },
   60 * 60 * 1000
 ) // Every hour
-
 ```
 
+> **Note:** The local storage provider automatically cleans up expired tokens from its in-memory store every 5 minutes.
