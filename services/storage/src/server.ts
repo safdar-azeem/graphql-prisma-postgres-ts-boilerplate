@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import type { CorsOptions } from 'cors'
+import cookieParser from 'cookie-parser'
 import routes from './routes/index.js'
 import {
   PORT,
@@ -58,6 +59,7 @@ async function startServer() {
   app.use(cors(getCorsOptions())) // SEC-2: Restrictive CORS
   app.use(express.json({ limit: '1mb' })) // ARCH-3: Body size limits
   app.use(express.urlencoded({ extended: true, limit: '1mb' })) // ARCH-3: Body size limits
+  app.use(cookieParser()) // NEW: Enable cookie parsing for seamless image proxying
 
   app.use(authMiddleware)
 
