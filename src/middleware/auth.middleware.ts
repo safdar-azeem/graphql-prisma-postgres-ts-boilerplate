@@ -1,5 +1,5 @@
 import { cache } from '@/cache'
-import { verifyToken } from '@/modules/auth'
+import { verifyAccessToken } from '@/config/tokens'
 import { Context } from '@/types/context.type'
 import { getShardForUser, sharding } from '@/config/prisma'
 
@@ -16,7 +16,7 @@ export const createContext = async (token: string): Promise<Context> => {
   }
 
   try {
-    const decoded = verifyToken(token)
+    const decoded = verifyAccessToken(bearerToken)
 
     if (!decoded?._id) {
       return {
