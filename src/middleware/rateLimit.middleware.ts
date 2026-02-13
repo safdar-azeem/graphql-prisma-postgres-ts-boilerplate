@@ -1,6 +1,6 @@
 import { RateLimitPluginOptions } from '@fastify/rate-limit'
-import { redis } from '@/config/redis'
-import { IS_PRODUCTION, JWT_SECRET } from '@/constants'
+import { redis, isRedisHealthy } from '@/config/redis'
+import { IS_PRODUCTION } from '@/constants'
 import jwt from 'jsonwebtoken'
 
 /**
@@ -36,78 +36,87 @@ interface DecodedToken {
   exp?: number
 }
 
-export const getRateLimitOptions = (): RateLimitPluginOptions => ({
-  timeWindow: LIMITS.WINDOW_MS,
-  redis: redis,
-  // Whitelist health checks and root to prevent internal monitoring issues
-  allowList: ['/health', '/'],
-  
-  // Use a custom name to identify this limiter in headers
-  nameSpace: 'api-rate-limit',
+export const getRateLimitOptions = (): RateLimitPluginOptions => {
+  const isHealthy = isRedisHealthy()
 
-  /**
-   * Dynamic Limit Resolver
-   * Returns the max requests allowed based on the key prefix.
-   */
-  max: (req, key) => {
-    if (key.startsWith('user:')) {
-      return LIMITS.AUTHENTICATED
-    }
-    return LIMITS.ANONYMOUS
-  },
+  if (!isHealthy) {
+    console.warn('[RateLimit] Redis unhealthy, falling back to in-memory store')
+  }
 
-  /**
-   * Hybrid Key Generator
-   * Determines if the request is from a User or an IP.
-   */
-  keyGenerator: (request) => {
-    const authHeader = request.headers.authorization || (request.headers.token as string)
+  return {
+    timeWindow: LIMITS.WINDOW_MS,
+    redis: isHealthy ? redis : undefined,
+    // Whitelist health checks and root to prevent internal monitoring issues
+    allowList: ['/health', '/'],
 
-    // 1. Authenticated User Strategy
-    if (authHeader) {
-      try {
-        const token = authHeader.replace('Bearer ', '')
-        
-        // We decode locally without verification for speed in the rate-limit phase.
-        // The actual AuthGuard will verify validity later. 
-        // If the token is garbage, this fails and falls back to IP.
-        const decoded = jwt.decode(token) as DecodedToken | null
-        
-        if (decoded?._id) {
-          return `user:${decoded._id}`
-        }
-      } catch (err) {
-        // Token parsing failed; treat as anonymous
+    // Use a custom name to identify this limiter in headers
+    nameSpace: 'api-rate-limit',
+
+    /**
+     * Dynamic Limit Resolver
+     * Returns the max requests allowed based on the key prefix.
+     */
+    max: (req, key) => {
+      if (key.startsWith('user:')) {
+        return LIMITS.AUTHENTICATED
       }
-    }
+      return LIMITS.ANONYMOUS
+    },
 
-    // 2. IP Fallback Strategy
-    // fastify.trustProxy must be true for this to work behind Nginx
-    const clientIp = (request.headers['x-real-ip'] as string) || request.ip || '127.0.0.1'
-    return `ip:${clientIp}`
-  },
+    /**
+     * Hybrid Key Generator
+     * Determines if the request is from a User or an IP.
+     */
+    keyGenerator: (request) => {
+      const authHeader = request.headers.authorization || (request.headers.token as string)
 
-  /**
-   * Custom Error Response (RFC 7807 compliant structure)
-   */
-  errorResponseBuilder: (_request, context) => ({
-    statusCode: 429,
-    error: 'Too Many Requests',
-    message: `Rate limit exceeded. Please try again in ${Math.ceil(context.ttl / 1000)} seconds.`,
-    extensions: {
-      code: 'RATE_LIMIT_EXCEEDED',
-      retryAfter: context.after,
-      limit: context.max,
-      remaining: 0
-    }
-  }),
+      // 1. Authenticated User Strategy
+      if (authHeader) {
+        try {
+          const token = authHeader.replace('Bearer ', '')
 
-  // Expose standard RateLimit headers
-  addHeaders: {
-    'x-ratelimit-limit': true,
-    'x-ratelimit-remaining': true,
-    'x-ratelimit-reset': true,
-    'retry-after': true,
-  },
-})
+          // We decode locally without verification for speed in the rate-limit phase.
+          // The actual AuthGuard will verify validity later.
+          // If the token is garbage, this fails and falls back to IP.
+          const decoded = jwt.decode(token) as DecodedToken | null
 
+          if (decoded?._id) {
+            return `user:${decoded._id}`
+          }
+        } catch (err) {
+          // Token parsing failed; treat as anonymous
+        }
+      }
+
+      // 2. IP Fallback Strategy
+      // fastify.trustProxy must be true for this to work behind Nginx
+      const clientIp = (request.headers['x-real-ip'] as string) || request.ip || '127.0.0.1'
+      return `ip:${clientIp}`
+    },
+
+    /**
+     * Custom Error Response (RFC 7807 compliant structure)
+     */
+    errorResponseBuilder: (_request, context) => ({
+      statusCode: 429,
+      error: 'Too Many Requests',
+      message: `Rate limit exceeded. Please try again in ${Math.ceil(context.ttl / 1000)} seconds.`,
+      extensions: {
+        code: 'RATE_LIMIT_EXCEEDED',
+        retryAfter: context.after,
+        limit: context.max,
+        remaining: 0,
+      },
+    }),
+
+    // Expose standard RateLimit headers
+    addHeaders: {
+      'x-ratelimit-limit': true,
+      'x-ratelimit-remaining': true,
+      'x-ratelimit-reset': true,
+      'retry-after': true,
+    },
+
+    skipOnError: true, // Allow request if rate limit store fails
+  }
+}
