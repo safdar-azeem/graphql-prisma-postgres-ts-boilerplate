@@ -3364,6 +3364,11 @@ graphql-jit@0.8.7:
     lodash.merge "4.6.2"
     lodash.mergewith "4.6.2"
 
+graphql-prisma-select@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/graphql-prisma-select/-/graphql-prisma-select-0.0.2.tgz#fa7acb0a6d4d36b3142082edc60174832a4c209d"
+  integrity sha512-AXypI1E8UYNAdSxbGTNuWZZ0e/fG8B75ID1WEjsvS+v+FehbQWAHOmvtnLQOldWuH1Z29lIrWmc3eGFT660VPQ==
+
 graphql-scalars@^1.25.0:
   version "1.25.0"
   resolved "https://registry.npmjs.org/graphql-scalars/-/graphql-scalars-1.25.0.tgz"
