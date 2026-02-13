@@ -2,6 +2,7 @@ import { prisma } from '../config/prisma.js'
 import { getStorageProvider } from '../providers/index.js'
 import { generateStorageKey } from '../utils/path.util.js'
 import { SIGNED_URL_EXPIRY_SECONDS, STORAGE_TYPE, FILE_PROXY_MODE } from '../constants/index.js'
+import { resolveFileUrl } from './file.service.js'
 import type { File } from '../../generated/prisma/client.js'
 
 interface CreateSignedUrlInput {
@@ -90,7 +91,10 @@ export const createSignedUploadUrl = async (
   }
 }
 
-export const confirmUpload = async (fileId: string, ownerId: string): Promise<File> => {
+export const confirmUpload = async (
+  fileId: string,
+  ownerId: string
+): Promise<File & { url: string }> => {
   const file = await prisma.file.findUnique({
     where: { id: fileId },
   })
@@ -130,7 +134,10 @@ export const confirmUpload = async (fileId: string, ownerId: string): Promise<Fi
     },
   })
 
-  return updatedFile
+  // Resolve the URL based on FILE_PROXY_MODE (proxy or direct)
+  const url = await resolveFileUrl(updatedFile)
+
+  return { ...updatedFile, url }
 }
 
 export const cancelUpload = async (fileId: string, ownerId: string): Promise<boolean> => {
