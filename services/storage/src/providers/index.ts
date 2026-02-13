@@ -50,3 +50,8 @@ export const initializeProvider = async (): Promise<void> => {
     await provider.initialize()
   }
 }
+
+// ARCH-1: Allow resetting the provider for testing and hot-swap
+export const resetProvider = (): void => {
+  providerInstance = null
+}
