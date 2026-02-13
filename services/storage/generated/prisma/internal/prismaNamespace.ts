@@ -709,6 +709,9 @@ export const ShareLinkScalarFieldEnum = {
   folderId: 'folderId',
   ownerId: 'ownerId',
   expiresAt: 'expiresAt',
+  maxViews: 'maxViews',
+  views: 'views',
+  password: 'password',
   createdAt: 'createdAt'
 } as const
 
