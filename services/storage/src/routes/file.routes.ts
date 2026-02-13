@@ -127,36 +127,60 @@ router.get(
         return
       }
 
-      // Authorization Logic
-      if (!file.isPublic) {
-        // Enforce Authentication
-        if (!req.context?.isAuthenticated || !req.context?.user) {
-          res.status(401).send('Authentication required')
-          return
-        }
-        
-        // Enforce Ownership or Admin Roles
-        if (file.ownerId !== req.context.user.id && req.context.user.role !== 'ADMIN') {
-          res.status(403).send('Access denied')
-          return
-        }
+      // SEC-1: ALWAYS require authentication for the proxy content endpoint.
+      // The isPublic flag only controls cache headers and direct URL mode,
+      // NOT whether the proxy requires login. This prevents unauthenticated
+      // access to file content via the masked URL.
+      if (!req.context?.isAuthenticated || !req.context?.user) {
+        res.setHeader('Cache-Control', 'no-store')
+        res.status(401).send('Authentication required')
+        return
+      }
+
+      // Enforce Ownership or Admin role (non-public files only)
+      if (
+        !file.isPublic &&
+        file.ownerId !== req.context.user.id &&
+        req.context.user.role !== 'ADMIN'
+      ) {
+        res.setHeader('Cache-Control', 'no-store')
+        res.status(403).send('Access denied')
+        return
       }
 
       const { stream, mimeType, size, filename } = await getFileStream(id)
 
       const etag = `"${crypto.createHash('md5').update(`${id}-${size}`).digest('hex')}"`
       const ifNoneMatch = req.headers['if-none-match']
-      
+
       if (ifNoneMatch === etag) {
         res.status(304).end()
         return
       }
 
       res.setHeader('Content-Type', mimeType)
-      res.setHeader('Cache-Control', 'public, max-age=31536000') // Permanent cache allowed now since URL is static
+
+      // SEC-1: Cache-Control based on file visibility
+      // Private files: never cache — prevents access after logout
+      // Public files: short cache with revalidation
+      if (!file.isPublic) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+        res.setHeader('Pragma', 'no-cache')
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=3600, must-revalidate')
+      }
+
       res.setHeader('ETag', etag)
       res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`)
+
+      // SEC-3: Security headers for proxied content
       res.setHeader('X-Content-Type-Options', 'nosniff')
+      res.setHeader('X-Frame-Options', 'DENY')
+      res.setHeader('Referrer-Policy', 'no-referrer')
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'"
+      )
 
       const timer = setTimeout(() => {
         stream.destroy(new Error('Stream timeout'))
