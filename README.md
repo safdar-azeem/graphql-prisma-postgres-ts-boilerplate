@@ -246,6 +246,36 @@ const { result } = await findUserAcrossShards(async (client) =>
 )
 ```
 
+## Database performance optimization.
+
+Use the `graphql-prisma-select` package to fetch only the fields required by the client. This helps resolve the over-fetching problem and improves database performance.
+
+```typescript
+import { prismaSelect } from 'graphql-prisma-select'
+
+const resolvers = {
+  Query: {
+    users: async (parent, args, context, info) => {
+      const select = prismaSelect(info)
+
+      // Equivalent to: prisma.user.findMany({ select: { id: true, email: true, ... } })
+      return context.prisma.user.findMany({
+        ...args, // pagination, filtering, etc.
+        select,
+      })
+    },
+
+    user: async (parent, { id }, context, info) => {
+      const select = prismaSelect(info)
+      return context.prisma.user.findUnique({
+        where: { id },
+        select,
+      })
+    },
+  },
+}
+```
+
 ---
 
 ## 📂 Project Structure
