@@ -184,10 +184,18 @@ src/
 ├── config/               # ⚙️ Configuration
 │   ├── prisma.ts         # Database connection & sharding
 │   ├── redis.ts          # Redis connection
-│   └── authlite.ts       # Auth configuration
+│   ├── authlite.ts       # Auth configuration
+│   ├── tokens.ts         # Token generation
+│   └── resilientRedis.ts # Redis health wrapper
 ├── middleware/           # 🔒 Middleware
 │   ├── auth.middleware.ts    # JWT context creation
 │   └── cors.middleware.ts    # CORS configuration
+├── queues/               # 📨 BullMQ Queues
+│   ├── connection.ts     # Queue redis connection
+│   └── email.queue.ts    # Email worker
+├── cache/                # 💾 Caching logic
+│   ├── user.cache.ts     # User caching
+│   └── refreshToken.cache.ts # Refresh token storage
 ├── errors/               # ❌ Error handling
 │   ├── index.ts          # Error codes
 │   └── errorPlugin.ts    # Mercurius error formatter
