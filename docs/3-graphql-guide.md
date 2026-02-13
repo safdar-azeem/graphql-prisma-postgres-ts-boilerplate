@@ -101,6 +101,7 @@ token: <your-jwt-token>
 mutation {
   signup(data: { email: "user@example.com", username: "myuser", password: "securepassword123" }) {
     token
+    refreshToken
     user {
       id
       email
@@ -116,11 +117,39 @@ mutation {
 mutation {
   login(data: { email: "user@example.com", password: "securepassword123" }) {
     token
+    refreshToken
     user {
       id
       email
     }
   }
+}
+```
+
+**Rotate Tokens:**
+
+When your `token` expires (after 15 minutes), use the `refreshToken` to get a new pair:
+
+```graphql
+mutation {
+  refreshTokens(refreshToken: "YOUR_REFRESH_TOKEN") {
+    token
+    refreshToken
+    user {
+      id
+      email
+    }
+  }
+}
+```
+
+**Logout:**
+
+Revoke the current refresh token:
+
+```graphql
+mutation {
+  logout
 }
 ```
 
