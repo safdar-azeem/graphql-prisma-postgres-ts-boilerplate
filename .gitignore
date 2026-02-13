@@ -27,3 +27,4 @@ logs
 
 /generated/prisma
 .env
+/.env
