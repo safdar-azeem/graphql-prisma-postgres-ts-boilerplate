@@ -29,6 +29,7 @@ export type Scalars = {
 
 export type AuthPayload = {
   __typename?: 'AuthPayload'
+  refreshToken: Scalars['String']['output']
   token: Scalars['String']['output']
   user: User
 }
@@ -131,7 +132,10 @@ export type Mutation = {
   googleLogin: AuthPayload
   init2faEnrollment: Init2faResponse
   login: AuthPayload
+  logout: Scalars['Boolean']['output']
+  logoutAll: Scalars['Boolean']['output']
   moveFolder: Folder
+  refreshTokens: AuthPayload
   renameFolder: Folder
   requestUploadUrl: SignedUploadUrl
   resetPassword: Scalars['Boolean']['output']
@@ -196,6 +200,10 @@ export type MutationloginArgs = {
 export type MutationmoveFolderArgs = {
   id: Scalars['ID']['input']
   parentId?: InputMaybe<Scalars['String']['input']>
+}
+
+export type MutationrefreshTokensArgs = {
+  refreshToken: Scalars['String']['input']
 }
 
 export type MutationrenameFolderArgs = {
@@ -536,6 +544,7 @@ export type AuthPayloadResolvers<
   ContextType = any,
   ParentType extends ResolversParentTypes['AuthPayload'] = ResolversParentTypes['AuthPayload'],
 > = {
+  refreshToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>
   token?: Resolver<ResolversTypes['String'], ParentType, ContextType>
   user?: Resolver<ResolversTypes['User'], ParentType, ContextType>
 }
@@ -706,11 +715,19 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationloginArgs, 'data'>
   >
+  logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>
+  logoutAll?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>
   moveFolder?: Resolver<
     ResolversTypes['Folder'],
     ParentType,
     ContextType,
     RequireFields<MutationmoveFolderArgs, 'id'>
+  >
+  refreshTokens?: Resolver<
+    ResolversTypes['AuthPayload'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationrefreshTokensArgs, 'refreshToken'>
   >
   renameFolder?: Resolver<
     ResolversTypes['Folder'],
