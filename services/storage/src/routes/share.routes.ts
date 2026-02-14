@@ -161,6 +161,19 @@ router.get(
         return
       }
 
+      // SEC-5: Password verification
+      if (shareLink.password) {
+        const password =
+          (req.query.password as string) || (req.headers['x-share-password'] as string)
+        if (!password || !verifyShareLinkPassword(shareLink, password)) {
+          res.setHeader('Cache-Control', 'no-store')
+          res.status(403).send('Password required')
+          return
+        }
+      }
+
+      await incrementShareLinkViews(shareLink.id)
+
       await streamFileResponse(res, shareLink.file.storageKey, {
         mimeType: shareLink.file.mimeType,
         size: shareLink.file.size,
@@ -190,6 +203,17 @@ router.get(
       if (!shareLink || !shareLink.folderId) {
         res.status(404).send('Invalid share link')
         return
+      }
+
+      // SEC-5: Password verification
+      if (shareLink.password) {
+        const password =
+          (req.query.password as string) || (req.headers['x-share-password'] as string)
+        if (!password || !verifyShareLinkPassword(shareLink, password)) {
+          res.setHeader('Cache-Control', 'no-store')
+          res.status(403).send('Password required')
+          return
+        }
       }
 
       // Security: Ensure file actually belongs to the shared folder tree
