@@ -49,7 +49,9 @@ The storage service is designed as a standalone microservice that handles all fi
 5. **Configurable Proxying**: Toggle between proxying file content or serving direct provider URLs via `FILE_PROXY_MODE`
 6. **Circuit Breaker**: Gateway bridge service fails fast after 5 consecutive failures (30s cooldown)
 7. **Graceful Shutdown**: SIGTERM/SIGINT signals are handled to drain connections and close DB
-8. **Security Headers**: CSP, X-Frame-Options, and nosniff headers on all streaming/share responses
+8. **Security Headers**: CSP, X-Frame-Options, Referrer-Policy, and nosniff headers on all streaming/share responses
+9. **Mandatory Authentication**: Content proxy always requires authentication — `isPublic` only controls cache headers, not access
+10. **Anti-Caching**: Private files use `no-store` to prevent browser caching after logout
 
 ---
 
@@ -264,10 +266,34 @@ const resolveFileUrl = async (file: File): Promise<string> => {
 
 When a client requests `/api/files/:id/content?token=...`:
 
-1. **Token validation**: JWT is verified for `fileId`, `ownerId`, `type: file_view`
-2. **ETag check**: `If-None-Match` header is compared against `ETag` — returns `304 Not Modified` if unchanged
-3. **Streaming**: File is streamed from the storage provider with a configurable timeout (`STREAM_TIMEOUT_MS`, default: 30s)
-4. **Response headers**: `Cache-Control: private, max-age=900`, `ETag`, `X-Content-Type-Options: nosniff`
+1. **Authentication**: Always required — returns `401` if no valid JWT
+2. **Authorization**: Non-public files require ownership or ADMIN role — returns `403` if denied
+3. **ETag check**: `If-None-Match` header is compared against `ETag` — returns `304 Not Modified` if unchanged
+4. **Cache-Control**: Private files: `no-store, no-cache` (prevents post-logout access). Public files: `public, max-age=3600`
+5. **Streaming**: File is streamed from the storage provider with a configurable timeout (`STREAM_TIMEOUT_MS`, default: 30s)
+6. **Security headers**: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Content-Security-Policy`
+
+### Share Links
+
+Share links provide unauthenticated access to shared resources with built-in security controls:
+
+| Feature              | Description                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| **Expiry**           | Links expire after a configurable duration (default: 7 days)                              |
+| **Max Views**        | Optional view cap — link becomes invalid after N views                                    |
+| **Password**         | Optional SHA-256 hashed password — verified via `?password=` or `X-Share-Password` header |
+| **Folder Hierarchy** | Shared folder links enforce file-belongs-to-folder checks                                 |
+
+```bash
+# Create a password-protected share link with max 10 views
+curl -X POST http://localhost:4201/api/share-links \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"fileId":"<id>","maxViews":10,"password":"secret","expiresInMinutes":1440}'
+
+# Access with password
+curl http://localhost:4201/api/share/<token>?password=secret
+```
 
 ### Folder Path Management
 
@@ -420,6 +446,8 @@ curl http://localhost:4201/api/files \
 6. **Configure CORS in production** - Set `CORS_ALLOWED_ORIGINS` to your frontend domains
 7. **Monitor circuit breaker** - Watch for `[StorageBridge] Circuit breaker opened` log messages
 8. **Use proxy mode in production** - Set `FILE_PROXY_MODE=true` to hide bucket URLs
+9. **Run migrations** - After schema changes, run `npx prisma db push` or create a migration
+10. **Use share link passwords** - For sensitive shared files, always set a password and maxViews
 
 ```typescript
 // Periodic cleanup of expired pending files
