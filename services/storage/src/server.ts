@@ -47,7 +47,7 @@ const getCorsOptions = (): CorsOptions => {
     },
     credentials: true,
     methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Share-Password'],
   }
 }
 
