@@ -15,7 +15,7 @@ export const userResolver: Resolvers<Context> = {
         where: { id: user.id },
         data: {
           username: data.username ?? undefined,
-          avatar: data.avatar ?? undefined,
+          avatar: data.avatar,
         },
       })
 
