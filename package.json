@@ -60,7 +60,7 @@
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "@types/jsonwebtoken": "^9.0.10",
-    "authlite": "^0.0.2",
+    "authlite": "^0.0.3",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.69.1",
     "cross-env": "^10.1.0",
