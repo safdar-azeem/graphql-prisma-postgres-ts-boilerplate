@@ -215,7 +215,7 @@ docker ps
 cd /opt/{your-project-name}
 docker compose -f docker-compose.prod.yml down -v
 docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml exec app yarn migrate:shards
+docker compose -f docker-compose.prod.yml exec app yarn db:update
 ```
 
 ---
