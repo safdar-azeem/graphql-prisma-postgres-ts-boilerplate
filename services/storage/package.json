@@ -7,9 +7,9 @@
   "scripts": {
     "start": "node dist/index.js",
     "build": "rimraf dist && node esbuild.config.js",
-    "db:sync": "prisma generate && prisma db push",
+    "db:update": "prisma-sharding-update",
     "db:studio": "prisma studio --browser none",
-    "dev": "npm run db:sync && nodemon --exec tsx --env-file=.env --no-warnings src/server.ts"
+    "dev": "nodemon --exec tsx --env-file=.env --no-warnings src/server.ts"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.7",
@@ -39,6 +39,7 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.5-lts.2",
     "pg": "^8.18.0",
+    "prisma-sharding": "^0.0.5",
     "uuid": "^11.1.0"
   },
   "prettier": {
