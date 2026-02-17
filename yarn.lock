@@ -4665,10 +4665,10 @@ prisma-json-types-generator@^3.2.2:
     semver "^7.7.2"
     tslib "^2.8.1"
 
-prisma-sharding@^0.0.4:
-  version "0.0.4"
-  resolved "https://registry.yarnpkg.com/prisma-sharding/-/prisma-sharding-0.0.4.tgz#7521ae94cfc44a3bbb5515a24c461603a42cfde3"
-  integrity sha512-YYtE6pgbIiw+z7QiFwkY6JH/JwlICiaazj01UQ/ohBa5wV5CfbSZt0biHWckrn09Bk7iceKDkaOy/xsNaI6UJQ==
+prisma-sharding@^0.0.5:
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/prisma-sharding/-/prisma-sharding-0.0.5.tgz#13329fe08cad597c077f172f65c7eb17b374ab4b"
+  integrity sha512-7kqIXvpdVdtohKIsoHqT9WZgiv43KjwZmlw2iDuq8DGTbwUMHoboiwYrMQNUUWps8iA6rH8Du08hEdvJt9IpGA==
   dependencies:
     dotenv "^16.3.1"
     pg "^8.18.0"
