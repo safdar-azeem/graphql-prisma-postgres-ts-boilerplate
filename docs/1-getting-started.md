@@ -100,8 +100,8 @@ redis-server
 **Run the app:**
 
 ```bash
-# Run database migrations
-yarn migrate:shards
+# generates Prisma Client types and migrates all shards
+yarn db:update
 
 # Start development server
 yarn dev
@@ -229,8 +229,7 @@ The server has hot-reload enabled. Save any file and the server will restart aut
 
 ```bash
 # Update prisma/schema.prisma, then:
-yarn migrate:shards       # Apply to all shards
-yarn generate             # Regenerate types
+yarn db:update       # Apply to all shards
 ```
 
 ---
