@@ -53,7 +53,7 @@ Prerequisites: Node.js v22+, PostgreSQL, Redis running locally
 git clone <repository_url>
 cd graphql-prisma-postgres-ts-boilerplate
 yarn install
-yarn migrate:shards    # Run database migrations
+yarn db:update
 yarn dev               # Start development server
 ```
 
@@ -194,13 +194,12 @@ curl -X POST http://localhost:4200/graphql \
 
 ### Database
 
-| Command               | Description                         |
-| --------------------- | ----------------------------------- |
-| `yarn migrate:shards` | Apply schema to all database shards |
-| `yarn db:sync`        | Sync schema changes (Local Dev)     |
-| `yarn db:studio`      | Open Prisma Studio for all shards   |
-| `yarn test:shards`    | Test shard connectivity             |
-| `yarn docker:migrate` | Run migrations in Docker            |
+| Command               | Description                                              |
+| --------------------- | -------------------------------------------------------- |
+| `yarn db:udpate`      | It generates Prisma Client types and migrates all shards |
+| `yarn db:studio`      | Open Prisma Studio for all shards                        |
+| `yarn test:shards`    | Test shard connectivity                                  |
+| `yarn docker:migrate` | Run migrations in Docker                                 |
 
 ### Utilities
 
