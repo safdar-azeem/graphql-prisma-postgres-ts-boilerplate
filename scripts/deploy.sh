@@ -70,7 +70,7 @@ done
 
 # Run migrations on all shards
 echo "📊 Running database migrations..."
-docker compose -f $COMPOSE_FILE exec -T app yarn migrate:shards || echo "Migration skipped or already up to date"
+docker compose -f $COMPOSE_FILE exec -T app yarn db:udpate || echo "Migration skipped or already up to date"
 
 # Replace old containers with new ones (scale down to desired count)
 echo "🔄 Rolling update to $REPLICAS instances..."
