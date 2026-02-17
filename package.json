@@ -8,10 +8,9 @@
     "start": "node dist/index.cjs",
     "build": "rimraf dist && yarn generate && node esbuild.config.js",
     "dev": "yarn generate && concurrently \"yarn db:studio\" \"nodemon --exec tsx --env-file=.env --no-warnings src/server.ts\"",
-    "generate": "graphql-codegen",
-    "db:sync": "prisma generate && prisma db push",
+    "db:update": "prisma-sharding-update",
     "db:studio": "prisma-sharding-studio",
-    "migrate:shards": "prisma-sharding-migrate",
+    "generate": "graphql-codegen",
     "test:shards": "prisma-sharding-test",
     "docker:dev": "docker compose up -d",
     "docker:dev:build": "docker compose up -d --build",
@@ -22,7 +21,7 @@
     "docker:prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
     "docker:prod:down": "docker compose -f docker-compose.prod.yml down",
     "docker:clean": "docker compose down -v --rmi local && docker compose -f docker-compose.prod.yml down -v --rmi local",
-    "docker:migrate": "docker compose exec app yarn migrate:shards",
+    "docker:migrate": "docker compose exec app yarn db:update",
     "docker:sh": "docker compose exec app sh",
     "test": "vitest run"
   },
@@ -76,7 +75,7 @@
     "mercurius": "^16.0.3",
     "nodemailer": "^7.0.13",
     "pg": "^8.18.0",
-    "prisma-sharding": "^0.0.4",
+    "prisma-sharding": "^0.0.5",
     "superjson": "^2.2.6"
   },
   "prettier": {
