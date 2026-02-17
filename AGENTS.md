@@ -6,15 +6,15 @@
 
 ## Quick Reference
 
-| Action                 | Command               |
-| ---------------------- | --------------------- |
-| Install dependencies   | `yarn install`        |
-| Start dev server       | `yarn dev`            |
-| Run tests              | `yarn test`           |
-| Build production       | `yarn build`          |
-| Start Docker dev       | `yarn docker:dev`     |
-| Run migrations         | `yarn migrate:shards` |
-| Generate GraphQL types | `yarn generate`       |
+| Action                 | Command           |
+| ---------------------- | ----------------- |
+| Install dependencies   | `yarn install`    |
+| Start dev server       | `yarn dev`        |
+| Run tests              | `yarn test`       |
+| Build production       | `yarn build`      |
+| Start Docker dev       | `yarn docker:dev` |
+| Run migrations         | `yarn db:update`  |
+| Generate GraphQL types | `yarn generate`   |
 
 ---
 
@@ -89,8 +89,8 @@ Each module in `src/modules/<name>` MUST contain:
 # 1. Start Docker containers (Postgres, Redis)
 yarn docker:dev
 
-# 2. Run database migrations
-yarn migrate:shards
+# 2. Run generates Prisma Client types and migrates all shards
+yarn db:update
 
 # 3. Start dev server (opens at http://localhost:4200/graphql)
 yarn dev
@@ -106,8 +106,8 @@ yarn install
 
 # 2. Configure .env (update REDIS_HOST=localhost, DATABASE_URL)
 
-# 3. Run migrations
-yarn migrate:shards
+# 3. Run generates Prisma Client types and migrates all shards
+yarn db:update
 
 # 4. Start dev server
 yarn dev
@@ -150,7 +150,7 @@ mkdir -p src/modules/<name>/graphql src/modules/<name>/resolvers
 # 4. Export from modules index
 # Edit src/modules/index.ts
 
-# 5. Generate types
+# 5. Generate Graphql types
 yarn generate
 ```
 
@@ -161,10 +161,16 @@ yarn generate
 # prisma/schema.prisma
 
 # 2. Apply to all shards
-yarn migrate:shards
+yarn db:update
+The "All-in-One" command. It generates Prisma Client types and migrates all shards. Use this whenever you change schema.prisma.
+Runs prisma generate (Updates TypeScript types)
+Runs prisma db push on all shards (Updates Databases)
+```
 
-# 3. Regenerate Prisma client
-yarn db:sync
+With Flags: You can pass flags like --force-reset if you need to wipe data due to schema conflicts.
+
+```bash
+yarn db:update --force-reset
 ```
 
 ### Running Tests
