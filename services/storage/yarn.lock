@@ -1856,7 +1856,7 @@ destr@^2.0.3:
   resolved "https://registry.yarnpkg.com/destr/-/destr-2.0.5.tgz#7d112ff1b925fb8d2079fac5bdb4a90973b51fdb"
   integrity sha512-ugFTXCtDZunbzasqBxrK93Ik/DRYsO6S/fedkWEMKqt04xZ4csmnmwGDBAb07QWNaGMAmnTIemsYZCksjATwsA==
 
-dotenv@^16.6.1:
+dotenv@^16.3.1, dotenv@^16.6.1:
   version "16.6.1"
   resolved "https://registry.yarnpkg.com/dotenv/-/dotenv-16.6.1.tgz#773f0e69527a8315c7285d5ee73c4459d20a8020"
   integrity sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==
@@ -2740,6 +2740,14 @@ prettier@^3.8.1:
   version "3.8.1"
   resolved "https://registry.yarnpkg.com/prettier/-/prettier-3.8.1.tgz#edf48977cf991558f4fcbd8a3ba6015ba2a3a173"
   integrity sha512-UOnG6LftzbdaHZcKoPFtOcCKztrQ57WkHDeRD9t/PTQtmT0NHSeWWepj6pS0z/N7+08BHFDQVUrfmfMRcZwbMg==
+
+prisma-sharding@^0.0.5:
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/prisma-sharding/-/prisma-sharding-0.0.5.tgz#13329fe08cad597c077f172f65c7eb17b374ab4b"
+  integrity sha512-7kqIXvpdVdtohKIsoHqT9WZgiv43KjwZmlw2iDuq8DGTbwUMHoboiwYrMQNUUWps8iA6rH8Du08hEdvJt9IpGA==
+  dependencies:
+    dotenv "^16.3.1"
+    pg "^8.18.0"
 
 prisma@^7.3.0:
   version "7.3.0"
