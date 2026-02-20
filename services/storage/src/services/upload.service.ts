@@ -1,6 +1,6 @@
 import { prisma } from '../config/prisma.js'
 import { getStorageProvider } from '../providers/index.js'
-import { generateStorageKey } from '../utils/path.util.js'
+import { generateStorageKey, sanitizeFolderName, buildFolderPath } from '../utils/path.util.js'
 import { SIGNED_URL_EXPIRY_SECONDS, STORAGE_TYPE, FILE_PROXY_MODE } from '../constants/index.js'
 import { resolveFileUrl } from './file.service.js'
 import type { File } from '../../generated/prisma/client.js'
@@ -10,6 +10,7 @@ interface CreateSignedUrlInput {
   mimeType: string
   size: number
   folderId?: string | null
+  folderName?: string | null
   isPublic?: boolean
   ownerId: string
 }
@@ -25,9 +26,10 @@ interface SignedUrlResponse {
 export const createSignedUploadUrl = async (
   input: CreateSignedUrlInput
 ): Promise<SignedUrlResponse> => {
-  const { filename, mimeType, size, folderId, isPublic = false, ownerId } = input
+  const { filename, mimeType, size, folderId, folderName, isPublic = false, ownerId } = input
 
   let folderPath: string | null = null
+  let actualFolderId: string | null = folderId || null
 
   if (folderId) {
     const folder = await prisma.folder.findUnique({
@@ -44,6 +46,27 @@ export const createSignedUploadUrl = async (
     }
 
     folderPath = folder.path
+  } else if (folderName) {
+    const sanitizedName = sanitizeFolderName(folderName)
+    if (sanitizedName) {
+      let folder = await prisma.folder.findFirst({
+        where: { name: sanitizedName, ownerId, parentId: null },
+      })
+
+      if (!folder) {
+        const newPath = buildFolderPath(null, sanitizedName)
+        folder = await prisma.folder.create({
+          data: {
+            name: sanitizedName,
+            path: newPath,
+            ownerId,
+            isPublic: false,
+          },
+        })
+      }
+      folderPath = folder.path
+      actualFolderId = folder.id
+    }
   }
 
   const storageKey = generateStorageKey(ownerId, folderPath, filename)
@@ -64,7 +87,7 @@ export const createSignedUploadUrl = async (
       storageKey,
       provider: STORAGE_TYPE,
       status: 'PENDING',
-      folderId,
+      folderId: actualFolderId,
       ownerId,
       isPublic,
       expiresAt: signedUrlResult.expiresAt,
