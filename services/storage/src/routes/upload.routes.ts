@@ -10,7 +10,7 @@ router.post(
   requireAuth,
   async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { filename, mimeType, size, folderId, isPublic } = req.body
+      const { filename, mimeType, size, folderId, folderName, isPublic } = req.body
       const ownerId = req.context.user!.id
 
       if (!filename || !mimeType || !size) {
@@ -26,6 +26,7 @@ router.post(
         mimeType,
         size,
         folderId,
+        folderName,
         isPublic,
         ownerId,
       })
