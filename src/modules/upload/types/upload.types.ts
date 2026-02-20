@@ -63,6 +63,7 @@ export interface RequestUploadInput {
   mimeType: string
   size: number
   folderId?: string | null
+  folderName?: string | null
   isPublic?: boolean
 }
 
