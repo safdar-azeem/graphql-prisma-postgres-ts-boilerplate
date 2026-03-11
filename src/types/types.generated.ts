@@ -100,7 +100,6 @@ export type FileStatus = 'DELETED' | 'FAILED' | 'PENDING' | 'UPLOADED'
 export type FilesFilterInput = {
   dateRange?: InputMaybe<DateRangeInput>
   folderId?: InputMaybe<Scalars['String']['input']>
-  search?: InputMaybe<Scalars['String']['input']>
   uploadedBy?: InputMaybe<Scalars['String']['input']>
 }
 
@@ -124,8 +123,8 @@ export type FolderConnection = {
 }
 
 export type FolderFilterInput = {
+  dateRange?: InputMaybe<DateRangeInput>
   parentId?: InputMaybe<Scalars['String']['input']>
-  search?: InputMaybe<Scalars['String']['input']>
 }
 
 export type Init2faResponse = {
@@ -356,13 +355,13 @@ export type Query = {
   __typename?: 'Query'
   getFile?: Maybe<File>
   getFileDownloadUrl: Scalars['String']['output']
-  getFileShareLinks: Array<ResourceShareLink>
+  getFileShareLinks: ResourceShareLinkConnection
   getFiles: FileConnection
   getFolder?: Maybe<Folder>
-  getFolderShareLinks: Array<ResourceShareLink>
+  getFolderShareLinks: ResourceShareLinkConnection
   getFolders: FolderConnection
   getRole: Role
-  getRoles: Array<Role>
+  getRoles: RoleConnection
   getUser: ManagedUser
   getUsers: ManagedUserConnection
   me?: Maybe<User>
@@ -378,11 +377,15 @@ export type QuerygetFileDownloadUrlArgs = {
 
 export type QuerygetFileShareLinksArgs = {
   fileId: Scalars['ID']['input']
+  filter?: InputMaybe<ShareLinkFilterInput>
+  pagination?: InputMaybe<PaginationInput>
+  search?: InputMaybe<Scalars['String']['input']>
 }
 
 export type QuerygetFilesArgs = {
   filter?: InputMaybe<FilesFilterInput>
   pagination?: InputMaybe<PaginationInput>
+  search?: InputMaybe<Scalars['String']['input']>
 }
 
 export type QuerygetFolderArgs = {
@@ -390,16 +393,26 @@ export type QuerygetFolderArgs = {
 }
 
 export type QuerygetFolderShareLinksArgs = {
+  filter?: InputMaybe<ShareLinkFilterInput>
   folderId: Scalars['ID']['input']
+  pagination?: InputMaybe<PaginationInput>
+  search?: InputMaybe<Scalars['String']['input']>
 }
 
 export type QuerygetFoldersArgs = {
   filter?: InputMaybe<FolderFilterInput>
   pagination?: InputMaybe<PaginationInput>
+  search?: InputMaybe<Scalars['String']['input']>
 }
 
 export type QuerygetRoleArgs = {
   id: Scalars['ID']['input']
+}
+
+export type QuerygetRolesArgs = {
+  filter?: InputMaybe<RoleFilterInput>
+  pagination?: InputMaybe<PaginationInput>
+  search?: InputMaybe<Scalars['String']['input']>
 }
 
 export type QuerygetUserArgs = {
@@ -409,6 +422,7 @@ export type QuerygetUserArgs = {
 export type QuerygetUsersArgs = {
   filter?: InputMaybe<UsersFilterInput>
   pagination?: InputMaybe<PaginationInput>
+  search?: InputMaybe<Scalars['String']['input']>
 }
 
 export type RequestUploadInput = {
@@ -431,6 +445,12 @@ export type ResourceShareLink = {
   url: Scalars['String']['output']
 }
 
+export type ResourceShareLinkConnection = {
+  __typename?: 'ResourceShareLinkConnection'
+  items: Array<ResourceShareLink>
+  pageInfo: PaginationInfo
+}
+
 export type Role = {
   __typename?: 'Role'
   createdAt: Scalars['DateTime']['output']
@@ -439,6 +459,20 @@ export type Role = {
   ownerId: Scalars['String']['output']
   permissions: Array<Permissions>
   updatedAt: Scalars['DateTime']['output']
+}
+
+export type RoleConnection = {
+  __typename?: 'RoleConnection'
+  items: Array<Role>
+  pageInfo: PaginationInfo
+}
+
+export type RoleFilterInput = {
+  dateRange?: InputMaybe<DateRangeInput>
+}
+
+export type ShareLinkFilterInput = {
+  dateRange?: InputMaybe<DateRangeInput>
 }
 
 export type ShareLinkInput = {
@@ -497,7 +531,7 @@ export type User = {
 export type UserType = 'CUSTOMER' | 'EMPLOYEE' | 'OWNER' | 'SUPPLIER'
 
 export type UsersFilterInput = {
-  search?: InputMaybe<Scalars['String']['input']>
+  dateRange?: InputMaybe<DateRangeInput>
   userType?: InputMaybe<UserType>
 }
 
@@ -660,9 +694,15 @@ export type ResolversTypes = {
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>
   RequestUploadInput: RequestUploadInput
   ResourceShareLink: ResolverTypeWrapper<ResourceShareLink>
+  ResourceShareLinkConnection: ResolverTypeWrapper<ResourceShareLinkConnection>
   Role: ResolverTypeWrapper<
     Omit<Role, 'permissions'> & { permissions: Array<ResolversTypes['Permissions']> }
   >
+  RoleConnection: ResolverTypeWrapper<
+    Omit<RoleConnection, 'items'> & { items: Array<ResolversTypes['Role']> }
+  >
+  RoleFilterInput: RoleFilterInput
+  ShareLinkFilterInput: ShareLinkFilterInput
   ShareLinkInput: ShareLinkInput
   SignedUploadUrl: ResolverTypeWrapper<SignedUploadUrl>
   SignupInput: SignupInput
@@ -724,7 +764,11 @@ export type ResolversParentTypes = {
   Query: Record<PropertyKey, never>
   RequestUploadInput: RequestUploadInput
   ResourceShareLink: ResourceShareLink
+  ResourceShareLinkConnection: ResourceShareLinkConnection
   Role: Role
+  RoleConnection: Omit<RoleConnection, 'items'> & { items: Array<ResolversParentTypes['Role']> }
+  RoleFilterInput: RoleFilterInput
+  ShareLinkFilterInput: ShareLinkFilterInput
   ShareLinkInput: ShareLinkInput
   SignedUploadUrl: SignedUploadUrl
   SignupInput: SignupInput
@@ -1105,7 +1149,7 @@ export type QueryResolvers<
     RequireFields<QuerygetFileDownloadUrlArgs, 'id'>
   >
   getFileShareLinks?: Resolver<
-    Array<ResolversTypes['ResourceShareLink']>,
+    ResolversTypes['ResourceShareLinkConnection'],
     ParentType,
     ContextType,
     RequireFields<QuerygetFileShareLinksArgs, 'fileId'>
@@ -1123,7 +1167,7 @@ export type QueryResolvers<
     RequireFields<QuerygetFolderArgs, 'id'>
   >
   getFolderShareLinks?: Resolver<
-    Array<ResolversTypes['ResourceShareLink']>,
+    ResolversTypes['ResourceShareLinkConnection'],
     ParentType,
     ContextType,
     RequireFields<QuerygetFolderShareLinksArgs, 'folderId'>
@@ -1140,7 +1184,12 @@ export type QueryResolvers<
     ContextType,
     RequireFields<QuerygetRoleArgs, 'id'>
   >
-  getRoles?: Resolver<Array<ResolversTypes['Role']>, ParentType, ContextType>
+  getRoles?: Resolver<
+    ResolversTypes['RoleConnection'],
+    ParentType,
+    ContextType,
+    Partial<QuerygetRolesArgs>
+  >
   getUser?: Resolver<
     ResolversTypes['ManagedUser'],
     ParentType,
@@ -1170,6 +1219,15 @@ export type ResourceShareLinkResolvers<
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>
 }
 
+export type ResourceShareLinkConnectionResolvers<
+  ContextType = any,
+  ParentType extends ResolversParentTypes['ResourceShareLinkConnection'] =
+    ResolversParentTypes['ResourceShareLinkConnection'],
+> = {
+  items?: Resolver<Array<ResolversTypes['ResourceShareLink']>, ParentType, ContextType>
+  pageInfo?: Resolver<ResolversTypes['PaginationInfo'], ParentType, ContextType>
+}
+
 export type RoleResolvers<
   ContextType = any,
   ParentType extends ResolversParentTypes['Role'] = ResolversParentTypes['Role'],
@@ -1180,6 +1238,15 @@ export type RoleResolvers<
   ownerId?: Resolver<ResolversTypes['String'], ParentType, ContextType>
   permissions?: Resolver<Array<ResolversTypes['Permissions']>, ParentType, ContextType>
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
+}
+
+export type RoleConnectionResolvers<
+  ContextType = any,
+  ParentType extends ResolversParentTypes['RoleConnection'] =
+    ResolversParentTypes['RoleConnection'],
+> = {
+  items?: Resolver<Array<ResolversTypes['Role']>, ParentType, ContextType>
+  pageInfo?: Resolver<ResolversTypes['PaginationInfo'], ParentType, ContextType>
 }
 
 export type SignedUploadUrlResolvers<
@@ -1244,7 +1311,9 @@ export type Resolvers<ContextType = any> = {
   Permissions?: PermissionsResolvers
   Query?: QueryResolvers<ContextType>
   ResourceShareLink?: ResourceShareLinkResolvers<ContextType>
+  ResourceShareLinkConnection?: ResourceShareLinkConnectionResolvers<ContextType>
   Role?: RoleResolvers<ContextType>
+  RoleConnection?: RoleConnectionResolvers<ContextType>
   SignedUploadUrl?: SignedUploadUrlResolvers<ContextType>
   TwoFactorMethod?: TwoFactorMethodResolvers
   Upload?: GraphQLScalarType
