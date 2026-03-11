@@ -1,20 +1,22 @@
 import { prisma } from '../config/prisma.js'
 import { getStorageProvider } from '../providers/index.js'
 import { PORT, FILE_PROXY_MODE } from '../constants/index.js'
+import { getPagination, getPageInfo, getDateRangeFilter } from '../utils/query.util.js'
 import type { File, Prisma } from '../../generated/prisma/client.js'
 import type { Readable } from 'stream'
 
 interface FilesFilterInput {
-  search?: string | null
   uploadedBy?: string | null
   folderId?: string | null
-  dateFrom?: Date | null
-  dateTo?: Date | null
+  dateRange?: {
+    from?: Date | null
+    to?: Date | null
+  } | null
 }
 
 interface PaginationInput {
-  page?: number
-  limit?: number
+  page?: number | null
+  limit?: number | null
 }
 
 interface PaginationInfo {
@@ -32,39 +34,29 @@ interface FileWithUrl extends File {
   url: string | null
 }
 
-// --- URL Generation Logic ---
-
-// 1. Masked/Proxy URL Generator (Clean URLs with no query parameters)
 const getProxyUrl = (file: File): string => {
   const baseUrl = process.env.STORAGE_PUBLIC_URL || `http://localhost:${PORT}`
   return `${baseUrl}/api/files/${file.id}/content`
 }
 
-// 2. Main Resolution Strategy
 export const resolveFileUrl = async (file: File): Promise<string> => {
-  // Option A: Masked Mode (Proxy through API)
   if (FILE_PROXY_MODE) {
     return getProxyUrl(file)
   }
 
-  // Option B: Direct Mode (Direct Provider URL)
   const provider = getStorageProvider()
 
-  // B1. If Public, return the public CDN/Bucket URL
   if (file.isPublic) {
     return provider.getPublicUrl(file.storageKey)
   }
 
-  // B2. If Private, generate a direct Signed URL (Time-limited)
   const { signedUrl } = await provider.generateSignedDownloadUrl({
     key: file.storageKey,
-    expiresInSeconds: 3600, // 1 hour link
+    expiresInSeconds: 3600,
   })
 
   return signedUrl
 }
-
-// --- Service Methods ---
 
 export const getFileById = async (id: string, ownerId: string): Promise<FileWithUrl | null> => {
   const file = await prisma.file.findUnique({
@@ -73,25 +65,21 @@ export const getFileById = async (id: string, ownerId: string): Promise<FileWith
 
   if (!file) return null
 
-  // Authorization check (SEC-1: enforce access control)
   if (!file.isPublic && file.ownerId !== ownerId) {
     throw Object.assign(new Error('Access denied'), { statusCode: 403 })
   }
 
-  // Resolve URL dynamically based on ENV configuration
   const url = await resolveFileUrl(file)
-
   return { ...file, url }
 }
 
 export const getFiles = async (
   ownerId: string,
-  filter?: FilesFilterInput,
-  pagination?: PaginationInput
+  pagination?: PaginationInput | null,
+  search?: string | null,
+  filter?: FilesFilterInput | null
 ): Promise<FilesResponse> => {
-  const page = pagination?.page ?? 1
-  const limit = Math.min(pagination?.limit ?? 10, 100)
-  const skip = (page - 1) * limit
+  const { page, limit, skip } = getPagination(pagination)
 
   const where: Prisma.FileWhereInput = {
     status: 'UPLOADED',
@@ -103,25 +91,25 @@ export const getFiles = async (
     where.ownerId = ownerId
   }
 
+  // Defensive programming: 
+  // If folderId is explicitly passed, use it.
+  // Else if we are NOT searching globally, default to fetching root files (folderId = null).
   if (filter?.folderId !== undefined) {
     where.folderId = filter.folderId
+  } else if (!search) {
+    where.folderId = null
   }
 
-  if (filter?.search) {
+  if (search) {
     where.originalName = {
-      contains: filter.search,
+      contains: search,
       mode: 'insensitive',
     }
   }
 
-  if (filter?.dateFrom || filter?.dateTo) {
-    where.createdAt = {}
-    if (filter.dateFrom) {
-      where.createdAt.gte = filter.dateFrom
-    }
-    if (filter.dateTo) {
-      where.createdAt.lte = filter.dateTo
-    }
+  const dateFilter = getDateRangeFilter(filter?.dateRange)
+  if (dateFilter) {
+    where.createdAt = dateFilter
   }
 
   const [items, totalItems] = await Promise.all([
@@ -141,15 +129,9 @@ export const getFiles = async (
     }))
   )
 
-  const totalPages = Math.ceil(totalItems / limit)
-
   return {
     items: itemsWithUrl,
-    pageInfo: {
-      currentPage: page,
-      totalPages,
-      totalItems,
-    },
+    pageInfo: getPageInfo(totalItems, limit, page),
   }
 }
 
@@ -162,7 +144,6 @@ export const getFileDownloadUrl = async (id: string, ownerId: string): Promise<s
     throw Object.assign(new Error('File not found'), { statusCode: 404 })
   }
 
-  // Authorization check (SEC-7: enforce ownership for download URLs)
   if (!file.isPublic && file.ownerId !== ownerId) {
     throw Object.assign(new Error('Access denied'), { statusCode: 403 })
   }
@@ -214,7 +195,6 @@ export const deleteFiles = async (ids: string[], ownerId: string): Promise<strin
 
   const provider = getStorageProvider()
 
-  // ARCH-5: Log failed storage deletions instead of silently swallowing
   const deletionErrors: { fileId: string; storageKey: string; error: string }[] = []
   await Promise.all(
     files.map(async (file) => {
