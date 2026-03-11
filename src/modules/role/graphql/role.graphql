@@ -7,6 +7,15 @@ type Role {
   updatedAt: DateTime!
 }
 
+type RoleConnection {
+  items: [Role!]!
+  pageInfo: PaginationInfo!
+}
+
+input RoleFilterInput {
+  dateRange: DateRangeInput
+}
+
 input CreateRoleInput {
   name: String!
   permissions: [Permissions!]!
@@ -18,7 +27,7 @@ input UpdateRoleInput {
 }
 
 extend type Query {
-  getRoles: [Role!]!
+  getRoles(pagination: PaginationInput, search: String, filter: RoleFilterInput): RoleConnection!
   getRole(id: ID!): Role!
 }
 
