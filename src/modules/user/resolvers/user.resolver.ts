@@ -1,4 +1,3 @@
-import { Permission } from '@prisma/client'
 import { requireAuth } from '@/guards'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
@@ -6,22 +5,11 @@ import { cache } from '@/cache'
 
 export const userResolver: Resolvers<Context> = {
   Query: {
-    me: requireAuth(async (_parent, _args, { user, client }) => {
-      const fullUser = await client.user.findUnique({
-        where: { id: user.id },
-        include: { roles: true },
-      })
-
-      if (!fullUser) throw new Error('User not found')
-
-      const rolePermissions = fullUser.roles?.flatMap((r: any) => r.permissions as Permission[]) || []
-      const mergedPermissions: Permission[] = Array.from(
-        new Set([...rolePermissions, ...(fullUser.customPermissions as Permission[])])
-      )
-
+    // permissions are already computed in context by auth middleware — no extra DB fetch needed
+    me: requireAuth(async (_parent, _args, { user, permissions }) => {
       return {
-        ...fullUser,
-        permissions: mergedPermissions,
+        ...user,
+        permissions,
       } as any
     }),
   },
