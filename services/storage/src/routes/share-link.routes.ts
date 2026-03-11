@@ -59,15 +59,28 @@ router.get(
     try {
       const { fileId } = req.params
       const ownerId = req.context.user!.id
+      const { page, limit, search, dateFrom, dateTo } = req.query
 
-      const shareLinks = await getFileShareLinks(fileId, ownerId)
+      const pagination = {
+        page: page ? parseInt(page as string) : 1,
+        limit: limit ? parseInt(limit as string) : 10,
+      }
 
-      const linksWithUrls = shareLinks.map((link) => ({
+      const filter = {
+        dateRange: {
+          from: dateFrom ? new Date(dateFrom as string) : null,
+          to: dateTo ? new Date(dateTo as string) : null,
+        }
+      }
+
+      const result = await getFileShareLinks(fileId, ownerId, pagination, search as string, filter)
+
+      const linksWithUrls = result.items.map((link) => ({
         ...link,
         url: getShareUrl(link.token),
       }))
 
-      sendSuccess(res, linksWithUrls)
+      sendSuccess(res, { items: linksWithUrls, pageInfo: result.pageInfo })
     } catch (error) {
       next(error)
     }
@@ -81,15 +94,28 @@ router.get(
     try {
       const { folderId } = req.params
       const ownerId = req.context.user!.id
+      const { page, limit, search, dateFrom, dateTo } = req.query
 
-      const shareLinks = await getFolderShareLinks(folderId, ownerId)
+      const pagination = {
+        page: page ? parseInt(page as string) : 1,
+        limit: limit ? parseInt(limit as string) : 10,
+      }
 
-      const linksWithUrls = shareLinks.map((link) => ({
+      const filter = {
+        dateRange: {
+          from: dateFrom ? new Date(dateFrom as string) : null,
+          to: dateTo ? new Date(dateTo as string) : null,
+        }
+      }
+
+      const result = await getFolderShareLinks(folderId, ownerId, pagination, search as string, filter)
+
+      const linksWithUrls = result.items.map((link) => ({
         ...link,
         url: getShareUrl(link.token),
       }))
 
-      sendSuccess(res, linksWithUrls)
+      sendSuccess(res, { items: linksWithUrls, pageInfo: result.pageInfo })
     } catch (error) {
       next(error)
     }
