@@ -91,7 +91,7 @@ The `FILE_PROXY_MODE` setting controls how file URLs are returned to the client:
 
 #### Option A: Masked Mode (`true`) - Default
 
-- **Behavior:** Returns a URL pointing to this storage service (e.g., `http://api.builto.com/api/files/:id/content?token=...`).
+- **Behavior:** Returns a URL pointing to this storage service (e.g., `http://api.yourdomain.com/api/files/:id/content?token=...`).
 - **Token:** A short-lived JWT (default: 15 minutes, configurable via `PROXY_TOKEN_EXPIRY`) signed with the service's JWT secret. Encodes `fileId`, `ownerId`, and `type: file_view`.
 - **Caching:** Proxy URLs are cached in-memory to avoid redundant JWT signing. Responses include `ETag` headers, supporting `304 Not Modified` for conditional requests.
 - **Security:** `storageKey` and `publicUrl` are stripped from API responses to prevent bucket path leakage.
