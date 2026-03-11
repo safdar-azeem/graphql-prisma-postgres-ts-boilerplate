@@ -18,18 +18,26 @@ describe('Role Resolver', () => {
   })
 
   describe('Query.getRoles', () => {
-    it('should return roles for owner', async () => {
+    it('should return paginated roles for owner', async () => {
       const mockRoles = [
         { id: 'r1', name: 'Admin', ownerId: 'owner-1', permissions: [Permission.USER_VIEW] },
       ]
       mockContext.client.role.findMany.mockResolvedValue(mockRoles as any)
+      mockContext.client.role.count.mockResolvedValue(1)
 
-      const result = await (roleResolver.Query?.getRoles as any)({}, {}, mockContext, {})
+      const result = await (roleResolver.Query?.getRoles as any)(
+        {},
+        { pagination: { page: 1, limit: 10 } },
+        mockContext,
+        {}
+      )
 
       expect(mockContext.client.role.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { ownerId: 'owner-1' } })
+        expect.objectContaining({ where: expect.objectContaining({ ownerId: 'owner-1' }) })
       )
-      expect(result).toEqual(mockRoles)
+      expect(result.items).toEqual(mockRoles)
+      expect(result.pageInfo.totalItems).toBe(1)
+      expect(result.pageInfo.totalPages).toBe(1)
     })
   })
 
