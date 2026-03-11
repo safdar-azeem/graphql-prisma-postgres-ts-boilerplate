@@ -39,7 +39,6 @@ router.get(
       const user = req.context.user!
       const { page, limit, search, uploadedBy, folderId, dateFrom, dateTo } = req.query
 
-      // 1. Determine Target Owner
       let targetOwnerId = user.id
       if (user.role === 'ADMIN' && uploadedBy) {
         targetOwnerId = uploadedBy
@@ -53,11 +52,12 @@ router.get(
       }
 
       const filter = {
-        search: search || null,
         uploadedBy: user.role === 'ADMIN' ? uploadedBy || null : user.id,
         folderId: parsedFolderId,
-        dateFrom: dateFrom ? new Date(dateFrom) : null,
-        dateTo: dateTo ? new Date(dateTo) : null,
+        dateRange: {
+          from: dateFrom ? new Date(dateFrom) : null,
+          to: dateTo ? new Date(dateTo) : null,
+        }
       }
 
       const pagination = {
@@ -65,7 +65,7 @@ router.get(
         limit: limit ? Math.min(parseInt(limit), 100) : 10,
       }
 
-      const result = await getFiles(targetOwnerId, filter, pagination)
+      const result = await getFiles(targetOwnerId, pagination, search as string, filter)
       sendSuccess(res, result)
     } catch (error) {
       next(error)
@@ -114,7 +114,6 @@ router.get(
   }
 )
 
-// PROXY CONTENT ROUTE
 router.get(
   '/:id/content',
   async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
@@ -127,17 +126,12 @@ router.get(
         return
       }
 
-      // SEC-1: ALWAYS require authentication for the proxy content endpoint.
-      // The isPublic flag only controls cache headers and direct URL mode,
-      // NOT whether the proxy requires login. This prevents unauthenticated
-      // access to file content via the masked URL.
       if (!req.context?.isAuthenticated || !req.context?.user) {
         res.setHeader('Cache-Control', 'no-store')
         res.status(401).send('Authentication required')
         return
       }
 
-      // Enforce Ownership or Admin role (non-public files only)
       if (
         !file.isPublic &&
         file.ownerId !== req.context.user.id &&
@@ -160,9 +154,6 @@ router.get(
 
       res.setHeader('Content-Type', mimeType)
 
-      // SEC-1: Cache-Control based on file visibility
-      // Private files: never cache — prevents access after logout
-      // Public files: short cache with revalidation
       if (!file.isPublic) {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private')
         res.setHeader('Pragma', 'no-cache')
@@ -172,8 +163,6 @@ router.get(
 
       res.setHeader('ETag', etag)
       res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(filename)}"`)
-
-      // SEC-3: Security headers for proxied content
       res.setHeader('X-Content-Type-Options', 'nosniff')
       res.setHeader('X-Frame-Options', 'DENY')
       res.setHeader('Referrer-Policy', 'no-referrer')
