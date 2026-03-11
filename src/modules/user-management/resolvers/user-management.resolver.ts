@@ -5,15 +5,14 @@ import { Resolvers } from '@/types/types.generated'
 import { NotFoundError, ValidationError } from '@/errors'
 import { hashPassword } from '@/modules/auth/utils/auth.utils'
 import { cache } from '@/cache'
+import { getPagination, getPageInfo, getDateRangeFilter } from '@/utils/query.util'
 
 export const userManagementResolver: Resolvers<Context> = {
   Query: {
     getUsers: Protect(
       [Permission.USER_VIEW],
-      async (_parent, { filter, pagination }, { ownerId, client }) => {
-        const page = pagination?.page ?? 1
-        const limit = pagination?.limit ?? 10
-        const skip = (page - 1) * limit
+      async (_parent, { pagination, search, filter }, { ownerId, client }) => {
+        const { page, limit, skip } = getPagination(pagination)
 
         const where: any = {
           ownerId,
@@ -21,12 +20,15 @@ export const userManagementResolver: Resolvers<Context> = {
         }
 
         if (filter?.userType) where.userType = filter.userType as UserType
-        if (filter?.search) {
+        if (search) {
           where.OR = [
-            { username: { contains: filter.search, mode: 'insensitive' } },
-            { email: { contains: filter.search, mode: 'insensitive' } },
+            { username: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
           ]
         }
+
+        const dateFilter = getDateRangeFilter(filter?.dateRange)
+        if (dateFilter) where.createdAt = dateFilter
 
         const [items, totalItems] = await Promise.all([
           client.user.findMany({
@@ -41,11 +43,7 @@ export const userManagementResolver: Resolvers<Context> = {
 
         return {
           items: items as any,
-          pageInfo: {
-            totalItems,
-            totalPages: Math.ceil(totalItems / limit),
-            currentPage: page,
-          },
+          pageInfo: getPageInfo(totalItems, limit, page),
         }
       }
     ),
@@ -81,7 +79,7 @@ export const userManagementResolver: Resolvers<Context> = {
         const roleConnect: { id: string }[] = []
         if (data.roleIds && data.roleIds.length > 0) {
           const roles = await client.role.findMany({
-            where: { id: { in: data.roleIds }, ownerId },
+            where: { id: { in: data.roleIds as string[] }, ownerId },
           })
           if (roles.length !== data.roleIds.length) {
             throw new ValidationError('One or more role IDs are invalid')
@@ -123,10 +121,10 @@ export const userManagementResolver: Resolvers<Context> = {
         if (!target) throw new NotFoundError('User not found')
 
         let rolesUpdate: any = undefined
-        if (data.roleIds !== undefined) {
+        if (data.roleIds !== undefined && data.roleIds !== null) {
           if (data.roleIds.length > 0) {
             const roles = await client.role.findMany({
-              where: { id: { in: data.roleIds }, ownerId },
+              where: { id: { in: data.roleIds as string[] }, ownerId },
             })
             if (roles.length !== data.roleIds.length) {
               throw new ValidationError('One or more role IDs are invalid')
@@ -136,7 +134,7 @@ export const userManagementResolver: Resolvers<Context> = {
         }
 
         // Validate customPermissions are valid enum values
-        if (data.customPermissions !== undefined) {
+        if (data.customPermissions !== undefined && data.customPermissions !== null) {
           const validPermissions = Object.values(Permission)
           const invalidPerms = data.customPermissions.filter(
             (p: string) => !validPermissions.includes(p as Permission)
@@ -149,9 +147,9 @@ export const userManagementResolver: Resolvers<Context> = {
         const updated = await client.user.update({
           where: { id },
           data: {
-            ...(data.username !== undefined && { username: data.username }),
-            ...(data.avatar !== undefined && { avatar: data.avatar }),
-            ...(data.customPermissions !== undefined && {
+            ...(data.username !== undefined && data.username !== null && { username: data.username }),
+            ...(data.avatar !== undefined && data.avatar !== null && { avatar: data.avatar }),
+            ...(data.customPermissions !== undefined && data.customPermissions !== null && {
               customPermissions: data.customPermissions as Permission[],
             }),
             ...(rolesUpdate && { roles: rolesUpdate }),
@@ -184,7 +182,7 @@ export const userManagementResolver: Resolvers<Context> = {
         if (!target) throw new NotFoundError('User not found')
 
         const roles = await client.role.findMany({
-          where: { id: { in: roleIds }, ownerId },
+          where: { id: { in: roleIds as string[] }, ownerId },
         })
         if (roles.length !== roleIds.length) {
           throw new ValidationError('One or more role IDs are invalid')
