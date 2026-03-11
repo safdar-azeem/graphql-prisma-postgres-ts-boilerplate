@@ -1,0 +1,59 @@
+# Must stay in sync with Prisma UserType enum in prisma/schema/enums.prisma
+enum UserType {
+  OWNER
+  EMPLOYEE
+  CUSTOMER
+  SUPPLIER
+}
+
+type ManagedUser {
+  id: ID!
+  email: String!
+  username: String!
+  avatar: String
+  userType: UserType!
+  ownerId: String
+  roles: [Role!]!
+  customPermissions: [String!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type ManagedUserConnection {
+  items: [ManagedUser!]!
+  pageInfo: PaginationInfo!
+}
+
+input CreateUserInput {
+  email: String!
+  username: String!
+  password: String!
+  userType: UserType!
+  roleIds: [ID!]
+  customPermissions: [Permissions!]
+}
+
+input UpdateUserInput {
+  username: String
+  avatar: String
+  roleIds: [ID!]
+  customPermissions: [Permissions!]
+}
+
+input UsersFilterInput {
+  userType: UserType
+  search: String
+}
+
+extend type Query {
+  getUsers(filter: UsersFilterInput, pagination: PaginationInput): ManagedUserConnection!
+  getUser(id: ID!): ManagedUser!
+}
+
+extend type Mutation {
+  createUser(data: CreateUserInput!): ManagedUser!
+  updateUser(id: ID!, data: UpdateUserInput!): ManagedUser!
+  deleteUser(id: ID!): Boolean!
+  assignRolesToUser(userId: ID!, roleIds: [ID!]!): ManagedUser!
+  removeRolesFromUser(userId: ID!, roleIds: [ID!]!): ManagedUser!
+}
