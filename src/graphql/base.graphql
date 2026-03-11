@@ -37,8 +37,14 @@ type AttachmentFile {
   fileSize: Float
 }
 
+# Must stay in sync with Prisma Permission enum in prisma/schema/enums.prisma
 enum Permissions {
-  READ
-  WRITE
-  DELETE
+  USER_VIEW
+  USER_CREATE
+  USER_UPDATE
+  USER_DELETE
+  ROLE_VIEW
+  ROLE_CREATE
+  ROLE_UPDATE
+  ROLE_DELETE
 }
