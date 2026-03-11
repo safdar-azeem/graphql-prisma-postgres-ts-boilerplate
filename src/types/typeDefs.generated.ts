@@ -9,16 +9,29 @@ export const typeDefs = {
         {
           kind: 'FieldDefinition',
           name: { kind: 'Name', value: 'getRoles' },
-          arguments: [],
+          arguments: [
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'pagination' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInput' } },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'search' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'filter' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'RoleFilterInput' } },
+              directives: [],
+            },
+          ],
           type: {
             kind: 'NonNullType',
-            type: {
-              kind: 'ListType',
-              type: {
-                kind: 'NonNullType',
-                type: { kind: 'NamedType', name: { kind: 'Name', value: 'Role' } },
-              },
-            },
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'RoleConnection' } },
           },
           directives: [],
         },
@@ -65,14 +78,20 @@ export const typeDefs = {
           arguments: [
             {
               kind: 'InputValueDefinition',
-              name: { kind: 'Name', value: 'filter' },
-              type: { kind: 'NamedType', name: { kind: 'Name', value: 'FilesFilterInput' } },
+              name: { kind: 'Name', value: 'pagination' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInput' } },
               directives: [],
             },
             {
               kind: 'InputValueDefinition',
-              name: { kind: 'Name', value: 'pagination' },
-              type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInput' } },
+              name: { kind: 'Name', value: 'search' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'filter' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'FilesFilterInput' } },
               directives: [],
             },
           ],
@@ -105,14 +124,20 @@ export const typeDefs = {
           arguments: [
             {
               kind: 'InputValueDefinition',
-              name: { kind: 'Name', value: 'filter' },
-              type: { kind: 'NamedType', name: { kind: 'Name', value: 'FolderFilterInput' } },
+              name: { kind: 'Name', value: 'pagination' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInput' } },
               directives: [],
             },
             {
               kind: 'InputValueDefinition',
-              name: { kind: 'Name', value: 'pagination' },
-              type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInput' } },
+              name: { kind: 'Name', value: 'search' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'filter' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'FolderFilterInput' } },
               directives: [],
             },
           ],
@@ -155,15 +180,30 @@ export const typeDefs = {
               },
               directives: [],
             },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'pagination' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInput' } },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'search' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'filter' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'ShareLinkFilterInput' } },
+              directives: [],
+            },
           ],
           type: {
             kind: 'NonNullType',
             type: {
-              kind: 'ListType',
-              type: {
-                kind: 'NonNullType',
-                type: { kind: 'NamedType', name: { kind: 'Name', value: 'ResourceShareLink' } },
-              },
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'ResourceShareLinkConnection' },
             },
           },
           directives: [],
@@ -181,15 +221,30 @@ export const typeDefs = {
               },
               directives: [],
             },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'pagination' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInput' } },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'search' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'filter' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'ShareLinkFilterInput' } },
+              directives: [],
+            },
           ],
           type: {
             kind: 'NonNullType',
             type: {
-              kind: 'ListType',
-              type: {
-                kind: 'NonNullType',
-                type: { kind: 'NamedType', name: { kind: 'Name', value: 'ResourceShareLink' } },
-              },
+              kind: 'NamedType',
+              name: { kind: 'Name', value: 'ResourceShareLinkConnection' },
             },
           },
           directives: [],
@@ -200,14 +255,20 @@ export const typeDefs = {
           arguments: [
             {
               kind: 'InputValueDefinition',
-              name: { kind: 'Name', value: 'filter' },
-              type: { kind: 'NamedType', name: { kind: 'Name', value: 'UsersFilterInput' } },
+              name: { kind: 'Name', value: 'pagination' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInput' } },
               directives: [],
             },
             {
               kind: 'InputValueDefinition',
-              name: { kind: 'Name', value: 'pagination' },
-              type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInput' } },
+              name: { kind: 'Name', value: 'search' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'filter' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'UsersFilterInput' } },
               directives: [],
             },
           ],
@@ -1393,6 +1454,53 @@ export const typeDefs = {
       ],
     },
     {
+      kind: 'ObjectTypeDefinition',
+      name: { kind: 'Name', value: 'RoleConnection' },
+      interfaces: [],
+      directives: [],
+      fields: [
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'items' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'ListType',
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'Role' } },
+              },
+            },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'pageInfo' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInfo' } },
+          },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'RoleFilterInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'dateRange' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateRangeInput' } },
+          directives: [],
+        },
+      ],
+    },
+    {
       kind: 'InputObjectTypeDefinition',
       name: { kind: 'Name', value: 'CreateRoleInput' },
       directives: [],
@@ -1871,6 +1979,40 @@ export const typeDefs = {
       ],
     },
     {
+      kind: 'ObjectTypeDefinition',
+      name: { kind: 'Name', value: 'ResourceShareLinkConnection' },
+      interfaces: [],
+      directives: [],
+      fields: [
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'items' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: {
+              kind: 'ListType',
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'ResourceShareLink' } },
+              },
+            },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'pageInfo' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'PaginationInfo' } },
+          },
+          directives: [],
+        },
+      ],
+    },
+    {
       kind: 'InputObjectTypeDefinition',
       name: { kind: 'Name', value: 'RequestUploadInput' },
       directives: [],
@@ -1957,12 +2099,6 @@ export const typeDefs = {
       fields: [
         {
           kind: 'InputValueDefinition',
-          name: { kind: 'Name', value: 'search' },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
-          directives: [],
-        },
-        {
-          kind: 'InputValueDefinition',
           name: { kind: 'Name', value: 'uploadedBy' },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
           directives: [],
@@ -1988,14 +2124,27 @@ export const typeDefs = {
       fields: [
         {
           kind: 'InputValueDefinition',
-          name: { kind: 'Name', value: 'search' },
+          name: { kind: 'Name', value: 'parentId' },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
           directives: [],
         },
         {
           kind: 'InputValueDefinition',
-          name: { kind: 'Name', value: 'parentId' },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          name: { kind: 'Name', value: 'dateRange' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateRangeInput' } },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'ShareLinkFilterInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'dateRange' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateRangeInput' } },
           directives: [],
         },
       ],
@@ -2307,8 +2456,8 @@ export const typeDefs = {
         },
         {
           kind: 'InputValueDefinition',
-          name: { kind: 'Name', value: 'search' },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          name: { kind: 'Name', value: 'dateRange' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateRangeInput' } },
           directives: [],
         },
       ],
