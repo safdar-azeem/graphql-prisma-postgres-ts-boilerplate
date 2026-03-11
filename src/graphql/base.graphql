@@ -6,3 +6,39 @@ scalar JSON
 scalar Upload
 scalar ObjectId
 scalar DateTime
+
+type PaginationInfo {
+  currentPage: Int!
+  totalPages: Int!
+  totalItems: Int!
+}
+
+input PaginationInput {
+  page: Int = 1
+  limit: Int = 10
+}
+
+input DateRangeInput {
+  from: DateTime
+  to: DateTime
+}
+
+input AttachmentInput {
+  fileName: String!
+  fileUrl: String!
+  fileType: String!
+  fileSize: Float
+}
+
+type AttachmentFile {
+  fileName: String
+  fileUrl: String
+  fileType: String
+  fileSize: Float
+}
+
+enum Permissions {
+  READ
+  WRITE
+  DELETE
+}
