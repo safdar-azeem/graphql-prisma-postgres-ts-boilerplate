@@ -27,6 +27,21 @@ export type Scalars = {
   Upload: { input: any; output: any }
 }
 
+export type AttachmentFile = {
+  __typename?: 'AttachmentFile'
+  fileName?: Maybe<Scalars['String']['output']>
+  fileSize?: Maybe<Scalars['Float']['output']>
+  fileType?: Maybe<Scalars['String']['output']>
+  fileUrl?: Maybe<Scalars['String']['output']>
+}
+
+export type AttachmentInput = {
+  fileName: Scalars['String']['input']
+  fileSize?: InputMaybe<Scalars['Float']['input']>
+  fileType: Scalars['String']['input']
+  fileUrl: Scalars['String']['input']
+}
+
 export type AuthPayload = {
   __typename?: 'AuthPayload'
   refreshToken: Scalars['String']['output']
@@ -249,6 +264,8 @@ export type PaginationInput = {
   page?: InputMaybe<Scalars['Int']['input']>
 }
 
+export type Permissions = 'DELETE' | 'READ' | 'WRITE'
+
 export type Query = {
   __typename?: 'Query'
   getFile?: Maybe<File>
@@ -294,6 +311,7 @@ export type QuerygetFoldersArgs = {
 export type RequestUploadInput = {
   filename: Scalars['String']['input']
   folderId?: InputMaybe<Scalars['String']['input']>
+  folderName?: InputMaybe<Scalars['String']['input']>
   isPublic?: InputMaybe<Scalars['Boolean']['input']>
   mimeType: Scalars['String']['input']
   size: Scalars['Int']['input']
@@ -447,8 +465,11 @@ export type DirectiveResolverFn<
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = {
   Any: ResolverTypeWrapper<Scalars['Any']['output']>
-  AuthPayload: ResolverTypeWrapper<Omit<AuthPayload, 'user'> & { user: ResolversTypes['User'] }>
+  AttachmentFile: ResolverTypeWrapper<AttachmentFile>
   String: ResolverTypeWrapper<Scalars['String']['output']>
+  Float: ResolverTypeWrapper<Scalars['Float']['output']>
+  AttachmentInput: AttachmentInput
+  AuthPayload: ResolverTypeWrapper<Omit<AuthPayload, 'user'> & { user: ResolversTypes['User'] }>
   CreateFolderInput: CreateFolderInput
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>
   DateRangeInput: DateRangeInput
@@ -481,6 +502,7 @@ export type ResolversTypes = {
   ObjectId: ResolverTypeWrapper<Scalars['ObjectId']['output']>
   PaginationInfo: ResolverTypeWrapper<PaginationInfo>
   PaginationInput: PaginationInput
+  Permissions: ResolverTypeWrapper<'READ' | 'WRITE' | 'DELETE'>
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>
   RequestUploadInput: RequestUploadInput
   ResourceShareLink: ResolverTypeWrapper<ResourceShareLink>
@@ -498,8 +520,11 @@ export type ResolversTypes = {
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = {
   Any: Scalars['Any']['output']
-  AuthPayload: Omit<AuthPayload, 'user'> & { user: ResolversParentTypes['User'] }
+  AttachmentFile: AttachmentFile
   String: Scalars['String']['output']
+  Float: Scalars['Float']['output']
+  AttachmentInput: AttachmentInput
+  AuthPayload: Omit<AuthPayload, 'user'> & { user: ResolversParentTypes['User'] }
   CreateFolderInput: CreateFolderInput
   Boolean: Scalars['Boolean']['output']
   DateRangeInput: DateRangeInput
@@ -538,6 +563,17 @@ export type ResolversParentTypes = {
 
 export interface AnyScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['Any'], any> {
   name: 'Any'
+}
+
+export type AttachmentFileResolvers<
+  ContextType = any,
+  ParentType extends ResolversParentTypes['AttachmentFile'] =
+    ResolversParentTypes['AttachmentFile'],
+> = {
+  fileName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>
+  fileSize?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>
+  fileType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>
+  fileUrl?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>
 }
 
 export type AuthPayloadResolvers<
@@ -790,6 +826,11 @@ export type PaginationInfoResolvers<
   totalPages?: Resolver<ResolversTypes['Int'], ParentType, ContextType>
 }
 
+export type PermissionsResolvers = EnumResolverSignature<
+  { DELETE?: any; READ?: any; WRITE?: any },
+  ResolversTypes['Permissions']
+>
+
 export type QueryResolvers<
   ContextType = any,
   ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query'],
@@ -889,6 +930,7 @@ export type UserResolvers<
 
 export type Resolvers<ContextType = any> = {
   Any?: GraphQLScalarType
+  AttachmentFile?: AttachmentFileResolvers<ContextType>
   AuthPayload?: AuthPayloadResolvers<ContextType>
   DateTime?: GraphQLScalarType
   File?: FileResolvers<ContextType>
@@ -902,6 +944,7 @@ export type Resolvers<ContextType = any> = {
   Mutation?: MutationResolvers<ContextType>
   ObjectId?: GraphQLScalarType
   PaginationInfo?: PaginationInfoResolvers<ContextType>
+  Permissions?: PermissionsResolvers
   Query?: QueryResolvers<ContextType>
   ResourceShareLink?: ResourceShareLinkResolvers<ContextType>
   SignedUploadUrl?: SignedUploadUrlResolvers<ContextType>
