@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import type { CorsOptions } from 'cors'
 import cookieParser from 'cookie-parser'
+import path from 'path'
 import routes from './routes/index.js'
 import {
   PORT,
@@ -13,9 +14,10 @@ import {
 import { authMiddleware } from './middleware/auth.middleware.js'
 import { errorMiddleware, notFoundMiddleware } from './middleware/error.middleware.js'
 import { initializeProvider } from './providers/index.js'
+import { localConfig } from './config/storage.config.js'
 import { prisma } from './config/prisma.js'
 
-// --- SEC-2: CORS Configuration (mirrors gateway pattern) ---
+// --- SEC-2: CORS Configuration ---
 const getAllowedOrigins = (): string[] => {
   const origins = new Set<string>()
   if (CORS_ALLOWED_ORIGINS) {
@@ -34,7 +36,6 @@ const getCorsOptions = (): CorsOptions => {
   }
   return {
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, server-to-server)
       if (!origin) {
         callback(null, true)
         return
@@ -56,16 +57,32 @@ async function startServer() {
 
   const app = express()
 
-  app.use(cors(getCorsOptions())) // SEC-2: Restrictive CORS
-  app.use(express.json({ limit: '1mb' })) // ARCH-3: Body size limits
-  app.use(express.urlencoded({ extended: true, limit: '1mb' })) // ARCH-3: Body size limits
-  app.use(cookieParser()) // NEW: Enable cookie parsing for seamless image proxying
+  app.use(cors(getCorsOptions()))
+  app.use(express.json({ limit: '1mb' }))
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }))
+  app.use(cookieParser())
 
   app.use(authMiddleware)
 
-  // SEC-6: Removed express.static('/uploads') — it was serving local files
-  // without any authentication, bypassing all access control.
-  // All file access now goes through the authenticated /api/files/:id/content proxy route.
+  // LOCAL STORAGE: Serve uploaded files directly via /uploads path.
+  // Only enabled when STORAGE_TYPE=local. For S3/OBS/Cloudinary, files are
+  // served by the provider — no static serving needed.
+  // In FILE_PROXY_MODE=true, access still goes through /api/files/:id/content.
+  // In FILE_PROXY_MODE=false (default for local dev), the /uploads path is used directly.
+  if (STORAGE_TYPE === 'local') {
+    const absoluteStoragePath = path.resolve(localConfig.storagePath)
+    app.use('/uploads', express.static(absoluteStoragePath, {
+      // SEC: Prevent directory listing
+      index: false,
+      // PERF: Cache static files for 1 hour
+      maxAge: '1h',
+      // SEC: Restrict to known MIME types only
+      setHeaders: (res) => {
+        res.setHeader('X-Content-Type-Options', 'nosniff')
+      },
+    }))
+    console.log(`   Static files: /uploads -> ${absoluteStoragePath}`)
+  }
 
   app.get('/health', (_req, res) => {
     res.json({
@@ -106,7 +123,6 @@ async function startServer() {
       process.exit(0)
     })
 
-    // Force exit after 10 seconds if connections aren't drained
     setTimeout(() => {
       console.error('[Storage] Forced shutdown after timeout.')
       process.exit(1)
