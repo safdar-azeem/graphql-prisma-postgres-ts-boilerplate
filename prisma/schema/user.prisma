@@ -1,0 +1,41 @@
+model User {
+  id       String  @id @default(cuid())
+  email    String
+  username String
+  password String
+  userType String  @default("OWNER") // OWNER, EMPLOYEE, CUSTOMER, SUPPLIER
+  avatar   String?
+
+  // Auth fields
+  googleId String? @unique
+
+  /// [MfaSettingsType]
+  mfaSettings Json?
+
+  /// [OtpSettingsType]
+  otp Json?
+
+  /// [PasswordResetSettingsType]
+  passwordReset Json?
+
+  // Shard tracking — critical for routing after login
+  shardId String?
+
+  // Workspace Isolation
+  ownerId String?
+
+  // RBAC
+  roles             Role[]   @relation("UserRoles")
+  customPermissions String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // OWNER email must be unique globally (enforced at application level across shards).
+  // Non-owner users (EMPLOYEE, CUSTOMER, SUPPLIER) can share an email across different
+  // enterprises, but are unique within a single enterprise.
+  @@unique([email, ownerId, userType])
+  @@index([email])
+  @@index([userType])
+  @@index([ownerId])
+}
