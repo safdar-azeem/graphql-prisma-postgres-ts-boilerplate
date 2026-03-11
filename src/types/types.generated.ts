@@ -55,6 +55,20 @@ export type CreateFolderInput = {
   parentId?: InputMaybe<Scalars['String']['input']>
 }
 
+export type CreateRoleInput = {
+  name: Scalars['String']['input']
+  permissions: Array<Permissions>
+}
+
+export type CreateUserInput = {
+  customPermissions?: InputMaybe<Array<Permissions>>
+  email: Scalars['String']['input']
+  password: Scalars['String']['input']
+  roleIds?: InputMaybe<Array<Scalars['ID']['input']>>
+  userType: UserType
+  username: Scalars['String']['input']
+}
+
 export type DateRangeInput = {
   from?: InputMaybe<Scalars['DateTime']['input']>
   to?: InputMaybe<Scalars['DateTime']['input']>
@@ -126,6 +140,26 @@ export type LoginInput = {
   password: Scalars['String']['input']
 }
 
+export type ManagedUser = {
+  __typename?: 'ManagedUser'
+  avatar?: Maybe<Scalars['String']['output']>
+  createdAt: Scalars['DateTime']['output']
+  customPermissions: Array<Scalars['String']['output']>
+  email: Scalars['String']['output']
+  id: Scalars['ID']['output']
+  ownerId?: Maybe<Scalars['String']['output']>
+  roles: Array<Role>
+  updatedAt: Scalars['DateTime']['output']
+  userType: UserType
+  username: Scalars['String']['output']
+}
+
+export type ManagedUserConnection = {
+  __typename?: 'ManagedUserConnection'
+  items: Array<ManagedUser>
+  pageInfo: PaginationInfo
+}
+
 export type MfaSettings = {
   __typename?: 'MfaSettings'
   isEnabled: Scalars['Boolean']['output']
@@ -134,14 +168,19 @@ export type MfaSettings = {
 
 export type Mutation = {
   __typename?: 'Mutation'
+  assignRolesToUser: ManagedUser
   cancelUpload: Scalars['Boolean']['output']
   confirm2faEnrollment: Scalars['Boolean']['output']
   confirmUpload: File
   createFolder: Folder
+  createRole: Role
   createShareLink: ResourceShareLink
+  createUser: ManagedUser
   deleteFiles: Scalars['String']['output']
   deleteFolder: Scalars['Boolean']['output']
+  deleteRole: Scalars['Boolean']['output']
   deleteShareLink: Scalars['Boolean']['output']
+  deleteUser: Scalars['Boolean']['output']
   disable2fa: Scalars['Boolean']['output']
   forgotPassword: Scalars['Boolean']['output']
   googleLogin: AuthPayload
@@ -151,13 +190,21 @@ export type Mutation = {
   logoutAll: Scalars['Boolean']['output']
   moveFolder: Folder
   refreshTokens: AuthPayload
+  removeRolesFromUser: ManagedUser
   renameFolder: Folder
   requestUploadUrl: SignedUploadUrl
   resetPassword: Scalars['Boolean']['output']
   signup: AuthPayload
   toggleFilePublic: File
+  updateRole: Role
+  updateUser: ManagedUser
   updateUserProfile: User
   verify2FA: AuthPayload
+}
+
+export type MutationassignRolesToUserArgs = {
+  roleIds: Array<Scalars['ID']['input']>
+  userId: Scalars['ID']['input']
 }
 
 export type MutationcancelUploadArgs = {
@@ -176,8 +223,16 @@ export type MutationcreateFolderArgs = {
   input: CreateFolderInput
 }
 
+export type MutationcreateRoleArgs = {
+  data: CreateRoleInput
+}
+
 export type MutationcreateShareLinkArgs = {
   input: ShareLinkInput
+}
+
+export type MutationcreateUserArgs = {
+  data: CreateUserInput
 }
 
 export type MutationdeleteFilesArgs = {
@@ -188,7 +243,15 @@ export type MutationdeleteFolderArgs = {
   id: Scalars['ID']['input']
 }
 
+export type MutationdeleteRoleArgs = {
+  id: Scalars['ID']['input']
+}
+
 export type MutationdeleteShareLinkArgs = {
+  id: Scalars['ID']['input']
+}
+
+export type MutationdeleteUserArgs = {
   id: Scalars['ID']['input']
 }
 
@@ -221,6 +284,11 @@ export type MutationrefreshTokensArgs = {
   refreshToken: Scalars['String']['input']
 }
 
+export type MutationremoveRolesFromUserArgs = {
+  roleIds: Array<Scalars['ID']['input']>
+  userId: Scalars['ID']['input']
+}
+
 export type MutationrenameFolderArgs = {
   id: Scalars['ID']['input']
   name: Scalars['String']['input']
@@ -240,6 +308,16 @@ export type MutationsignupArgs = {
 }
 
 export type MutationtoggleFilePublicArgs = {
+  id: Scalars['ID']['input']
+}
+
+export type MutationupdateRoleArgs = {
+  data: UpdateRoleInput
+  id: Scalars['ID']['input']
+}
+
+export type MutationupdateUserArgs = {
+  data: UpdateUserInput
   id: Scalars['ID']['input']
 }
 
@@ -264,7 +342,15 @@ export type PaginationInput = {
   page?: InputMaybe<Scalars['Int']['input']>
 }
 
-export type Permissions = 'DELETE' | 'READ' | 'WRITE'
+export type Permissions =
+  | 'ROLE_CREATE'
+  | 'ROLE_DELETE'
+  | 'ROLE_UPDATE'
+  | 'ROLE_VIEW'
+  | 'USER_CREATE'
+  | 'USER_DELETE'
+  | 'USER_UPDATE'
+  | 'USER_VIEW'
 
 export type Query = {
   __typename?: 'Query'
@@ -275,6 +361,10 @@ export type Query = {
   getFolder?: Maybe<Folder>
   getFolderShareLinks: Array<ResourceShareLink>
   getFolders: FolderConnection
+  getRole: Role
+  getRoles: Array<Role>
+  getUser: ManagedUser
+  getUsers: ManagedUserConnection
   me?: Maybe<User>
 }
 
@@ -308,6 +398,19 @@ export type QuerygetFoldersArgs = {
   pagination?: InputMaybe<PaginationInput>
 }
 
+export type QuerygetRoleArgs = {
+  id: Scalars['ID']['input']
+}
+
+export type QuerygetUserArgs = {
+  id: Scalars['ID']['input']
+}
+
+export type QuerygetUsersArgs = {
+  filter?: InputMaybe<UsersFilterInput>
+  pagination?: InputMaybe<PaginationInput>
+}
+
 export type RequestUploadInput = {
   filename: Scalars['String']['input']
   folderId?: InputMaybe<Scalars['String']['input']>
@@ -326,6 +429,16 @@ export type ResourceShareLink = {
   id: Scalars['ID']['output']
   token: Scalars['String']['output']
   url: Scalars['String']['output']
+}
+
+export type Role = {
+  __typename?: 'Role'
+  createdAt: Scalars['DateTime']['output']
+  id: Scalars['ID']['output']
+  name: Scalars['String']['output']
+  ownerId: Scalars['String']['output']
+  permissions: Array<Permissions>
+  updatedAt: Scalars['DateTime']['output']
 }
 
 export type ShareLinkInput = {
@@ -351,6 +464,18 @@ export type SignupInput = {
 
 export type TwoFactorMethod = 'AUTHENTICATOR' | 'EMAIL'
 
+export type UpdateRoleInput = {
+  name?: InputMaybe<Scalars['String']['input']>
+  permissions?: InputMaybe<Array<Permissions>>
+}
+
+export type UpdateUserInput = {
+  avatar?: InputMaybe<Scalars['String']['input']>
+  customPermissions?: InputMaybe<Array<Permissions>>
+  roleIds?: InputMaybe<Array<Scalars['ID']['input']>>
+  username?: InputMaybe<Scalars['String']['input']>
+}
+
 export type UpdateUserProfileInput = {
   avatar?: InputMaybe<Scalars['String']['input']>
   username?: InputMaybe<Scalars['String']['input']>
@@ -363,8 +488,17 @@ export type User = {
   email: Scalars['String']['output']
   id: Scalars['ID']['output']
   mfaSettings?: Maybe<MfaSettings>
+  permissions: Array<Permissions>
   updatedAt: Scalars['DateTime']['output']
+  userType: UserType
   username: Scalars['String']['output']
+}
+
+export type UserType = 'CUSTOMER' | 'EMPLOYEE' | 'OWNER' | 'SUPPLIER'
+
+export type UsersFilterInput = {
+  search?: InputMaybe<Scalars['String']['input']>
+  userType?: InputMaybe<UserType>
 }
 
 export type ResolverTypeWrapper<T> = Promise<T> | T
@@ -472,10 +606,12 @@ export type ResolversTypes = {
   AuthPayload: ResolverTypeWrapper<Omit<AuthPayload, 'user'> & { user: ResolversTypes['User'] }>
   CreateFolderInput: CreateFolderInput
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>
+  CreateRoleInput: CreateRoleInput
+  CreateUserInput: CreateUserInput
+  ID: ResolverTypeWrapper<Scalars['ID']['output']>
   DateRangeInput: DateRangeInput
   DateTime: ResolverTypeWrapper<Scalars['DateTime']['output']>
   File: ResolverTypeWrapper<Omit<File, 'status'> & { status: ResolversTypes['FileStatus'] }>
-  ID: ResolverTypeWrapper<Scalars['ID']['output']>
   Int: ResolverTypeWrapper<Scalars['Int']['output']>
   FileConnection: ResolverTypeWrapper<
     Omit<FileConnection, 'items'> & { items: Array<ResolversTypes['File']> }
@@ -495,6 +631,15 @@ export type ResolversTypes = {
   Init2faResponse: ResolverTypeWrapper<Init2faResponse>
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>
   LoginInput: LoginInput
+  ManagedUser: ResolverTypeWrapper<
+    Omit<ManagedUser, 'roles' | 'userType'> & {
+      roles: Array<ResolversTypes['Role']>
+      userType: ResolversTypes['UserType']
+    }
+  >
+  ManagedUserConnection: ResolverTypeWrapper<
+    Omit<ManagedUserConnection, 'items'> & { items: Array<ResolversTypes['ManagedUser']> }
+  >
   MfaSettings: ResolverTypeWrapper<
     Omit<MfaSettings, 'method'> & { method?: Maybe<ResolversTypes['TwoFactorMethod']> }
   >
@@ -502,19 +647,39 @@ export type ResolversTypes = {
   ObjectId: ResolverTypeWrapper<Scalars['ObjectId']['output']>
   PaginationInfo: ResolverTypeWrapper<PaginationInfo>
   PaginationInput: PaginationInput
-  Permissions: ResolverTypeWrapper<'READ' | 'WRITE' | 'DELETE'>
+  Permissions: ResolverTypeWrapper<
+    | 'USER_VIEW'
+    | 'USER_CREATE'
+    | 'USER_UPDATE'
+    | 'USER_DELETE'
+    | 'ROLE_VIEW'
+    | 'ROLE_CREATE'
+    | 'ROLE_UPDATE'
+    | 'ROLE_DELETE'
+  >
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>
   RequestUploadInput: RequestUploadInput
   ResourceShareLink: ResolverTypeWrapper<ResourceShareLink>
+  Role: ResolverTypeWrapper<
+    Omit<Role, 'permissions'> & { permissions: Array<ResolversTypes['Permissions']> }
+  >
   ShareLinkInput: ShareLinkInput
   SignedUploadUrl: ResolverTypeWrapper<SignedUploadUrl>
   SignupInput: SignupInput
   TwoFactorMethod: ResolverTypeWrapper<'EMAIL' | 'AUTHENTICATOR'>
+  UpdateRoleInput: UpdateRoleInput
+  UpdateUserInput: UpdateUserInput
   UpdateUserProfileInput: UpdateUserProfileInput
   Upload: ResolverTypeWrapper<Scalars['Upload']['output']>
   User: ResolverTypeWrapper<
-    Omit<User, 'mfaSettings'> & { mfaSettings?: Maybe<ResolversTypes['MfaSettings']> }
+    Omit<User, 'mfaSettings' | 'permissions' | 'userType'> & {
+      mfaSettings?: Maybe<ResolversTypes['MfaSettings']>
+      permissions: Array<ResolversTypes['Permissions']>
+      userType: ResolversTypes['UserType']
+    }
   >
+  UserType: ResolverTypeWrapper<'OWNER' | 'EMPLOYEE' | 'CUSTOMER' | 'SUPPLIER'>
+  UsersFilterInput: UsersFilterInput
 }
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -527,10 +692,12 @@ export type ResolversParentTypes = {
   AuthPayload: Omit<AuthPayload, 'user'> & { user: ResolversParentTypes['User'] }
   CreateFolderInput: CreateFolderInput
   Boolean: Scalars['Boolean']['output']
+  CreateRoleInput: CreateRoleInput
+  CreateUserInput: CreateUserInput
+  ID: Scalars['ID']['output']
   DateRangeInput: DateRangeInput
   DateTime: Scalars['DateTime']['output']
   File: File
-  ID: Scalars['ID']['output']
   Int: Scalars['Int']['output']
   FileConnection: Omit<FileConnection, 'items'> & { items: Array<ResolversParentTypes['File']> }
   FilesFilterInput: FilesFilterInput
@@ -545,6 +712,10 @@ export type ResolversParentTypes = {
   Init2faResponse: Init2faResponse
   JSON: Scalars['JSON']['output']
   LoginInput: LoginInput
+  ManagedUser: Omit<ManagedUser, 'roles'> & { roles: Array<ResolversParentTypes['Role']> }
+  ManagedUserConnection: Omit<ManagedUserConnection, 'items'> & {
+    items: Array<ResolversParentTypes['ManagedUser']>
+  }
   MfaSettings: MfaSettings
   Mutation: Record<PropertyKey, never>
   ObjectId: Scalars['ObjectId']['output']
@@ -553,12 +724,16 @@ export type ResolversParentTypes = {
   Query: Record<PropertyKey, never>
   RequestUploadInput: RequestUploadInput
   ResourceShareLink: ResourceShareLink
+  Role: Role
   ShareLinkInput: ShareLinkInput
   SignedUploadUrl: SignedUploadUrl
   SignupInput: SignupInput
+  UpdateRoleInput: UpdateRoleInput
+  UpdateUserInput: UpdateUserInput
   UpdateUserProfileInput: UpdateUserProfileInput
   Upload: Scalars['Upload']['output']
   User: Omit<User, 'mfaSettings'> & { mfaSettings?: Maybe<ResolversParentTypes['MfaSettings']> }
+  UsersFilterInput: UsersFilterInput
 }
 
 export interface AnyScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['Any'], any> {
@@ -661,6 +836,31 @@ export interface JSONScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes
   name: 'JSON'
 }
 
+export type ManagedUserResolvers<
+  ContextType = any,
+  ParentType extends ResolversParentTypes['ManagedUser'] = ResolversParentTypes['ManagedUser'],
+> = {
+  avatar?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
+  customPermissions?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>
+  email?: Resolver<ResolversTypes['String'], ParentType, ContextType>
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>
+  ownerId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>
+  roles?: Resolver<Array<ResolversTypes['Role']>, ParentType, ContextType>
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
+  userType?: Resolver<ResolversTypes['UserType'], ParentType, ContextType>
+  username?: Resolver<ResolversTypes['String'], ParentType, ContextType>
+}
+
+export type ManagedUserConnectionResolvers<
+  ContextType = any,
+  ParentType extends ResolversParentTypes['ManagedUserConnection'] =
+    ResolversParentTypes['ManagedUserConnection'],
+> = {
+  items?: Resolver<Array<ResolversTypes['ManagedUser']>, ParentType, ContextType>
+  pageInfo?: Resolver<ResolversTypes['PaginationInfo'], ParentType, ContextType>
+}
+
 export type MfaSettingsResolvers<
   ContextType = any,
   ParentType extends ResolversParentTypes['MfaSettings'] = ResolversParentTypes['MfaSettings'],
@@ -673,6 +873,12 @@ export type MutationResolvers<
   ContextType = any,
   ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation'],
 > = {
+  assignRolesToUser?: Resolver<
+    ResolversTypes['ManagedUser'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationassignRolesToUserArgs, 'roleIds' | 'userId'>
+  >
   cancelUpload?: Resolver<
     ResolversTypes['Boolean'],
     ParentType,
@@ -697,11 +903,23 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationcreateFolderArgs, 'input'>
   >
+  createRole?: Resolver<
+    ResolversTypes['Role'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationcreateRoleArgs, 'data'>
+  >
   createShareLink?: Resolver<
     ResolversTypes['ResourceShareLink'],
     ParentType,
     ContextType,
     RequireFields<MutationcreateShareLinkArgs, 'input'>
+  >
+  createUser?: Resolver<
+    ResolversTypes['ManagedUser'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationcreateUserArgs, 'data'>
   >
   deleteFiles?: Resolver<
     ResolversTypes['String'],
@@ -715,11 +933,23 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationdeleteFolderArgs, 'id'>
   >
+  deleteRole?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationdeleteRoleArgs, 'id'>
+  >
   deleteShareLink?: Resolver<
     ResolversTypes['Boolean'],
     ParentType,
     ContextType,
     RequireFields<MutationdeleteShareLinkArgs, 'id'>
+  >
+  deleteUser?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationdeleteUserArgs, 'id'>
   >
   disable2fa?: Resolver<
     ResolversTypes['Boolean'],
@@ -765,6 +995,12 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationrefreshTokensArgs, 'refreshToken'>
   >
+  removeRolesFromUser?: Resolver<
+    ResolversTypes['ManagedUser'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationremoveRolesFromUserArgs, 'roleIds' | 'userId'>
+  >
   renameFolder?: Resolver<
     ResolversTypes['Folder'],
     ParentType,
@@ -794,6 +1030,18 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationtoggleFilePublicArgs, 'id'>
+  >
+  updateRole?: Resolver<
+    ResolversTypes['Role'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationupdateRoleArgs, 'data' | 'id'>
+  >
+  updateUser?: Resolver<
+    ResolversTypes['ManagedUser'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationupdateUserArgs, 'data' | 'id'>
   >
   updateUserProfile?: Resolver<
     ResolversTypes['User'],
@@ -827,7 +1075,16 @@ export type PaginationInfoResolvers<
 }
 
 export type PermissionsResolvers = EnumResolverSignature<
-  { DELETE?: any; READ?: any; WRITE?: any },
+  {
+    ROLE_CREATE?: any
+    ROLE_DELETE?: any
+    ROLE_UPDATE?: any
+    ROLE_VIEW?: any
+    USER_CREATE?: any
+    USER_DELETE?: any
+    USER_UPDATE?: any
+    USER_VIEW?: any
+  },
   ResolversTypes['Permissions']
 >
 
@@ -877,6 +1134,25 @@ export type QueryResolvers<
     ContextType,
     Partial<QuerygetFoldersArgs>
   >
+  getRole?: Resolver<
+    ResolversTypes['Role'],
+    ParentType,
+    ContextType,
+    RequireFields<QuerygetRoleArgs, 'id'>
+  >
+  getRoles?: Resolver<Array<ResolversTypes['Role']>, ParentType, ContextType>
+  getUser?: Resolver<
+    ResolversTypes['ManagedUser'],
+    ParentType,
+    ContextType,
+    RequireFields<QuerygetUserArgs, 'id'>
+  >
+  getUsers?: Resolver<
+    ResolversTypes['ManagedUserConnection'],
+    ParentType,
+    ContextType,
+    Partial<QuerygetUsersArgs>
+  >
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>
 }
 
@@ -892,6 +1168,18 @@ export type ResourceShareLinkResolvers<
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>
   token?: Resolver<ResolversTypes['String'], ParentType, ContextType>
   url?: Resolver<ResolversTypes['String'], ParentType, ContextType>
+}
+
+export type RoleResolvers<
+  ContextType = any,
+  ParentType extends ResolversParentTypes['Role'] = ResolversParentTypes['Role'],
+> = {
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>
+  ownerId?: Resolver<ResolversTypes['String'], ParentType, ContextType>
+  permissions?: Resolver<Array<ResolversTypes['Permissions']>, ParentType, ContextType>
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
 }
 
 export type SignedUploadUrlResolvers<
@@ -924,9 +1212,16 @@ export type UserResolvers<
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>
   mfaSettings?: Resolver<Maybe<ResolversTypes['MfaSettings']>, ParentType, ContextType>
+  permissions?: Resolver<Array<ResolversTypes['Permissions']>, ParentType, ContextType>
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
+  userType?: Resolver<ResolversTypes['UserType'], ParentType, ContextType>
   username?: Resolver<ResolversTypes['String'], ParentType, ContextType>
 }
+
+export type UserTypeResolvers = EnumResolverSignature<
+  { CUSTOMER?: any; EMPLOYEE?: any; OWNER?: any; SUPPLIER?: any },
+  ResolversTypes['UserType']
+>
 
 export type Resolvers<ContextType = any> = {
   Any?: GraphQLScalarType
@@ -940,6 +1235,8 @@ export type Resolvers<ContextType = any> = {
   FolderConnection?: FolderConnectionResolvers<ContextType>
   Init2faResponse?: Init2faResponseResolvers<ContextType>
   JSON?: GraphQLScalarType
+  ManagedUser?: ManagedUserResolvers<ContextType>
+  ManagedUserConnection?: ManagedUserConnectionResolvers<ContextType>
   MfaSettings?: MfaSettingsResolvers<ContextType>
   Mutation?: MutationResolvers<ContextType>
   ObjectId?: GraphQLScalarType
@@ -947,8 +1244,10 @@ export type Resolvers<ContextType = any> = {
   Permissions?: PermissionsResolvers
   Query?: QueryResolvers<ContextType>
   ResourceShareLink?: ResourceShareLinkResolvers<ContextType>
+  Role?: RoleResolvers<ContextType>
   SignedUploadUrl?: SignedUploadUrlResolvers<ContextType>
   TwoFactorMethod?: TwoFactorMethodResolvers
   Upload?: GraphQLScalarType
   User?: UserResolvers<ContextType>
+  UserType?: UserTypeResolvers
 }
