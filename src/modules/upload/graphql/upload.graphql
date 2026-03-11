@@ -39,12 +39,6 @@ type SignedUploadUrl {
   expiresAt: DateTime!
 }
 
-type PaginationInfo {
-  currentPage: Int!
-  totalPages: Int!
-  totalItems: Int!
-}
-
 type FileConnection {
   items: [File!]!
   pageInfo: PaginationInfo!
@@ -70,6 +64,7 @@ input RequestUploadInput {
   mimeType: String!
   size: Int!
   folderId: String
+  folderName: String
   isPublic: Boolean
 }
 
@@ -77,16 +72,6 @@ input CreateFolderInput {
   name: String!
   parentId: String
   isPublic: Boolean
-}
-
-input PaginationInput {
-  page: Int = 1
-  limit: Int = 10
-}
-
-input DateRangeInput {
-  from: DateTime
-  to: DateTime
 }
 
 input FilesFilterInput {
