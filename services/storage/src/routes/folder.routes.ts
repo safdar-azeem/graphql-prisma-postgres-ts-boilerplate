@@ -17,6 +17,8 @@ interface FoldersQuery {
   limit?: string
   search?: string
   parentId?: string
+  dateFrom?: string
+  dateTo?: string
 }
 
 router.post(
@@ -59,12 +61,8 @@ router.get(
   ): Promise<void> => {
     try {
       const ownerId = req.context.user!.id
-      const { page, limit, search, parentId } = req.query
+      const { page, limit, search, parentId, dateFrom, dateTo } = req.query
 
-      // 1. Parse Parent ID logic (Mirroring File Route Logic)
-      // - 'null' -> Root Level (parentId = null)
-      // - undefined -> Global Search (Ignore parentId constraint)
-      // - UUID -> Specific Subfolder
       let parsedParentId: string | null | undefined = undefined
       if (parentId === 'null') {
         parsedParentId = null
@@ -73,8 +71,11 @@ router.get(
       }
 
       const filter = {
-        search: search || null,
         parentId: parsedParentId,
+        dateRange: {
+          from: dateFrom ? new Date(dateFrom) : null,
+          to: dateTo ? new Date(dateTo) : null,
+        }
       }
 
       const pagination = {
@@ -82,7 +83,7 @@ router.get(
         limit: limit ? Math.min(parseInt(limit), 100) : 10,
       }
 
-      const result = await getFolders(ownerId, filter, pagination)
+      const result = await getFolders(ownerId, pagination, search as string, filter)
       sendSuccess(res, result)
     } catch (error) {
       next(error)
