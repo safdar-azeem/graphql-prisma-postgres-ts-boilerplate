@@ -1,5 +1,6 @@
 import { authResolver } from '../resolvers/auth.resolver'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { UserType } from '@prisma/client'
 import { Context } from '@/types/context.type'
 import { mockDeep, DeepMockProxy } from 'vitest-mock-extended'
 import { AuthenticationError, ValidationError } from '@/errors'
@@ -9,7 +10,6 @@ import * as TokenConfig from '@/config/tokens'
 import * as RefreshTokenCache from '@/cache/refreshToken.cache'
 import { authLite } from '@/config/authlite'
 
-// Mock external dependencies
 vi.mock('@/config/prisma', () => ({
   findUserAcrossShards: vi.fn(),
   sharding: {
@@ -20,7 +20,6 @@ vi.mock('@/config/prisma', () => ({
 vi.mock('../utils/auth.utils', () => ({
   hashPassword: vi.fn(),
   comparePassword: vi.fn(),
-  generateToken: vi.fn(),
 }))
 
 vi.mock('@/config/tokens', () => ({
@@ -34,20 +33,12 @@ vi.mock('@/cache/refreshToken.cache', () => ({
 
 vi.mock('@/config/authlite', () => ({
   authLite: {
-    google: {
-      verify: vi.fn(),
-    },
-  },
-  mfa: {
-    createEnrollment: vi.fn(),
-    verifyTotp: vi.fn(),
+    google: { verify: vi.fn() },
   },
 }))
 
 vi.mock('@/cache', () => ({
-  cache: {
-    invalidateUser: vi.fn(),
-  },
+  cache: { invalidateUser: vi.fn() },
 }))
 
 vi.mock('@/utils/email.util', () => ({
@@ -72,28 +63,38 @@ describe('Auth Resolver Integration Tests', () => {
 
   describe('Mutation.signup', () => {
     it('Create a new user', async () => {
-      // GIVEN
-      const inputData = { email: 'test@example.com', username: 'testuser', password: 'password123' }
+      const inputData = {
+        email: 'test@example.com',
+        username: 'testuser',
+        password: 'password123',
+      }
       const hashedPassword = 'hashedPassword'
       const accessToken = 'jwt.access.token'
       const refreshToken = 'jwt.refresh.token'
-      const createdUser = { id: '1', ...inputData, password: hashedPassword }
+      // Resolver destructures password out before returning, so returned user has no password
+      const createdUser = {
+        id: '1',
+        email: inputData.email,
+        username: inputData.username,
+        password: hashedPassword,
+        userType: UserType.OWNER,
+      }
 
+      // findUserAcrossShards is called once to check for existing owner
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: null,
         client: null,
-      } as any)
+        shardId: null,
+      })
       vi.mocked(AuthUtils.hashPassword).mockResolvedValue(hashedPassword)
       vi.mocked(PrismaConfig.sharding.getRandomShard).mockReturnValue(mockShardClient)
       mockShardClient.user.create.mockResolvedValue(createdUser)
-
       vi.mocked(TokenConfig.generateTokenPair).mockReturnValue({
         accessToken,
         refreshToken,
         jti: 'jti-uuid',
       })
 
-      // WHEN
       const result = await (authResolver.Mutation?.signup as any)(
         {},
         { data: inputData },
@@ -101,35 +102,39 @@ describe('Auth Resolver Integration Tests', () => {
         {}
       )
 
-      // THEN
-      expect(PrismaConfig.findUserAcrossShards).toHaveBeenCalled()
+      expect(PrismaConfig.findUserAcrossShards).toHaveBeenCalledTimes(1)
       expect(AuthUtils.hashPassword).toHaveBeenCalledWith(inputData.password)
       expect(mockShardClient.user.create).toHaveBeenCalledWith({
-        omit: { password: true },
         data: {
           email: inputData.email,
           username: inputData.username,
           password: hashedPassword,
+          userType: UserType.OWNER,
         },
       })
       expect(TokenConfig.generateTokenPair).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: createdUser.id,
-          email: createdUser.email,
-        })
+        expect.objectContaining({ id: createdUser.id, email: createdUser.email })
       )
       expect(RefreshTokenCache.storeRefreshToken).toHaveBeenCalledWith(createdUser.id, 'jti-uuid')
-      expect(result).toEqual({ token: accessToken, refreshToken, user: createdUser })
+
+      // password must be stripped from returned user
+      const { password: _, ...expectedUser } = createdUser
+      expect(result).toEqual({ token: accessToken, refreshToken, user: expectedUser })
     })
 
     it('Create a new user (Existing)', async () => {
-      const inputData = { email: 'test@example.com', username: 'testuser', password: 'password123' }
-      const existingUser = { id: '1', ...inputData }
+      const inputData = {
+        email: 'test@example.com',
+        username: 'testuser',
+        password: 'password123',
+      }
+      const existingUser = { id: '1', email: inputData.email, userType: UserType.OWNER }
 
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: existingUser,
         client: mockShardClient,
-      } as any)
+        shardId: 'shard_1',
+      })
 
       await expect(
         (authResolver.Mutation?.signup as any)({}, { data: inputData }, mockContext, {})
@@ -146,6 +151,8 @@ describe('Auth Resolver Integration Tests', () => {
         email: inputData.email,
         password: hashedPassword,
         username: 'testuser',
+        userType: UserType.OWNER,
+        mfaSettings: null,
       }
       const accessToken = 'jwt.access.token'
       const refreshToken = 'jwt.refresh.token'
@@ -153,15 +160,14 @@ describe('Auth Resolver Integration Tests', () => {
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: user,
         client: mockShardClient,
-      } as any)
+        shardId: 'shard_1',
+      })
       vi.mocked(AuthUtils.comparePassword).mockResolvedValue(true)
       vi.mocked(TokenConfig.generateTokenPair).mockReturnValue({
         accessToken,
         refreshToken,
         jti: 'jti-uuid',
       })
-
-      const { password: _, ...userWithoutPassword } = user
 
       const result = await (authResolver.Mutation?.login as any)(
         {},
@@ -170,10 +176,11 @@ describe('Auth Resolver Integration Tests', () => {
         {}
       )
 
-      expect(PrismaConfig.findUserAcrossShards).toHaveBeenCalled()
       expect(AuthUtils.comparePassword).toHaveBeenCalledWith(inputData.password, user.password)
       expect(TokenConfig.generateTokenPair).toHaveBeenCalled()
       expect(RefreshTokenCache.storeRefreshToken).toHaveBeenCalledWith(user.id, 'jti-uuid')
+
+      const { password: _, ...userWithoutPassword } = user
       expect(result).toEqual({ token: accessToken, refreshToken, user: userWithoutPassword })
     })
 
@@ -184,12 +191,14 @@ describe('Auth Resolver Integration Tests', () => {
         email: inputData.email,
         password: 'hashedPassword',
         username: 'testuser',
+        mfaSettings: null,
       }
 
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: user,
         client: mockShardClient,
-      } as any)
+        shardId: 'shard_1',
+      })
       vi.mocked(AuthUtils.comparePassword).mockResolvedValue(false)
 
       await expect(
@@ -203,7 +212,8 @@ describe('Auth Resolver Integration Tests', () => {
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: null,
         client: null,
-      } as any)
+        shardId: null,
+      })
 
       await expect(
         (authResolver.Mutation?.login as any)({}, { data: inputData }, mockContext, {})
@@ -220,6 +230,9 @@ describe('Auth Resolver Integration Tests', () => {
         email: 'test@example.com',
         username: 'Test User',
         googleId: '123',
+        password: 'hashed',
+        mfaSettings: null,
+        userType: UserType.OWNER,
       }
       const accessToken = 'jwt.access.token'
       const refreshToken = 'jwt.refresh.token'
@@ -228,7 +241,8 @@ describe('Auth Resolver Integration Tests', () => {
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: existingUser,
         client: mockShardClient,
-      } as any)
+        shardId: 'shard_1',
+      })
       vi.mocked(TokenConfig.generateTokenPair).mockReturnValue({
         accessToken,
         refreshToken,
@@ -257,7 +271,8 @@ describe('Auth Resolver Integration Tests', () => {
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: user,
         client: mockShardClient,
-      } as any)
+        shardId: 'shard_1',
+      })
 
       const result = await (authResolver.Mutation?.forgotPassword as any)(
         {},
@@ -266,30 +281,25 @@ describe('Auth Resolver Integration Tests', () => {
         {}
       )
 
-      expect(PrismaConfig.findUserAcrossShards).toHaveBeenCalled()
-      expect(mockShardClient.user.update).toHaveBeenCalled()
       expect(mockShardClient.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: user.id },
-          data: expect.objectContaining({
-            passwordReset: expect.any(Object),
-          }),
+          data: expect.objectContaining({ passwordReset: expect.any(Object) }),
         })
       )
       expect(result).toBe(true)
     })
 
     it('Forgot Password (User Not Found)', async () => {
-      const email = 'unknown@example.com'
-
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: null,
         client: null,
-      } as any)
+        shardId: null,
+      })
 
       const result = await (authResolver.Mutation?.forgotPassword as any)(
         {},
-        { email },
+        { email: 'unknown@example.com' },
         mockContext,
         {}
       )
@@ -304,23 +314,20 @@ describe('Auth Resolver Integration Tests', () => {
       const token = 'valid-token'
       const newPassword = 'newPassword123'
       const hashedPassword = 'newHashedPassword'
-      // Ensure expiresAt is in the future
       const futureDate = new Date()
       futureDate.setHours(futureDate.getHours() + 1)
 
       const user = {
         id: '1',
         email: 'test@example.com',
-        passwordReset: {
-          token,
-          expiresAt: futureDate.toISOString(),
-        },
+        passwordReset: { token, expiresAt: futureDate.toISOString() },
       }
 
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: user,
         client: mockShardClient,
-      } as any)
+        shardId: 'shard_1',
+      })
       vi.mocked(AuthUtils.hashPassword).mockResolvedValue(hashedPassword)
 
       const result = await (authResolver.Mutation?.resetPassword as any)(
@@ -334,27 +341,26 @@ describe('Auth Resolver Integration Tests', () => {
       expect(mockShardClient.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: user.id },
-          data: expect.objectContaining({
-            password: hashedPassword,
-            // checking for Prisma.JsonNull is tricky in mock, so we just check it was updated
-          }),
+          data: expect.objectContaining({ password: hashedPassword }),
         })
       )
       expect(result).toBe(true)
     })
 
     it('Reset Password (Invalid/Expired Token)', async () => {
-      const token = 'expired-token'
-      const password = 'newPassword123'
-
-      // Case: User not found (invalid token)
       vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
         result: null,
         client: null,
-      } as any)
+        shardId: null,
+      })
 
       await expect(
-        (authResolver.Mutation?.resetPassword as any)({}, { token, password }, mockContext, {})
+        (authResolver.Mutation?.resetPassword as any)(
+          {},
+          { token: 'bad', password: 'newPass' },
+          mockContext,
+          {}
+        )
       ).rejects.toThrow(ValidationError)
     })
   })
