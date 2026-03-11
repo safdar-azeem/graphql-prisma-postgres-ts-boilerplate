@@ -8,5 +8,6 @@ export interface Context {
   isAuthenticated: boolean
   client: PrismaClient
   userType?: UserType
+  ownerId: string
   permissions: Permission[]
 }
