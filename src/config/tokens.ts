@@ -1,10 +1,12 @@
 import jwt, { SignOptions } from 'jsonwebtoken'
 import { JWT_SECRET, ACCESS_TOKEN_EXPIRES_IN, REFRESH_TOKEN_EXPIRES_IN } from '@/constants'
+import { UserType } from '@prisma/client'
 import crypto from 'crypto'
 
 export interface AccessTokenPayload {
   _id: string
   email?: string
+  userType?: UserType
   is2faPending?: boolean
 }
 
@@ -14,22 +16,14 @@ export interface RefreshTokenPayload {
 }
 
 export const generateAccessToken = (payload: AccessTokenPayload): string => {
-  const options: SignOptions = {
-    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
-  }
+  const options: SignOptions = { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
   return jwt.sign(payload, JWT_SECRET, options)
 }
 
 export const generateRefreshToken = (userId: string): { token: string; jti: string } => {
   const jti = crypto.randomUUID()
-  const payload: RefreshTokenPayload = {
-    jti,
-    sub: userId,
-  }
-  const options: SignOptions = {
-    expiresIn: REFRESH_TOKEN_EXPIRES_IN,
-  }
-
+  const payload: RefreshTokenPayload = { jti, sub: userId }
+  const options: SignOptions = { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
   const token = jwt.sign(payload, JWT_SECRET, options)
   return { token, jti }
 }
@@ -50,8 +44,8 @@ export const verifyRefreshToken = (token: string): RefreshTokenPayload | null =>
   }
 }
 
-export const generateTokenPair = (user: { id: string; email: string }) => {
-  const accessToken = generateAccessToken({ _id: user.id, email: user.email })
+export const generateTokenPair = (user: { id: string; email: string; userType?: UserType }) => {
+  const accessToken = generateAccessToken({ _id: user.id, email: user.email, userType: user.userType })
   const { token: refreshToken, jti } = generateRefreshToken(user.id)
   return { accessToken, refreshToken, jti }
 }
