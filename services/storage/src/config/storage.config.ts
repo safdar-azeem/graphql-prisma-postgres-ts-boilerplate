@@ -25,6 +25,15 @@ export interface LocalConfig {
   storageUrl: string
 }
 
+export interface OBSConfig {
+  accessKeyId: string
+  secretAccessKey: string
+  endpoint: string
+  bucket: string
+  basePath: string
+  domainName: string
+}
+
 export const s3Config: S3Config = {
   accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
@@ -49,5 +58,18 @@ export const imagekitConfig: ImageKitConfig = {
 
 export const localConfig: LocalConfig = {
   storagePath: process.env.LOCAL_STORAGE_PATH || './uploads',
-  storageUrl: process.env.LOCAL_STORAGE_URL || 'http://localhost:4201/uploads',
+  storageUrl: process.env.LOCAL_STORAGE_URL || 'http://localhost:4301/uploads',
+}
+
+// Huawei OBS setup (handles bucket paths correctly if combined in ENV)
+const obsBucketFull = process.env.OBS_BUCKET_NAME || ''
+const obsBucketParts = obsBucketFull.split('/')
+
+export const obsConfig: OBSConfig = {
+  accessKeyId: process.env.OBS_ACCESS_KEY_ID || '',
+  secretAccessKey: process.env.OBS_SECRET_ACCESS_KEY || '',
+  endpoint: process.env.OBS_ENDPOINT || '',
+  bucket: obsBucketParts[0] || '',
+  basePath: obsBucketParts.slice(1).join('/') || '',
+  domainName: process.env.OBS_DOMAIN_NAME || '',
 }
