@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma.js'
 import { buildFolderPath, sanitizeFolderName } from '../utils/path.util.js'
+import { getPagination, getPageInfo, getDateRangeFilter } from '../utils/query.util.js'
 import type { Folder, Prisma } from '../../generated/prisma/client.js'
 
 interface CreateFolderInput {
@@ -10,13 +11,16 @@ interface CreateFolderInput {
 }
 
 interface FolderFilterInput {
-  search?: string | null
   parentId?: string | null
+  dateRange?: {
+    from?: Date | null
+    to?: Date | null
+  } | null
 }
 
 interface PaginationInput {
-  page?: number
-  limit?: number
+  page?: number | null
+  limit?: number | null
 }
 
 interface PaginationInfo {
@@ -118,27 +122,35 @@ export const getFolderById = async (
 
 export const getFolders = async (
   ownerId: string,
-  filter?: FolderFilterInput,
-  pagination?: PaginationInput
+  pagination?: PaginationInput | null,
+  search?: string | null,
+  filter?: FolderFilterInput | null
 ): Promise<FoldersResponse> => {
-  const page = pagination?.page ?? 1
-  const limit = Math.min(pagination?.limit ?? 10, 100)
-  const skip = (page - 1) * limit
+  const { page, limit, skip } = getPagination(pagination)
 
   const where: Prisma.FolderWhereInput = {
     ownerId,
   }
 
-  // Apply filters
+  // Defensive programming: 
+  // If parentId is explicitly passed, use it.
+  // Else if we are NOT searching, default to fetching root folders (parentId = null).
   if (filter?.parentId !== undefined) {
     where.parentId = filter.parentId
+  } else if (!search) {
+    where.parentId = null
   }
 
-  if (filter?.search) {
+  if (search) {
     where.name = {
-      contains: filter.search,
+      contains: search,
       mode: 'insensitive',
     }
+  }
+
+  const dateFilter = getDateRangeFilter(filter?.dateRange)
+  if (dateFilter) {
+    where.createdAt = dateFilter
   }
 
   const [items, totalItems] = await Promise.all([
@@ -151,15 +163,9 @@ export const getFolders = async (
     prisma.folder.count({ where }),
   ])
 
-  const totalPages = Math.ceil(totalItems / limit)
-
   return {
     items,
-    pageInfo: {
-      currentPage: page,
-      totalPages,
-      totalItems,
-    },
+    pageInfo: getPageInfo(totalItems, limit, page),
   }
 }
 
