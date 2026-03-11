@@ -686,6 +686,170 @@ export const typeDefs = {
     { kind: 'ScalarTypeDefinition', name: { kind: 'Name', value: 'DateTime' }, directives: [] },
     {
       kind: 'ObjectTypeDefinition',
+      name: { kind: 'Name', value: 'PaginationInfo' },
+      interfaces: [],
+      directives: [],
+      fields: [
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'currentPage' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'totalPages' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'totalItems' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'PaginationInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'page' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          defaultValue: { kind: 'IntValue', value: '1' },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'limit' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
+          defaultValue: { kind: 'IntValue', value: '10' },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'DateRangeInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'from' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateTime' } },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'to' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateTime' } },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'AttachmentInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'fileName' },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'fileUrl' },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'fileType' },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'fileSize' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Float' } },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'ObjectTypeDefinition',
+      name: { kind: 'Name', value: 'AttachmentFile' },
+      interfaces: [],
+      directives: [],
+      fields: [
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'fileName' },
+          arguments: [],
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'fileUrl' },
+          arguments: [],
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'fileType' },
+          arguments: [],
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'fileSize' },
+          arguments: [],
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Float' } },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'EnumTypeDefinition',
+      name: { kind: 'Name', value: 'Permissions' },
+      directives: [],
+      values: [
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'READ' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'WRITE' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'DELETE' }, directives: [] },
+      ],
+    },
+    {
+      kind: 'ObjectTypeDefinition',
       name: { kind: 'Name', value: 'AuthPayload' },
       interfaces: [],
       directives: [],
@@ -1122,44 +1286,6 @@ export const typeDefs = {
     },
     {
       kind: 'ObjectTypeDefinition',
-      name: { kind: 'Name', value: 'PaginationInfo' },
-      interfaces: [],
-      directives: [],
-      fields: [
-        {
-          kind: 'FieldDefinition',
-          name: { kind: 'Name', value: 'currentPage' },
-          arguments: [],
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
-          },
-          directives: [],
-        },
-        {
-          kind: 'FieldDefinition',
-          name: { kind: 'Name', value: 'totalPages' },
-          arguments: [],
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
-          },
-          directives: [],
-        },
-        {
-          kind: 'FieldDefinition',
-          name: { kind: 'Name', value: 'totalItems' },
-          arguments: [],
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
-          },
-          directives: [],
-        },
-      ],
-    },
-    {
-      kind: 'ObjectTypeDefinition',
       name: { kind: 'Name', value: 'FileConnection' },
       interfaces: [],
       directives: [],
@@ -1338,6 +1464,12 @@ export const typeDefs = {
         },
         {
           kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'folderName' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
           name: { kind: 'Name', value: 'isPublic' },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
           directives: [],
@@ -1368,46 +1500,6 @@ export const typeDefs = {
           kind: 'InputValueDefinition',
           name: { kind: 'Name', value: 'isPublic' },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
-          directives: [],
-        },
-      ],
-    },
-    {
-      kind: 'InputObjectTypeDefinition',
-      name: { kind: 'Name', value: 'PaginationInput' },
-      directives: [],
-      fields: [
-        {
-          kind: 'InputValueDefinition',
-          name: { kind: 'Name', value: 'page' },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
-          defaultValue: { kind: 'IntValue', value: '1' },
-          directives: [],
-        },
-        {
-          kind: 'InputValueDefinition',
-          name: { kind: 'Name', value: 'limit' },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Int' } },
-          defaultValue: { kind: 'IntValue', value: '10' },
-          directives: [],
-        },
-      ],
-    },
-    {
-      kind: 'InputObjectTypeDefinition',
-      name: { kind: 'Name', value: 'DateRangeInput' },
-      directives: [],
-      fields: [
-        {
-          kind: 'InputValueDefinition',
-          name: { kind: 'Name', value: 'from' },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateTime' } },
-          directives: [],
-        },
-        {
-          kind: 'InputValueDefinition',
-          name: { kind: 'Name', value: 'to' },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateTime' } },
           directives: [],
         },
       ],
