@@ -5,7 +5,6 @@ import { storageBridge } from '../services/storage-bridge.service'
 import { ValidationError, InternalError } from '@/errors'
 import { generateToken } from '@/modules/auth'
 
-// ARCH-2: Cache the internal token on context to avoid re-signing JWTs for every operation
 const getInternalToken = (context: Context): string => {
   if ((context as any)._internalStorageToken) {
     return (context as any)._internalStorageToken
@@ -33,10 +32,10 @@ export const uploadResolver: Resolvers<Context> = {
       }
     }),
 
-    getFiles: requireAuth(async (_parent, { filter, pagination }, context) => {
+    getFiles: requireAuth(async (_parent, { pagination, search, filter }, context) => {
       try {
         const token = getInternalToken(context)
-        const result = await storageBridge.getFiles(filter, pagination ?? undefined, token)
+        const result = await storageBridge.getFiles(pagination ?? undefined, search ?? undefined, filter ?? undefined, token)
 
         return {
           items: result.items.map((file) => ({
@@ -77,10 +76,10 @@ export const uploadResolver: Resolvers<Context> = {
       }
     }),
 
-    getFolders: requireAuth(async (_parent, { filter, pagination }, context) => {
+    getFolders: requireAuth(async (_parent, { pagination, search, filter }, context) => {
       try {
         const token = getInternalToken(context)
-        const result = await storageBridge.getFolders(filter, pagination ?? undefined, token)
+        const result = await storageBridge.getFolders(pagination ?? undefined, search ?? undefined, filter ?? undefined, token)
 
         return {
           items: result.items.map((folder) => ({
@@ -106,16 +105,19 @@ export const uploadResolver: Resolvers<Context> = {
       }
     }),
 
-    getFileShareLinks: requireAuth(async (_parent, { fileId }, context) => {
+    getFileShareLinks: requireAuth(async (_parent, { fileId, pagination, search, filter }, context) => {
       try {
         const token = getInternalToken(context)
-        const links = await storageBridge.getFileShareLinks(fileId, token)
+        const result = await storageBridge.getFileShareLinks(fileId, pagination ?? undefined, search ?? undefined, filter ?? undefined, token)
 
-        return links.map((link) => ({
-          ...link,
-          expiresAt: new Date(link.expiresAt),
-          createdAt: new Date(link.createdAt),
-        }))
+        return {
+          items: result.items.map((link) => ({
+            ...link,
+            expiresAt: new Date(link.expiresAt),
+            createdAt: new Date(link.createdAt),
+          })),
+          pageInfo: result.pageInfo,
+        }
       } catch (error) {
         throw new InternalError(
           error instanceof Error ? error.message : 'Failed to get file share links'
@@ -123,16 +125,19 @@ export const uploadResolver: Resolvers<Context> = {
       }
     }),
 
-    getFolderShareLinks: requireAuth(async (_parent, { folderId }, context) => {
+    getFolderShareLinks: requireAuth(async (_parent, { folderId, pagination, search, filter }, context) => {
       try {
         const token = getInternalToken(context)
-        const links = await storageBridge.getFolderShareLinks(folderId, token)
+        const result = await storageBridge.getFolderShareLinks(folderId, pagination ?? undefined, search ?? undefined, filter ?? undefined, token)
 
-        return links.map((link) => ({
-          ...link,
-          expiresAt: new Date(link.expiresAt),
-          createdAt: new Date(link.createdAt),
-        }))
+        return {
+          items: result.items.map((link) => ({
+            ...link,
+            expiresAt: new Date(link.expiresAt),
+            createdAt: new Date(link.createdAt),
+          })),
+          pageInfo: result.pageInfo,
+        }
       } catch (error) {
         throw new InternalError(
           error instanceof Error ? error.message : 'Failed to get folder share links'
@@ -306,9 +311,6 @@ export const uploadResolver: Resolvers<Context> = {
 
     deleteShareLink: requireAuth(async (_parent, { id }, context) => {
       try {
-        // Validation: id must be a string.
-        // If the client sent an array in the request variables, GraphQL validation would fail
-        // before reaching here. This code assumes valid scalar input.
         const token = getInternalToken(context)
         return await storageBridge.deleteShareLink(id, token)
       } catch (error) {
