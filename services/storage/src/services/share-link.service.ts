@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import { prisma } from '../config/prisma.js'
-import type { ShareLink } from '../../generated/prisma/client.js'
+import { getPagination, getPageInfo, getDateRangeFilter } from '../utils/query.util.js'
+import type { ShareLink, Prisma } from '../../generated/prisma/client.js'
 
 interface CreateShareLinkInput {
   fileId?: string | null
@@ -21,6 +22,29 @@ interface ShareLinkWithResource extends ShareLink {
     status: string
   } | null
   folder?: { id: string; name: string; path: string } | null
+}
+
+interface ShareLinkFilterInput {
+  dateRange?: {
+    from?: Date | null
+    to?: Date | null
+  } | null
+}
+
+interface PaginationInput {
+  page?: number | null
+  limit?: number | null
+}
+
+interface PaginationInfo {
+  currentPage: number
+  totalPages: number
+  totalItems: number
+}
+
+interface ShareLinksResponse {
+  items: ShareLink[]
+  pageInfo: PaginationInfo
 }
 
 const DEFAULT_EXPIRY_MINUTES = 60 * 24 * 7 // 7 days
@@ -134,14 +158,12 @@ export const getShareLinkByToken = async (token: string): Promise<ShareLinkWithR
   return shareLink
 }
 
-// Verify password for password-protected share links
 export const verifyShareLinkPassword = (shareLink: ShareLink, password: string): boolean => {
-  if (!shareLink.password) return true // No password set
+  if (!shareLink.password) return true
   const hashedInput = crypto.createHash('sha256').update(password).digest('hex')
   return hashedInput === shareLink.password
 }
 
-// Increment view count atomically
 export const incrementShareLinkViews = async (id: string): Promise<void> => {
   await prisma.shareLink.update({
     where: { id },
@@ -149,7 +171,13 @@ export const incrementShareLinkViews = async (id: string): Promise<void> => {
   })
 }
 
-export const getFileShareLinks = async (fileId: string, ownerId: string): Promise<ShareLink[]> => {
+export const getFileShareLinks = async (
+  fileId: string, 
+  ownerId: string,
+  pagination?: PaginationInput | null,
+  search?: string | null,
+  filter?: ShareLinkFilterInput | null
+): Promise<ShareLinksResponse> => {
   const file = await prisma.file.findUnique({
     where: { id: fileId },
     select: { ownerId: true },
@@ -163,21 +191,42 @@ export const getFileShareLinks = async (fileId: string, ownerId: string): Promis
     throw Object.assign(new Error('Access denied'), { statusCode: 403 })
   }
 
-  const shareLinks = await prisma.shareLink.findMany({
-    where: {
-      fileId,
-      expiresAt: { gt: new Date() },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
+  const { page, limit, skip } = getPagination(pagination)
 
-  return shareLinks
+  const where: Prisma.ShareLinkWhereInput = {
+    fileId,
+    expiresAt: { gt: new Date() },
+  }
+
+  if (search) {
+    where.token = { contains: search, mode: 'insensitive' }
+  }
+
+  const dateFilter = getDateRangeFilter(filter?.dateRange)
+  if (dateFilter) {
+    where.createdAt = dateFilter
+  }
+
+  const [items, totalItems] = await Promise.all([
+    prisma.shareLink.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.shareLink.count({ where }),
+  ])
+
+  return { items, pageInfo: getPageInfo(totalItems, limit, page) }
 }
 
 export const getFolderShareLinks = async (
-  folderId: string,
-  ownerId: string
-): Promise<ShareLink[]> => {
+  folderId: string, 
+  ownerId: string,
+  pagination?: PaginationInput | null,
+  search?: string | null,
+  filter?: ShareLinkFilterInput | null
+): Promise<ShareLinksResponse> => {
   const folder = await prisma.folder.findUnique({
     where: { id: folderId },
     select: { ownerId: true },
@@ -191,15 +240,33 @@ export const getFolderShareLinks = async (
     throw Object.assign(new Error('Access denied'), { statusCode: 403 })
   }
 
-  const shareLinks = await prisma.shareLink.findMany({
-    where: {
-      folderId,
-      expiresAt: { gt: new Date() },
-    },
-    orderBy: { createdAt: 'desc' },
-  })
+  const { page, limit, skip } = getPagination(pagination)
 
-  return shareLinks
+  const where: Prisma.ShareLinkWhereInput = {
+    folderId,
+    expiresAt: { gt: new Date() },
+  }
+
+  if (search) {
+    where.token = { contains: search, mode: 'insensitive' }
+  }
+
+  const dateFilter = getDateRangeFilter(filter?.dateRange)
+  if (dateFilter) {
+    where.createdAt = dateFilter
+  }
+
+  const [items, totalItems] = await Promise.all([
+    prisma.shareLink.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.shareLink.count({ where }),
+  ])
+
+  return { items, pageInfo: getPageInfo(totalItems, limit, page) }
 }
 
 export const deleteShareLink = async (id: string, ownerId: string): Promise<boolean> => {
