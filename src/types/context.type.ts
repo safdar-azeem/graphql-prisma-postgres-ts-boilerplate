@@ -1,4 +1,4 @@
-import { User, PrismaClient } from '@prisma/client'
+import { User, PrismaClient, UserType, Permission } from '@prisma/client'
 
 export type AuthUser = Omit<User, 'password'>
 
@@ -7,4 +7,6 @@ export interface Context {
   password: string
   isAuthenticated: boolean
   client: PrismaClient
+  userType?: UserType
+  permissions: Permission[]
 }
