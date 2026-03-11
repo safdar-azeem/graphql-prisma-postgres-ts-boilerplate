@@ -3,20 +3,43 @@ import { Protect } from '@/guards'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
 import { NotFoundError, ValidationError } from '@/errors'
+import { getPagination, getPageInfo, getDateRangeFilter } from '@/utils/query.util'
 
 export const roleResolver: Resolvers<Context> = {
   Query: {
-    getRoles: Protect([Permission.ROLE_VIEW], async (_parent, _args, { ownerId, client }) => {
-      return await client.role.findMany({
-        where: { ownerId },
-        orderBy: { createdAt: 'asc' },
-      })
+    getRoles: Protect([Permission.ROLE_VIEW], async (_parent, { pagination, search, filter }, { ownerId, client }) => {
+      const { page, limit, skip } = getPagination(pagination)
+      const where: any = { ownerId }
+
+      if (search) {
+        where.name = { contains: search, mode: 'insensitive' }
+      }
+
+      const dateFilter = getDateRangeFilter(filter?.dateRange)
+      if (dateFilter) {
+        where.createdAt = dateFilter
+      }
+
+      const [items, totalItems] = await Promise.all([
+        client.role.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+        }),
+        client.role.count({ where }),
+      ])
+
+      return {
+        items: items as any,
+        pageInfo: getPageInfo(totalItems, limit, page),
+      }
     }),
 
     getRole: Protect([Permission.ROLE_VIEW], async (_parent, { id }, { ownerId, client }) => {
       const role = await client.role.findFirst({ where: { id, ownerId } })
       if (!role) throw new NotFoundError('Role not found')
-      return role
+      return role as any
     }),
   },
 
@@ -34,13 +57,15 @@ export const roleResolver: Resolvers<Context> = {
         throw new ValidationError(`Invalid permissions: ${invalid.join(', ')}`)
       }
 
-      return await client.role.create({
+      const role = await client.role.create({
         data: {
           name: data.name,
           permissions: (data.permissions ?? []) as Permission[],
           ownerId,
         },
       })
+      
+      return role as any
     }),
 
     updateRole: Protect([Permission.ROLE_UPDATE], async (_parent, { id, data }, { ownerId, client }) => {
@@ -52,7 +77,7 @@ export const roleResolver: Resolvers<Context> = {
         if (duplicate) throw new ValidationError(`Role "${data.name}" already exists`)
       }
 
-      if (data.permissions !== undefined) {
+      if (data.permissions !== undefined && data.permissions !== null) {
         const validPermissions = Object.values(Permission)
         const invalid = data.permissions.filter(
           (p: string) => !validPermissions.includes(p as Permission)
@@ -62,15 +87,17 @@ export const roleResolver: Resolvers<Context> = {
         }
       }
 
-      return await client.role.update({
+      const updated = await client.role.update({
         where: { id },
         data: {
-          ...(data.name !== undefined && { name: data.name }),
-          ...(data.permissions !== undefined && {
+          ...(data.name !== undefined && data.name !== null && { name: data.name }),
+          ...(data.permissions !== undefined && data.permissions !== null && {
             permissions: data.permissions as Permission[],
           }),
         },
       })
+      
+      return updated as any
     }),
 
     deleteRole: Protect([Permission.ROLE_DELETE], async (_parent, { id }, { ownerId, client }) => {
