@@ -1,0 +1,10 @@
+model Role {
+  id          String   @id @default(cuid())
+  name        String
+  permissions String[]
+
+  users User[] @relation("UserRoles")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
