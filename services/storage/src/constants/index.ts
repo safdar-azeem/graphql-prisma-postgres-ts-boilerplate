@@ -2,7 +2,7 @@ export const NODE_ENV = process.env.NODE_ENV || 'development'
 export const IS_PRODUCTION = NODE_ENV === 'production'
 export const IS_DEVELOPMENT = NODE_ENV === 'development'
 
-export const PORT = parseInt(process.env.PORT || '4201', 10)
+export const PORT = parseInt(process.env.PORT || '4301', 10)
 export const JWT_SECRET = process.env.JWT_SECRET as string
 
 export const STORAGE_TYPE = (process.env.STORAGE_TYPE || 'local') as
@@ -10,6 +10,7 @@ export const STORAGE_TYPE = (process.env.STORAGE_TYPE || 'local') as
   | 'cloudinary'
   | 'imagekit'
   | 'local'
+  | 'obs'
 
 export const SIGNED_URL_EXPIRY_SECONDS = parseInt(
   process.env.SIGNED_URL_EXPIRY_SECONDS || '3600',
@@ -23,7 +24,7 @@ export const PENDING_FILE_CLEANUP_HOURS = parseInt(
 
 // NEW: Configurable URL Masking
 // true = Proxy through backend (Masked)
-// false = Direct provider URL (S3/Cloudinary)
+// false = Direct provider URL (S3/Cloudinary/OBS)
 export const FILE_PROXY_MODE = process.env.FILE_PROXY_MODE === 'true'
 
 // CORS: Comma-separated allowed origins (e.g., "https://app.example.com,https://admin.example.com")
