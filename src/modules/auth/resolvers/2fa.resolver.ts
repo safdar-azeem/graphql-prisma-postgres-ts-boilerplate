@@ -12,10 +12,7 @@ import { AuthenticationError, ValidationError } from '@/errors'
 import { sendEmail } from '@/utils/email.util'
 import { APP_NAME } from '@/constants'
 import { getOtpEmailTemplate } from '@/templates/otp-email.template'
-
-import crypto from 'crypto'
-
-// ... existing imports
+import { generateOtp } from '@/utils/otp.util'
 
 export const twoFaResolvers: Resolvers<Context> = {
   Mutation: {
@@ -26,8 +23,7 @@ export const twoFaResolvers: Resolvers<Context> = {
       }
 
       if (method === 'EMAIL') {
-        const otp = crypto.randomInt(100000, 1000000).toString()
-        const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+        const { otp, expiresAt } = generateOtp()
 
         await client.user.update({
           where: { id: user.id },
