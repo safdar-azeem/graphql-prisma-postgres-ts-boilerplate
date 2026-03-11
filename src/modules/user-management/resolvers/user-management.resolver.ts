@@ -10,9 +10,7 @@ export const userManagementResolver: Resolvers<Context> = {
   Query: {
     getUsers: Protect(
       [Permission.USER_VIEW],
-      async (_parent, { filter, pagination }, { user, client }) => {
-        const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+      async (_parent, { filter, pagination }, { ownerId, client }) => {
         const page = pagination?.page ?? 1
         const limit = pagination?.limit ?? 10
         const skip = (page - 1) * limit
@@ -52,9 +50,7 @@ export const userManagementResolver: Resolvers<Context> = {
       }
     ),
 
-    getUser: Protect([Permission.USER_VIEW], async (_parent, { id }, { user, client }) => {
-      const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+    getUser: Protect([Permission.USER_VIEW], async (_parent, { id }, { ownerId, client }) => {
       const found = await client.user.findFirst({
         where: { id, ownerId },
         include: { roles: true },
@@ -68,9 +64,7 @@ export const userManagementResolver: Resolvers<Context> = {
   Mutation: {
     createUser: Protect(
       [Permission.USER_CREATE],
-      async (_parent, { data }, { user, client }) => {
-        const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+      async (_parent, { data }, { ownerId, client }) => {
         if (data.userType === UserType.OWNER) {
           throw new ValidationError('Cannot create another OWNER through user management')
         }
@@ -124,9 +118,7 @@ export const userManagementResolver: Resolvers<Context> = {
 
     updateUser: Protect(
       [Permission.USER_UPDATE],
-      async (_parent, { id, data }, { user, client }) => {
-        const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+      async (_parent, { id, data }, { ownerId, client }) => {
         const target = await client.user.findFirst({ where: { id, ownerId } })
         if (!target) throw new NotFoundError('User not found')
 
@@ -175,9 +167,7 @@ export const userManagementResolver: Resolvers<Context> = {
 
     deleteUser: Protect(
       [Permission.USER_DELETE],
-      async (_parent, { id }, { user, client }) => {
-        const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+      async (_parent, { id }, { ownerId, client }) => {
         const target = await client.user.findFirst({ where: { id, ownerId } })
         if (!target) throw new NotFoundError('User not found')
 
@@ -189,9 +179,7 @@ export const userManagementResolver: Resolvers<Context> = {
 
     assignRolesToUser: Protect(
       [Permission.USER_UPDATE],
-      async (_parent, { userId, roleIds }, { user, client }) => {
-        const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+      async (_parent, { userId, roleIds }, { ownerId, client }) => {
         const target = await client.user.findFirst({ where: { id: userId, ownerId } })
         if (!target) throw new NotFoundError('User not found')
 
@@ -216,9 +204,7 @@ export const userManagementResolver: Resolvers<Context> = {
 
     removeRolesFromUser: Protect(
       [Permission.USER_UPDATE],
-      async (_parent, { userId, roleIds }, { user, client }) => {
-        const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+      async (_parent, { userId, roleIds }, { ownerId, client }) => {
         const target = await client.user.findFirst({ where: { id: userId, ownerId } })
         if (!target) throw new NotFoundError('User not found')
 
