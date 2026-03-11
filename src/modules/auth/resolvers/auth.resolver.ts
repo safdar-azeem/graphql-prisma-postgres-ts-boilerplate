@@ -13,6 +13,7 @@ import { storeRefreshToken } from '@/cache/refreshToken.cache'
 import { getOtpEmailTemplate } from '@/templates/otp-email.template'
 import { getResetPasswordEmailTemplate } from '@/templates/reset-password.template'
 import { cache } from '@/cache'
+import { generateOtp } from '@/utils/otp.util'
 import crypto from 'crypto'
 
 export const authResolver: Resolvers<Context> = {
@@ -84,8 +85,7 @@ export const authResolver: Resolvers<Context> = {
 
       if (mfaSettings?.isEnabled) {
         if (mfaSettings.method === 'EMAIL') {
-          const otp = crypto.randomInt(100000, 1000000).toString()
-          const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+          const { otp, expiresAt } = generateOtp()
           const otpSettings: OtpSettings = { code: otp, expiresAt }
 
           await client.user.update({
@@ -159,8 +159,7 @@ export const authResolver: Resolvers<Context> = {
 
         if (mfaSettings?.isEnabled) {
           if (mfaSettings.method === 'EMAIL') {
-            const otp = crypto.randomInt(100000, 1000000).toString()
-            const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+            const { otp, expiresAt } = generateOtp()
             const otpSettings: OtpSettings = { code: otp, expiresAt }
 
             await client.user.update({
