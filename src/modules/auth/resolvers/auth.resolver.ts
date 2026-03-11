@@ -2,7 +2,7 @@ import { APP_NAME } from '@/constants'
 import { findUserAcrossShards, sharding } from '@/config/prisma'
 import { OtpSettings, PasswordResetSettings } from '../types/db.types'
 import { authLite } from '@/config/authlite'
-import { Prisma } from '@prisma/client'
+import { Prisma, UserType } from '@prisma/client'
 import { sendEmail } from '@/utils/email.util'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
@@ -22,8 +22,12 @@ export const authResolver: Resolvers<Context> = {
 
       const { result: existingUser } = await findUserAcrossShards(async (client) => {
         return client.user.findFirst({
-          omit: { password: true },
-          where: { OR: [{ email }, { username }] },
+          where: {
+            OR: [
+              { email, userType: UserType.OWNER },
+              { username, userType: UserType.OWNER },
+            ],
+          },
         })
       })
 
@@ -32,25 +36,26 @@ export const authResolver: Resolvers<Context> = {
       }
 
       const hashedPassword = await hashPassword(password)
-
       const shardClient = sharding.getRandomShard()
 
       const user = await shardClient.user.create({
-        omit: { password: true },
         data: {
           email,
           username,
           password: hashedPassword,
+          userType: UserType.OWNER,
         },
       })
 
       const tokens = generateTokenPair(user)
       await storeRefreshToken(user.id, tokens.jti)
 
+      const { password: _, ...userWithoutPassword } = user
+
       return {
         token: tokens.accessToken,
         refreshToken: tokens.refreshToken,
-        user,
+        user: userWithoutPassword as any,
       }
     },
 
@@ -58,9 +63,7 @@ export const authResolver: Resolvers<Context> = {
       const { email, password } = data
 
       const { result: user, client } = await findUserAcrossShards(async (shardClient) => {
-        return shardClient.user.findFirst({
-          where: { email },
-        })
+        return shardClient.user.findFirst({ where: { email } })
       })
 
       if (!user || !client) {
@@ -83,42 +86,25 @@ export const authResolver: Resolvers<Context> = {
         if (mfaSettings.method === 'EMAIL') {
           const otp = crypto.randomInt(100000, 1000000).toString()
           const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
-
-          const otpSettings: OtpSettings = {
-            code: otp,
-            expiresAt,
-          }
+          const otpSettings: OtpSettings = { code: otp, expiresAt }
 
           await client.user.update({
             where: { id: user.id },
-            data: {
-              otp: otpSettings as any,
-            },
+            data: { otp: otpSettings as any },
           })
 
           await cache.invalidateUser(user.id)
-
-          await sendEmail(
-            user.email,
-            `Your Login OTP for ${APP_NAME}`,
-            getOtpEmailTemplate({ otp })
-          )
+          await sendEmail(user.email, `Your Login OTP for ${APP_NAME}`, getOtpEmailTemplate({ otp }))
         }
 
         const tempToken = generateAccessToken({
           _id: user.id,
           email: user.email,
+          userType: user.userType,
           is2faPending: true,
         })
 
-        // Return empty refresh token for 2FA pending state, or handle differently
-        // Schema requires non-nullable refreshToken. We can return empty string or a temp placeholder.
-        // Or updated schema to allow nullable.
-        // Standard practice: 2FA pending step usually returns a temp token, not a full pair.
-        // But the return type is AuthPayload which has required fields.
-        // Let's modify schema to make refreshToken nullable? Or return empty string.
-        // The user won't get full access yet anyway.
-        return { token: tempToken, refreshToken: '', user: userWithOutPassword }
+        return { token: tempToken, refreshToken: '', user: userWithOutPassword as any }
       }
 
       const tokens = generateTokenPair(user)
@@ -127,7 +113,7 @@ export const authResolver: Resolvers<Context> = {
       return {
         token: tokens.accessToken,
         refreshToken: tokens.refreshToken,
-        user: userWithOutPassword,
+        user: userWithOutPassword as any,
       }
     },
 
@@ -136,9 +122,7 @@ export const authResolver: Resolvers<Context> = {
         const googleUser = await authLite.google.verify(token, 'web')
 
         let { result: user, client } = await findUserAcrossShards(async (shardClient) => {
-          return shardClient.user.findFirst({
-            where: { email: googleUser.email },
-          })
+          return shardClient.user.findFirst({ where: { email: googleUser.email } })
         })
 
         if (!user) {
@@ -147,13 +131,13 @@ export const authResolver: Resolvers<Context> = {
           const hashedPassword = await hashPassword(randomPassword)
 
           client = sharding.getRandomShard()
-
           user = await client.user.create({
             data: {
               email: googleUser.email,
               username: googleUser.name || googleUser.email.split('@')[0],
               password: hashedPassword,
               googleId: googleUser.googleId,
+              userType: UserType.OWNER,
             },
           })
         } else {
@@ -162,7 +146,6 @@ export const authResolver: Resolvers<Context> = {
               where: { id: user.id },
               data: { googleId: googleUser.googleId },
             })
-
             await cache.invalidateUser(user.id)
           }
         }
@@ -178,11 +161,7 @@ export const authResolver: Resolvers<Context> = {
           if (mfaSettings.method === 'EMAIL') {
             const otp = crypto.randomInt(100000, 1000000).toString()
             const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
-
-            const otpSettings: OtpSettings = {
-              code: otp,
-              expiresAt,
-            }
+            const otpSettings: OtpSettings = { code: otp, expiresAt }
 
             await client.user.update({
               where: { id: user.id },
@@ -190,17 +169,17 @@ export const authResolver: Resolvers<Context> = {
             })
 
             await cache.invalidateUser(user.id)
-
             sendEmail(user.email, `Your Login OTP for ${APP_NAME}`, getOtpEmailTemplate({ otp }))
           }
 
           const tempToken = generateAccessToken({
             _id: user.id,
             email: user.email,
+            userType: user.userType,
             is2faPending: true,
           })
 
-          return { token: tempToken, refreshToken: '', user: userWithOutPassword }
+          return { token: tempToken, refreshToken: '', user: userWithOutPassword as any }
         }
 
         const tokens = generateTokenPair(user)
@@ -209,7 +188,7 @@ export const authResolver: Resolvers<Context> = {
         return {
           token: tokens.accessToken,
           refreshToken: tokens.refreshToken,
-          user: userWithOutPassword,
+          user: userWithOutPassword as any,
         }
       } catch (error) {
         console.error('Google Login Error:', error)
@@ -225,21 +204,14 @@ export const authResolver: Resolvers<Context> = {
       if (user && client) {
         const token = crypto.randomBytes(32).toString('hex')
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
-
-        const passwordReset: PasswordResetSettings = {
-          token,
-          expiresAt,
-        }
+        const passwordReset: PasswordResetSettings = { token, expiresAt }
 
         await client.user.update({
           where: { id: user.id },
-          data: {
-            passwordReset: passwordReset as any,
-          },
+          data: { passwordReset: passwordReset as any },
         })
 
         await cache.invalidateUser(user.id)
-
         sendEmail(
           user.email,
           `Reset Your Password - ${APP_NAME}`,
@@ -253,12 +225,7 @@ export const authResolver: Resolvers<Context> = {
     resetPassword: async (_parent, { token, password }) => {
       const { result: user, client } = await findUserAcrossShards(async (shardClient) => {
         return shardClient.user.findFirst({
-          where: {
-            passwordReset: {
-              path: ['token'],
-              equals: token,
-            },
-          },
+          where: { passwordReset: { path: ['token'], equals: token } },
         })
       })
 
@@ -272,14 +239,10 @@ export const authResolver: Resolvers<Context> = {
 
       await client.user.update({
         where: { id: user.id },
-        data: {
-          password: hashedPassword,
-          passwordReset: Prisma.JsonNull,
-        },
+        data: { password: hashedPassword, passwordReset: Prisma.JsonNull },
       })
 
       await cache.invalidateUser(user.id)
-
       return true
     },
   },
