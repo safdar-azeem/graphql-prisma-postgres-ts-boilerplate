@@ -48,6 +48,11 @@ export interface PaginatedFolders {
   pageInfo: PaginationInfo
 }
 
+export interface PaginatedShareLinks {
+  items: ResourceShareLink[]
+  pageInfo: PaginationInfo
+}
+
 export interface ResourceShareLink {
   id: string
   token: string
@@ -84,15 +89,18 @@ export interface DateRangeInput {
 }
 
 export interface FilesFilterInput {
-  search?: string | null
   uploadedBy?: string | null
   dateRange?: DateRangeInput | null
   folderId?: string | null
 }
 
 export interface FolderFilterInput {
-  search?: string | null
   parentId?: string | null
+  dateRange?: DateRangeInput | null
+}
+
+export interface ShareLinkFilterInput {
+  dateRange?: DateRangeInput | null
 }
 
 export interface ShareLinkInput {
