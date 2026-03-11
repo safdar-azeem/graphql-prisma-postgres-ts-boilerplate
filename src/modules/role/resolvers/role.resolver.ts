@@ -1,4 +1,4 @@
-import { Permission, UserType } from '@prisma/client'
+import { Permission } from '@prisma/client'
 import { Protect } from '@/guards'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
@@ -6,18 +6,14 @@ import { NotFoundError, ValidationError } from '@/errors'
 
 export const roleResolver: Resolvers<Context> = {
   Query: {
-    getRoles: Protect([Permission.ROLE_VIEW], async (_parent, _args, { user, client }) => {
-      const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+    getRoles: Protect([Permission.ROLE_VIEW], async (_parent, _args, { ownerId, client }) => {
       return await client.role.findMany({
         where: { ownerId },
         orderBy: { createdAt: 'asc' },
       })
     }),
 
-    getRole: Protect([Permission.ROLE_VIEW], async (_parent, { id }, { user, client }) => {
-      const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+    getRole: Protect([Permission.ROLE_VIEW], async (_parent, { id }, { ownerId, client }) => {
       const role = await client.role.findFirst({ where: { id, ownerId } })
       if (!role) throw new NotFoundError('Role not found')
       return role
@@ -25,9 +21,7 @@ export const roleResolver: Resolvers<Context> = {
   },
 
   Mutation: {
-    createRole: Protect([Permission.ROLE_CREATE], async (_parent, { data }, { user, client }) => {
-      const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+    createRole: Protect([Permission.ROLE_CREATE], async (_parent, { data }, { ownerId, client }) => {
       const existing = await client.role.findFirst({ where: { name: data.name, ownerId } })
       if (existing) throw new ValidationError(`Role "${data.name}" already exists`)
 
@@ -49,9 +43,7 @@ export const roleResolver: Resolvers<Context> = {
       })
     }),
 
-    updateRole: Protect([Permission.ROLE_UPDATE], async (_parent, { id, data }, { user, client }) => {
-      const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+    updateRole: Protect([Permission.ROLE_UPDATE], async (_parent, { id, data }, { ownerId, client }) => {
       const role = await client.role.findFirst({ where: { id, ownerId } })
       if (!role) throw new NotFoundError('Role not found')
 
@@ -81,9 +73,7 @@ export const roleResolver: Resolvers<Context> = {
       })
     }),
 
-    deleteRole: Protect([Permission.ROLE_DELETE], async (_parent, { id }, { user, client }) => {
-      const ownerId = user.userType === UserType.OWNER ? user.id : (user.ownerId as string)
-
+    deleteRole: Protect([Permission.ROLE_DELETE], async (_parent, { id }, { ownerId, client }) => {
       const role = await client.role.findFirst({ where: { id, ownerId } })
       if (!role) throw new NotFoundError('Role not found')
 
