@@ -4,12 +4,14 @@ import { LocalStorageProvider } from './local.provider.js'
 import { S3StorageProvider } from './s3.provider.js'
 import { CloudinaryStorageProvider } from './cloudinary.provider.js'
 import { ImageKitStorageProvider } from './imagekit.provider.js'
+import { ObsStorageProvider } from './obs.provider.js'
 
 export { BaseStorageProvider } from './base.provider.js'
 export { LocalStorageProvider } from './local.provider.js'
 export { S3StorageProvider } from './s3.provider.js'
 export { CloudinaryStorageProvider } from './cloudinary.provider.js'
 export { ImageKitStorageProvider } from './imagekit.provider.js'
+export { ObsStorageProvider } from './obs.provider.js'
 
 let providerInstance: BaseStorageProvider | null = null
 
@@ -19,6 +21,9 @@ export const getStorageProvider = (): BaseStorageProvider => {
   }
 
   switch (STORAGE_TYPE) {
+    case 'obs':
+      providerInstance = new ObsStorageProvider()
+      break
     case 's3':
       providerInstance = new S3StorageProvider()
       break
