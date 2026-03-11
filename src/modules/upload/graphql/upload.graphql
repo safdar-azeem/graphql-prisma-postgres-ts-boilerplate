@@ -59,6 +59,11 @@ type ResourceShareLink {
   createdAt: DateTime!
 }
 
+type ResourceShareLinkConnection {
+  items: [ResourceShareLink!]!
+  pageInfo: PaginationInfo!
+}
+
 input RequestUploadInput {
   filename: String!
   mimeType: String!
@@ -75,15 +80,18 @@ input CreateFolderInput {
 }
 
 input FilesFilterInput {
-  search: String
   uploadedBy: String
   dateRange: DateRangeInput
   folderId: String
 }
 
 input FolderFilterInput {
-  search: String
   parentId: String
+  dateRange: DateRangeInput
+}
+
+input ShareLinkFilterInput {
+  dateRange: DateRangeInput
 }
 
 input ShareLinkInput {
@@ -94,12 +102,15 @@ input ShareLinkInput {
 
 extend type Query {
   getFile(id: ID!): File
-  getFiles(filter: FilesFilterInput, pagination: PaginationInput): FileConnection!
+  getFiles(pagination: PaginationInput, search: String, filter: FilesFilterInput): FileConnection!
+  
   getFolder(id: ID!): Folder
-  getFolders(filter: FolderFilterInput, pagination: PaginationInput): FolderConnection!
+  getFolders(pagination: PaginationInput, search: String, filter: FolderFilterInput): FolderConnection!
+  
   getFileDownloadUrl(id: ID!): String!
-  getFileShareLinks(fileId: ID!): [ResourceShareLink!]!
-  getFolderShareLinks(folderId: ID!): [ResourceShareLink!]!
+  
+  getFileShareLinks(fileId: ID!, pagination: PaginationInput, search: String, filter: ShareLinkFilterInput): ResourceShareLinkConnection!
+  getFolderShareLinks(folderId: ID!, pagination: PaginationInput, search: String, filter: ShareLinkFilterInput): ResourceShareLinkConnection!
 }
 
 extend type Mutation {
@@ -116,6 +127,5 @@ extend type Mutation {
   deleteFolder(id: ID!): Boolean!
 
   createShareLink(input: ShareLinkInput!): ResourceShareLink!
-
   deleteShareLink(id: ID!): Boolean!
 }
