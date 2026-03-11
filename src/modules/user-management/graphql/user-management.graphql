@@ -42,11 +42,11 @@ input UpdateUserInput {
 
 input UsersFilterInput {
   userType: UserType
-  search: String
+  dateRange: DateRangeInput
 }
 
 extend type Query {
-  getUsers(filter: UsersFilterInput, pagination: PaginationInput): ManagedUserConnection!
+  getUsers(pagination: PaginationInput, search: String, filter: UsersFilterInput): ManagedUserConnection!
   getUser(id: ID!): ManagedUser!
 }
 
