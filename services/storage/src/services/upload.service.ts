@@ -50,19 +50,32 @@ export const createSignedUploadUrl = async (
     const sanitizedName = sanitizeFolderName(folderName)
     if (sanitizedName) {
       let folder = await prisma.folder.findFirst({
-        where: { name: sanitizedName, ownerId, parentId: null },
+        where: { name: sanitizedName, ownerId, parentId: null }
       })
 
       if (!folder) {
         const newPath = buildFolderPath(null, sanitizedName)
-        folder = await prisma.folder.create({
-          data: {
-            name: sanitizedName,
-            path: newPath,
-            ownerId,
-            isPublic: false,
-          },
-        })
+        try {
+          folder = await prisma.folder.create({
+            data: {
+              name: sanitizedName,
+              path: newPath,
+              ownerId,
+              isPublic: false
+            }
+          })
+        } catch (error: any) {
+          if (error.code === 'P2002') {
+            folder = await prisma.folder.findFirst({
+              where: { path: newPath, ownerId }
+            })
+            if (!folder) {
+              throw Object.assign(new Error('Failed to create or retrieve folder'), { statusCode: 500 })
+            }
+          } else {
+            throw error
+          }
+        }
       }
       folderPath = folder.path
       actualFolderId = folder.id
