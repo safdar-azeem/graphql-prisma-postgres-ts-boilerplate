@@ -5,11 +5,13 @@ import type {
   SignedUploadUrlResponse,
   PaginatedFiles,
   PaginatedFolders,
+  PaginatedShareLinks,
   RequestUploadInput,
   CreateFolderInput,
   PaginationInput,
   FilesFilterInput,
   FolderFilterInput,
+  ShareLinkFilterInput,
   ShareLinkInput,
   ResourceShareLink,
 } from '../types/upload.types'
@@ -24,11 +26,10 @@ class StorageBridgeService {
   private baseUrl: string
   private timeout: number
 
-  // CACHE-4: Circuit breaker state
   private consecutiveFailures = 0
   private circuitOpenUntil: number | null = null
   private readonly CIRCUIT_FAILURE_THRESHOLD = 5
-  private readonly CIRCUIT_COOLDOWN_MS = 30_000 // 30 seconds
+  private readonly CIRCUIT_COOLDOWN_MS = 30_000
 
   constructor() {
     this.baseUrl = STORAGE_SERVICE_URL
@@ -41,7 +42,6 @@ class StorageBridgeService {
     token: string,
     body?: unknown
   ): Promise<T> {
-    // CACHE-4: Fail fast if circuit is open
     if (this.circuitOpenUntil !== null) {
       if (Date.now() < this.circuitOpenUntil) {
         throw new Error(
@@ -49,7 +49,6 @@ class StorageBridgeService {
             `Retrying in ${Math.ceil((this.circuitOpenUntil - Date.now()) / 1000)}s.`
         )
       }
-      // Cooldown elapsed — attempt reconnection (half-open)
       this.circuitOpenUntil = null
     }
 
@@ -69,9 +68,8 @@ class StorageBridgeService {
 
       clearTimeout(timeoutId)
 
-      // Handle 204 No Content (Deletion success)
       if (response.status === 204) {
-        this.consecutiveFailures = 0 // Reset on success
+        this.consecutiveFailures = 0
         return true as unknown as T
       }
 
@@ -85,12 +83,11 @@ class StorageBridgeService {
         throw new Error(data.error || 'Request failed')
       }
 
-      this.consecutiveFailures = 0 // Reset on success
+      this.consecutiveFailures = 0
       return data.data as T
     } catch (error) {
       clearTimeout(timeoutId)
 
-      // CACHE-4: Track consecutive failures and open circuit if threshold exceeded
       this.consecutiveFailures++
       if (this.consecutiveFailures >= this.CIRCUIT_FAILURE_THRESHOLD) {
         this.circuitOpenUntil = Date.now() + this.CIRCUIT_COOLDOWN_MS
@@ -135,26 +132,19 @@ class StorageBridgeService {
   }
 
   async getFiles(
-    filter: FilesFilterInput | null | undefined,
-    pagination: PaginationInput | undefined,
+    pagination: PaginationInput | undefined | null,
+    search: string | undefined | null,
+    filter: FilesFilterInput | undefined | null,
     token: string
   ): Promise<PaginatedFiles> {
     const params = new URLSearchParams()
 
-    // Pagination
-    if (pagination?.page) {
-      params.set('page', pagination.page.toString())
-    }
-    if (pagination?.limit) {
-      params.set('limit', pagination.limit.toString())
-    }
+    if (pagination?.page) params.set('page', pagination.page.toString())
+    if (pagination?.limit) params.set('limit', pagination.limit.toString())
+    if (search) params.set('search', search)
 
-    // Filters
     if (filter?.folderId !== undefined) {
       params.set('folderId', filter.folderId === null ? 'null' : filter.folderId)
-    }
-    if (filter?.search) {
-      params.set('search', filter.search)
     }
     if (filter?.uploadedBy) {
       params.set('uploadedBy', filter.uploadedBy)
@@ -200,27 +190,22 @@ class StorageBridgeService {
   }
 
   async getFolders(
-    filter: FolderFilterInput | null | undefined,
-    pagination: PaginationInput | undefined,
+    pagination: PaginationInput | undefined | null,
+    search: string | undefined | null,
+    filter: FolderFilterInput | undefined | null,
     token: string
   ): Promise<PaginatedFolders> {
     const params = new URLSearchParams()
 
-    // Pagination
-    if (pagination?.page) {
-      params.set('page', pagination.page.toString())
-    }
-    if (pagination?.limit) {
-      params.set('limit', pagination.limit.toString())
-    }
+    if (pagination?.page) params.set('page', pagination.page.toString())
+    if (pagination?.limit) params.set('limit', pagination.limit.toString())
+    if (search) params.set('search', search)
 
-    // Filters
     if (filter?.parentId !== undefined) {
       params.set('parentId', filter.parentId === null ? 'null' : filter.parentId)
     }
-    if (filter?.search) {
-      params.set('search', filter.search)
-    }
+    if (filter?.dateRange?.from) params.set('dateFrom', filter.dateRange.from)
+    if (filter?.dateRange?.to) params.set('dateTo', filter.dateRange.to)
 
     const query = params.toString()
     return this.request<PaginatedFolders>('GET', `/folders${query ? `?${query}` : ''}`, token)
@@ -239,17 +224,44 @@ class StorageBridgeService {
     return true
   }
 
-  // Share link methods
   async createShareLink(input: ShareLinkInput, token: string): Promise<ResourceShareLink> {
     return this.request<ResourceShareLink>('POST', '/share-links', token, input)
   }
 
-  async getFileShareLinks(fileId: string, token: string): Promise<ResourceShareLink[]> {
-    return this.request<ResourceShareLink[]>('GET', `/share-links/file/${fileId}`, token)
+  async getFileShareLinks(
+    fileId: string,
+    pagination: PaginationInput | undefined | null,
+    search: string | undefined | null,
+    filter: ShareLinkFilterInput | undefined | null,
+    token: string
+  ): Promise<PaginatedShareLinks> {
+    const params = new URLSearchParams()
+    if (pagination?.page) params.set('page', pagination.page.toString())
+    if (pagination?.limit) params.set('limit', pagination.limit.toString())
+    if (search) params.set('search', search)
+    if (filter?.dateRange?.from) params.set('dateFrom', filter.dateRange.from)
+    if (filter?.dateRange?.to) params.set('dateTo', filter.dateRange.to)
+
+    const query = params.toString()
+    return this.request<PaginatedShareLinks>('GET', `/share-links/file/${fileId}${query ? `?${query}` : ''}`, token)
   }
 
-  async getFolderShareLinks(folderId: string, token: string): Promise<ResourceShareLink[]> {
-    return this.request<ResourceShareLink[]>('GET', `/share-links/folder/${folderId}`, token)
+  async getFolderShareLinks(
+    folderId: string,
+    pagination: PaginationInput | undefined | null,
+    search: string | undefined | null,
+    filter: ShareLinkFilterInput | undefined | null,
+    token: string
+  ): Promise<PaginatedShareLinks> {
+    const params = new URLSearchParams()
+    if (pagination?.page) params.set('page', pagination.page.toString())
+    if (pagination?.limit) params.set('limit', pagination.limit.toString())
+    if (search) params.set('search', search)
+    if (filter?.dateRange?.from) params.set('dateFrom', filter.dateRange.from)
+    if (filter?.dateRange?.to) params.set('dateTo', filter.dateRange.to)
+
+    const query = params.toString()
+    return this.request<PaginatedShareLinks>('GET', `/share-links/folder/${folderId}${query ? `?${query}` : ''}`, token)
   }
 
   async deleteShareLink(id: string, token: string): Promise<boolean> {
