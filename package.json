@@ -9,7 +9,7 @@
     "build": "rimraf dist && yarn generate && node esbuild.config.js",
     "dev": "yarn generate && concurrently \"yarn db:studio\" \"nodemon --exec tsx --env-file=.env --no-warnings src/server.ts\"",
     "db:update": "prisma-sharding-update",
-    "db:studio": "prisma-sharding-studio",
+    "db:studio": "prisma-studio-next",
     "generate": "graphql-codegen",
     "test:shards": "prisma-sharding-test",
     "docker:dev": "docker compose up -d",
@@ -75,7 +75,7 @@
     "mercurius": "^16.0.3",
     "nodemailer": "^7.0.13",
     "pg": "^8.18.0",
-    "prisma-sharding": "^0.0.5",
+    "prisma-sharding": "^1.2.0",
     "superjson": "^2.2.6"
   },
   "prettier": {
