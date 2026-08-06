@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import jwt from 'jsonwebtoken'
 import type { Request } from 'express'
 
@@ -7,22 +7,19 @@ process.env.STORAGE_SERVICE_TOKEN_SECRET =
 process.env.STORAGE_SERVICE_TOKEN_ISSUER = 'boilerplate-storage'
 process.env.STORAGE_SERVICE_TOKEN_AUDIENCE = 'boilerplate-storage-service'
 
-const SECRET = process.env.STORAGE_SERVICE_TOKEN_SECRET
+const SECRET = process.env.STORAGE_SERVICE_TOKEN_SECRET!
 const ISSUER = 'boilerplate-storage'
 const AUDIENCE = 'boilerplate-storage-service'
 
 let extractServiceBearerToken: typeof import('../services/storage/src/middleware/auth.middleware').extractServiceBearerToken
 let verifyStorageServiceToken: typeof import('../services/storage/src/middleware/auth.middleware').verifyStorageServiceToken
 let verifyFileViewToken: typeof import('../services/storage/src/middleware/auth.middleware').verifyFileViewToken
-let validateStorageSecrets: typeof import('../services/storage/src/constants/index').validateStorageSecrets
 
 beforeAll(async () => {
   const auth = await import('../services/storage/src/middleware/auth.middleware.ts')
   extractServiceBearerToken = auth.extractServiceBearerToken
   verifyStorageServiceToken = auth.verifyStorageServiceToken
   verifyFileViewToken = auth.verifyFileViewToken
-  const constants = await import('../services/storage/src/constants/index.ts')
-  validateStorageSecrets = constants.validateStorageSecrets
 })
 
 function signService(payload: Record<string, unknown> = {}) {
@@ -83,19 +80,63 @@ describe('storage service auth', () => {
       ownerId: 'user-1',
     })
   })
+})
 
-  it('requires STORAGE_SERVICE_TOKEN_SECRET at startup', () => {
-    const previous = process.env.STORAGE_SERVICE_TOKEN_SECRET
-    delete process.env.STORAGE_SERVICE_TOKEN_SECRET
-    // Module already loaded secret — validate against exported empty would need reset.
-    // Assert the validator rejects empty/short values when invoked with current rules:
-    expect(() => {
-      const check = (value: string) => {
-        if (!value || value.length < 32) throw new Error('STORAGE_SERVICE_TOKEN_SECRET required')
-      }
-      check('')
-    }).toThrow(/STORAGE_SERVICE_TOKEN_SECRET/)
-    process.env.STORAGE_SERVICE_TOKEN_SECRET = previous
-    expect(() => validateStorageSecrets()).not.toThrow()
+describe('validateStorageSecrets (real implementation)', () => {
+  const originalEnv = { ...process.env }
+
+  afterEach(() => {
+    process.env = { ...originalEnv }
+    vi.resetModules()
+  })
+
+  async function loadValidator(env: Record<string, string | undefined>) {
+    vi.resetModules()
+    for (const [key, value] of Object.entries(env)) {
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+    const mod = await import('../services/storage/src/constants/index.ts')
+    return mod.validateStorageSecrets
+  }
+
+  it('rejects a missing dedicated secret', async () => {
+    const validate = await loadValidator({
+      STORAGE_SERVICE_TOKEN_SECRET: undefined,
+      JWT_SECRET: undefined,
+    })
+    expect(() => validate()).toThrow(/STORAGE_SERVICE_TOKEN_SECRET is required/)
+  })
+
+  it('rejects legacy JWT_SECRET fallback', async () => {
+    const validate = await loadValidator({
+      STORAGE_SERVICE_TOKEN_SECRET: undefined,
+      JWT_SECRET: 'legacy-shared-secret-at-least-32-chars!',
+    })
+    expect(() => validate()).toThrow(/Legacy JWT_SECRET fallback is not supported/)
+  })
+
+  it('rejects a secret shorter than 32 characters', async () => {
+    const validate = await loadValidator({
+      STORAGE_SERVICE_TOKEN_SECRET: 'too-short',
+      JWT_SECRET: undefined,
+    })
+    expect(() => validate()).toThrow(/at least 32 characters/)
+  })
+
+  it('rejects the default example secret', async () => {
+    const validate = await loadValidator({
+      STORAGE_SERVICE_TOKEN_SECRET: 'change-this-to-a-secure-secret-in-production',
+      JWT_SECRET: undefined,
+    })
+    expect(() => validate()).toThrow(/changed from the default/)
+  })
+
+  it('accepts a valid dedicated secret', async () => {
+    const validate = await loadValidator({
+      STORAGE_SERVICE_TOKEN_SECRET: 'valid-storage-secret-at-least-32-chars!!',
+      JWT_SECRET: undefined,
+    })
+    expect(() => validate()).not.toThrow()
   })
 })

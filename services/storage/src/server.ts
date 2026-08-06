@@ -54,6 +54,7 @@ const getCorsOptions = (): CorsOptions => {
 }
 
 async function startServer() {
+  // Fail closed before provider/network initialization
   validateStorageSecrets()
   await initializeProvider()
 

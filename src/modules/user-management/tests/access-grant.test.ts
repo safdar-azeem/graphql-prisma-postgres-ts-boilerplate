@@ -14,10 +14,16 @@ vi.mock('@/cache', () => ({
 
 vi.mock('@/identity/email-reservation.service', () => ({
   reserveEmail: vi.fn().mockResolvedValue(undefined),
-  activateEmailReservation: vi.fn().mockResolvedValue(undefined),
-  releaseEmailReservation: vi.fn().mockResolvedValue(undefined),
-  findIdentityByEmail: vi.fn().mockResolvedValue(null),
+  activateAfterShardCommit: vi.fn().mockResolvedValue(undefined),
+  releaseAfterFailedShardWrite: vi.fn().mockResolvedValue(undefined),
+  releaseAfterUserDelete: vi.fn().mockResolvedValue(undefined),
 }))
+
+vi.mock('@/config/prisma', () => ({
+  getDbForWorkspace: vi.fn(),
+}))
+
+import { getDbForWorkspace } from '@/config/prisma'
 
 describe('Access grant restrictions', () => {
   let client: any
@@ -42,6 +48,7 @@ describe('Access grant restrictions', () => {
       },
     }
     vi.clearAllMocks()
+    vi.mocked(getDbForWorkspace).mockImplementation(() => client)
   })
 
   it('blocks a member from assigning the Admin system role', async () => {

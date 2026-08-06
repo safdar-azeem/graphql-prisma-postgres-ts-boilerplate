@@ -20,6 +20,7 @@ import {
 import {
   AuthenticationError,
   ConflictError,
+  DependencyUnavailableError,
   ValidationError,
   mapPrismaError,
 } from '@/errors'
@@ -30,11 +31,11 @@ import { generateOtp } from '@/utils/otp.util'
 import { slugify, uniqueSlug } from '@/utils/slug.util'
 import { ALL_PERMISSIONS } from '@/authorization/permissions'
 import {
-  activateEmailReservation,
-  findIdentityByEmail,
+  activateAfterShardCommit,
   reserveEmail,
-  releaseEmailReservation,
+  releaseAfterFailedShardWrite,
 } from '@/identity/email-reservation.service'
+import { resolveUserByEmail } from '@/identity/resolve-user-by-email'
 import { hashPassword, comparePassword } from '../utils/auth.utils'
 import { OtpSettings, PasswordResetSettings } from '../types/db.types'
 import {
@@ -45,26 +46,6 @@ import {
 } from '../validation/auth.schema'
 
 type DbClient = PrismaClient
-
-/** Prefer control-plane identity routing; fall back to shard scan for legacy rows. */
-async function resolveUserByEmail(email: string) {
-  const identity = await findIdentityByEmail(email)
-  if (identity) {
-    try {
-      const client = getDbForWorkspace({
-        workspaceId: identity.workspaceId,
-        shardId: identity.shardId,
-      })
-      const user = await client.user.findUnique({ where: { email } })
-      if (user) {
-        return { result: user, client, shardId: identity.shardId }
-      }
-    } catch {
-      // fall through
-    }
-  }
-  return findUserAcrossShards((c) => c.user.findUnique({ where: { email } }))
-}
 
 function stripPassword<T extends { password?: string }>(user: T) {
   const { password: _p, ...rest } = user
@@ -197,8 +178,9 @@ export async function signup(data: SignupInput) {
 
   const hashedPassword = await hashPassword(input.password)
 
+  let owner
   try {
-    const owner = await client.$transaction(async (tx) => {
+    owner = await client.$transaction(async (tx) => {
       const workspace = await tx.workspace.create({
         data: {
           id: workspaceId,
@@ -238,15 +220,16 @@ export async function signup(data: SignupInput) {
 
       return createdOwner
     })
-
-    await activateEmailReservation(input.email, ownerId)
-    return issueAuthPayload(owner)
   } catch (error) {
-    await releaseEmailReservation(input.email, ownerId)
+    await releaseAfterFailedShardWrite(input.email, ownerId)
     const mapped = mapPrismaError(error)
     if (mapped) throw mapped
     throw error
   }
+
+  // Shard commit succeeded — never release on activation failure
+  await activateAfterShardCommit(input.email, ownerId)
+  return issueAuthPayload(owner)
 }
 
 export async function login(data: LoginInput) {
@@ -329,11 +312,11 @@ export async function googleLogin(token: string) {
 
           return owner
         })
-        await activateEmailReservation(email, ownerId)
       } catch (error) {
-        await releaseEmailReservation(email, ownerId)
+        await releaseAfterFailedShardWrite(email, ownerId)
         throw error
       }
+      await activateAfterShardCommit(email, ownerId)
     } else if (!user.googleId && client) {
       user = await client.user.update({
         where: { id: user.id },
@@ -360,7 +343,14 @@ export async function googleLogin(token: string) {
 
     return issueAuthPayload(user as any)
   } catch (error) {
-    if (error instanceof AuthenticationError || error instanceof ValidationError) throw error
+    if (
+      error instanceof AuthenticationError ||
+      error instanceof ValidationError ||
+      error instanceof ConflictError ||
+      error instanceof DependencyUnavailableError
+    ) {
+      throw error
+    }
     throw new AuthenticationError('Google authentication failed')
   }
 }

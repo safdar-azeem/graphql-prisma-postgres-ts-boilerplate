@@ -56,6 +56,7 @@ export type CreateFolderInput = {
 }
 
 export type CreateRoleInput = {
+  description?: InputMaybe<Scalars['String']['input']>
   name: Scalars['String']['input']
   permissions: Array<Permissions>
 }
@@ -65,7 +66,6 @@ export type CreateUserInput = {
   email: Scalars['String']['input']
   password: Scalars['String']['input']
   roleIds?: InputMaybe<Array<Scalars['ID']['input']>>
-  userType: UserType
   username: Scalars['String']['input']
 }
 
@@ -143,14 +143,15 @@ export type ManagedUser = {
   __typename?: 'ManagedUser'
   avatar?: Maybe<Scalars['String']['output']>
   createdAt: Scalars['DateTime']['output']
-  customPermissions: Array<Scalars['String']['output']>
+  customPermissions: Array<Permissions>
   email: Scalars['String']['output']
   id: Scalars['ID']['output']
-  ownerId?: Maybe<Scalars['String']['output']>
   roles: Array<Role>
+  status: UserStatus
   updatedAt: Scalars['DateTime']['output']
   userType: UserType
   username: Scalars['String']['output']
+  workspaceId: Scalars['String']['output']
 }
 
 export type ManagedUserConnection = {
@@ -193,11 +194,16 @@ export type Mutation = {
   renameFolder: Folder
   requestUploadUrl: SignedUploadUrl
   resetPassword: Scalars['Boolean']['output']
+  setUserPermissions: ManagedUser
+  setUserRoles: ManagedUser
   signup: AuthPayload
   toggleFilePublic: File
+  transferOwnership: Workspace
   updateRole: Role
   updateUser: ManagedUser
   updateUserProfile: User
+  updateUserStatus: ManagedUser
+  updateWorkspace: Workspace
   verify2FA: AuthPayload
 }
 
@@ -274,6 +280,10 @@ export type MutationloginArgs = {
   data: LoginInput
 }
 
+export type MutationlogoutArgs = {
+  refreshToken?: InputMaybe<Scalars['String']['input']>
+}
+
 export type MutationmoveFolderArgs = {
   id: Scalars['ID']['input']
   parentId?: InputMaybe<Scalars['String']['input']>
@@ -302,12 +312,26 @@ export type MutationresetPasswordArgs = {
   token: Scalars['String']['input']
 }
 
+export type MutationsetUserPermissionsArgs = {
+  data: SetUserPermissionsInput
+  userId: Scalars['ID']['input']
+}
+
+export type MutationsetUserRolesArgs = {
+  data: SetUserRolesInput
+  userId: Scalars['ID']['input']
+}
+
 export type MutationsignupArgs = {
   data: SignupInput
 }
 
 export type MutationtoggleFilePublicArgs = {
   id: Scalars['ID']['input']
+}
+
+export type MutationtransferOwnershipArgs = {
+  data: TransferOwnershipInput
 }
 
 export type MutationupdateRoleArgs = {
@@ -322,6 +346,15 @@ export type MutationupdateUserArgs = {
 
 export type MutationupdateUserProfileArgs = {
   data: UpdateUserProfileInput
+}
+
+export type MutationupdateUserStatusArgs = {
+  data: UpdateUserStatusInput
+  id: Scalars['ID']['input']
+}
+
+export type MutationupdateWorkspaceArgs = {
+  data: UpdateWorkspaceInput
 }
 
 export type Mutationverify2FAArgs = {
@@ -342,14 +375,21 @@ export type PaginationInput = {
 }
 
 export type Permissions =
-  | 'ROLE_CREATE'
-  | 'ROLE_DELETE'
-  | 'ROLE_UPDATE'
-  | 'ROLE_VIEW'
-  | 'USER_CREATE'
-  | 'USER_DELETE'
-  | 'USER_UPDATE'
-  | 'USER_VIEW'
+  | 'AUDIT_READ'
+  | 'ROLES_CREATE'
+  | 'ROLES_DELETE'
+  | 'ROLES_READ'
+  | 'ROLES_UPDATE'
+  | 'USERS_CREATE'
+  | 'USERS_DELETE'
+  | 'USERS_MANAGE_PERMISSIONS'
+  | 'USERS_MANAGE_ROLES'
+  | 'USERS_MANAGE_STATUS'
+  | 'USERS_READ'
+  | 'USERS_UPDATE'
+  | 'WORKSPACE_READ'
+  | 'WORKSPACE_TRANSFER_OWNERSHIP'
+  | 'WORKSPACE_UPDATE'
 
 export type Query = {
   __typename?: 'Query'
@@ -365,6 +405,7 @@ export type Query = {
   getUser: ManagedUser
   getUsers: ManagedUserConnection
   me?: Maybe<User>
+  workspace: Workspace
 }
 
 export type QuerygetFileArgs = {
@@ -413,6 +454,7 @@ export type QuerygetRolesArgs = {
   filter?: InputMaybe<RoleFilterInput>
   pagination?: InputMaybe<PaginationInput>
   search?: InputMaybe<Scalars['String']['input']>
+  sort?: InputMaybe<RoleSortInput>
 }
 
 export type QuerygetUserArgs = {
@@ -423,6 +465,7 @@ export type QuerygetUsersArgs = {
   filter?: InputMaybe<UsersFilterInput>
   pagination?: InputMaybe<PaginationInput>
   search?: InputMaybe<Scalars['String']['input']>
+  sort?: InputMaybe<UserSortInput>
 }
 
 export type RequestUploadInput = {
@@ -454,11 +497,13 @@ export type ResourceShareLinkConnection = {
 export type Role = {
   __typename?: 'Role'
   createdAt: Scalars['DateTime']['output']
+  description?: Maybe<Scalars['String']['output']>
   id: Scalars['ID']['output']
+  isSystem: Scalars['Boolean']['output']
   name: Scalars['String']['output']
-  ownerId: Scalars['String']['output']
   permissions: Array<Permissions>
   updatedAt: Scalars['DateTime']['output']
+  workspaceId: Scalars['String']['output']
 }
 
 export type RoleConnection = {
@@ -469,6 +514,22 @@ export type RoleConnection = {
 
 export type RoleFilterInput = {
   dateRange?: InputMaybe<DateRangeInput>
+  isSystem?: InputMaybe<Scalars['Boolean']['input']>
+}
+
+export type RoleSortField = 'createdAt' | 'name' | 'updatedAt'
+
+export type RoleSortInput = {
+  direction?: InputMaybe<SortDirection>
+  field?: InputMaybe<RoleSortField>
+}
+
+export type SetUserPermissionsInput = {
+  customPermissions: Array<Permissions>
+}
+
+export type SetUserRolesInput = {
+  roleIds: Array<Scalars['ID']['input']>
 }
 
 export type ShareLinkFilterInput = {
@@ -494,25 +555,46 @@ export type SignupInput = {
   email: Scalars['String']['input']
   password: Scalars['String']['input']
   username: Scalars['String']['input']
+  workspaceName: Scalars['String']['input']
+  workspaceSlug?: InputMaybe<Scalars['String']['input']>
+}
+
+export type SortDirection = 'ASC' | 'DESC'
+
+export type SortInput = {
+  direction?: InputMaybe<SortDirection>
+  field: Scalars['String']['input']
+}
+
+export type TransferOwnershipInput = {
+  newOwnerUserId: Scalars['ID']['input']
 }
 
 export type TwoFactorMethod = 'AUTHENTICATOR' | 'EMAIL'
 
 export type UpdateRoleInput = {
+  description?: InputMaybe<Scalars['String']['input']>
   name?: InputMaybe<Scalars['String']['input']>
   permissions?: InputMaybe<Array<Permissions>>
 }
 
 export type UpdateUserInput = {
   avatar?: InputMaybe<Scalars['String']['input']>
-  customPermissions?: InputMaybe<Array<Permissions>>
-  roleIds?: InputMaybe<Array<Scalars['ID']['input']>>
   username?: InputMaybe<Scalars['String']['input']>
 }
 
 export type UpdateUserProfileInput = {
   avatar?: InputMaybe<Scalars['String']['input']>
   username?: InputMaybe<Scalars['String']['input']>
+}
+
+export type UpdateUserStatusInput = {
+  status: UserStatus
+}
+
+export type UpdateWorkspaceInput = {
+  name?: InputMaybe<Scalars['String']['input']>
+  slug?: InputMaybe<Scalars['String']['input']>
 }
 
 export type User = {
@@ -523,17 +605,41 @@ export type User = {
   id: Scalars['ID']['output']
   mfaSettings?: Maybe<MfaSettings>
   permissions: Array<Permissions>
+  status: UserStatus
   updatedAt: Scalars['DateTime']['output']
   userType: UserType
   username: Scalars['String']['output']
+  workspaceId: Scalars['String']['output']
 }
 
-export type UserType = 'CUSTOMER' | 'EMPLOYEE' | 'OWNER' | 'SUPPLIER'
+export type UserSortField = 'createdAt' | 'email' | 'updatedAt' | 'username'
+
+export type UserSortInput = {
+  direction?: InputMaybe<SortDirection>
+  field?: InputMaybe<UserSortField>
+}
+
+export type UserStatus = 'ACTIVE' | 'INVITED' | 'SUSPENDED'
+
+export type UserType = 'MEMBER' | 'OWNER'
 
 export type UsersFilterInput = {
   dateRange?: InputMaybe<DateRangeInput>
-  userType?: InputMaybe<UserType>
+  status?: InputMaybe<UserStatus>
 }
+
+export type Workspace = {
+  __typename?: 'Workspace'
+  createdAt: Scalars['DateTime']['output']
+  id: Scalars['ID']['output']
+  name: Scalars['String']['output']
+  ownerId?: Maybe<Scalars['String']['output']>
+  slug: Scalars['String']['output']
+  status: WorkspaceStatus
+  updatedAt: Scalars['DateTime']['output']
+}
+
+export type WorkspaceStatus = 'ACTIVE' | 'ARCHIVED' | 'SUSPENDED'
 
 export type ResolverTypeWrapper<T> = Promise<T> | T
 
@@ -666,8 +772,10 @@ export type ResolversTypes = {
   JSON: ResolverTypeWrapper<Scalars['JSON']['output']>
   LoginInput: LoginInput
   ManagedUser: ResolverTypeWrapper<
-    Omit<ManagedUser, 'roles' | 'userType'> & {
+    Omit<ManagedUser, 'customPermissions' | 'roles' | 'status' | 'userType'> & {
+      customPermissions: Array<ResolversTypes['Permissions']>
       roles: Array<ResolversTypes['Role']>
+      status: ResolversTypes['UserStatus']
       userType: ResolversTypes['UserType']
     }
   >
@@ -682,14 +790,21 @@ export type ResolversTypes = {
   PaginationInfo: ResolverTypeWrapper<PaginationInfo>
   PaginationInput: PaginationInput
   Permissions: ResolverTypeWrapper<
-    | 'USER_VIEW'
-    | 'USER_CREATE'
-    | 'USER_UPDATE'
-    | 'USER_DELETE'
-    | 'ROLE_VIEW'
-    | 'ROLE_CREATE'
-    | 'ROLE_UPDATE'
-    | 'ROLE_DELETE'
+    | 'USERS_READ'
+    | 'USERS_CREATE'
+    | 'USERS_UPDATE'
+    | 'USERS_DELETE'
+    | 'USERS_MANAGE_STATUS'
+    | 'USERS_MANAGE_ROLES'
+    | 'USERS_MANAGE_PERMISSIONS'
+    | 'ROLES_READ'
+    | 'ROLES_CREATE'
+    | 'ROLES_UPDATE'
+    | 'ROLES_DELETE'
+    | 'WORKSPACE_READ'
+    | 'WORKSPACE_UPDATE'
+    | 'WORKSPACE_TRANSFER_OWNERSHIP'
+    | 'AUDIT_READ'
   >
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>
   RequestUploadInput: RequestUploadInput
@@ -702,24 +817,41 @@ export type ResolversTypes = {
     Omit<RoleConnection, 'items'> & { items: Array<ResolversTypes['Role']> }
   >
   RoleFilterInput: RoleFilterInput
+  RoleSortField: ResolverTypeWrapper<'name' | 'createdAt' | 'updatedAt'>
+  RoleSortInput: RoleSortInput
+  SetUserPermissionsInput: SetUserPermissionsInput
+  SetUserRolesInput: SetUserRolesInput
   ShareLinkFilterInput: ShareLinkFilterInput
   ShareLinkInput: ShareLinkInput
   SignedUploadUrl: ResolverTypeWrapper<SignedUploadUrl>
   SignupInput: SignupInput
+  SortDirection: ResolverTypeWrapper<'ASC' | 'DESC'>
+  SortInput: SortInput
+  TransferOwnershipInput: TransferOwnershipInput
   TwoFactorMethod: ResolverTypeWrapper<'EMAIL' | 'AUTHENTICATOR'>
   UpdateRoleInput: UpdateRoleInput
   UpdateUserInput: UpdateUserInput
   UpdateUserProfileInput: UpdateUserProfileInput
+  UpdateUserStatusInput: UpdateUserStatusInput
+  UpdateWorkspaceInput: UpdateWorkspaceInput
   Upload: ResolverTypeWrapper<Scalars['Upload']['output']>
   User: ResolverTypeWrapper<
-    Omit<User, 'mfaSettings' | 'permissions' | 'userType'> & {
+    Omit<User, 'mfaSettings' | 'permissions' | 'status' | 'userType'> & {
       mfaSettings?: Maybe<ResolversTypes['MfaSettings']>
       permissions: Array<ResolversTypes['Permissions']>
+      status: ResolversTypes['UserStatus']
       userType: ResolversTypes['UserType']
     }
   >
-  UserType: ResolverTypeWrapper<'OWNER' | 'EMPLOYEE' | 'CUSTOMER' | 'SUPPLIER'>
+  UserSortField: ResolverTypeWrapper<'username' | 'email' | 'createdAt' | 'updatedAt'>
+  UserSortInput: UserSortInput
+  UserStatus: ResolverTypeWrapper<'ACTIVE' | 'SUSPENDED' | 'INVITED'>
+  UserType: ResolverTypeWrapper<'OWNER' | 'MEMBER'>
   UsersFilterInput: UsersFilterInput
+  Workspace: ResolverTypeWrapper<
+    Omit<Workspace, 'status'> & { status: ResolversTypes['WorkspaceStatus'] }
+  >
+  WorkspaceStatus: ResolverTypeWrapper<'ACTIVE' | 'SUSPENDED' | 'ARCHIVED'>
 }
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -768,16 +900,25 @@ export type ResolversParentTypes = {
   Role: Role
   RoleConnection: Omit<RoleConnection, 'items'> & { items: Array<ResolversParentTypes['Role']> }
   RoleFilterInput: RoleFilterInput
+  RoleSortInput: RoleSortInput
+  SetUserPermissionsInput: SetUserPermissionsInput
+  SetUserRolesInput: SetUserRolesInput
   ShareLinkFilterInput: ShareLinkFilterInput
   ShareLinkInput: ShareLinkInput
   SignedUploadUrl: SignedUploadUrl
   SignupInput: SignupInput
+  SortInput: SortInput
+  TransferOwnershipInput: TransferOwnershipInput
   UpdateRoleInput: UpdateRoleInput
   UpdateUserInput: UpdateUserInput
   UpdateUserProfileInput: UpdateUserProfileInput
+  UpdateUserStatusInput: UpdateUserStatusInput
+  UpdateWorkspaceInput: UpdateWorkspaceInput
   Upload: Scalars['Upload']['output']
   User: Omit<User, 'mfaSettings'> & { mfaSettings?: Maybe<ResolversParentTypes['MfaSettings']> }
+  UserSortInput: UserSortInput
   UsersFilterInput: UsersFilterInput
+  Workspace: Workspace
 }
 
 export interface AnyScalarConfig extends GraphQLScalarTypeConfig<ResolversTypes['Any'], any> {
@@ -886,14 +1027,15 @@ export type ManagedUserResolvers<
 > = {
   avatar?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
-  customPermissions?: Resolver<Array<ResolversTypes['String']>, ParentType, ContextType>
+  customPermissions?: Resolver<Array<ResolversTypes['Permissions']>, ParentType, ContextType>
   email?: Resolver<ResolversTypes['String'], ParentType, ContextType>
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>
-  ownerId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>
   roles?: Resolver<Array<ResolversTypes['Role']>, ParentType, ContextType>
+  status?: Resolver<ResolversTypes['UserStatus'], ParentType, ContextType>
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
   userType?: Resolver<ResolversTypes['UserType'], ParentType, ContextType>
   username?: Resolver<ResolversTypes['String'], ParentType, ContextType>
+  workspaceId?: Resolver<ResolversTypes['String'], ParentType, ContextType>
 }
 
 export type ManagedUserConnectionResolvers<
@@ -1025,7 +1167,7 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationloginArgs, 'data'>
   >
-  logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>
+  logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, Partial<MutationlogoutArgs>>
   logoutAll?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>
   moveFolder?: Resolver<
     ResolversTypes['Folder'],
@@ -1063,6 +1205,18 @@ export type MutationResolvers<
     ContextType,
     RequireFields<MutationresetPasswordArgs, 'password' | 'token'>
   >
+  setUserPermissions?: Resolver<
+    ResolversTypes['ManagedUser'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationsetUserPermissionsArgs, 'data' | 'userId'>
+  >
+  setUserRoles?: Resolver<
+    ResolversTypes['ManagedUser'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationsetUserRolesArgs, 'data' | 'userId'>
+  >
   signup?: Resolver<
     ResolversTypes['AuthPayload'],
     ParentType,
@@ -1074,6 +1228,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationtoggleFilePublicArgs, 'id'>
+  >
+  transferOwnership?: Resolver<
+    ResolversTypes['Workspace'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationtransferOwnershipArgs, 'data'>
   >
   updateRole?: Resolver<
     ResolversTypes['Role'],
@@ -1092,6 +1252,18 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationupdateUserProfileArgs, 'data'>
+  >
+  updateUserStatus?: Resolver<
+    ResolversTypes['ManagedUser'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationupdateUserStatusArgs, 'data' | 'id'>
+  >
+  updateWorkspace?: Resolver<
+    ResolversTypes['Workspace'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationupdateWorkspaceArgs, 'data'>
   >
   verify2FA?: Resolver<
     ResolversTypes['AuthPayload'],
@@ -1120,14 +1292,21 @@ export type PaginationInfoResolvers<
 
 export type PermissionsResolvers = EnumResolverSignature<
   {
-    ROLE_CREATE?: any
-    ROLE_DELETE?: any
-    ROLE_UPDATE?: any
-    ROLE_VIEW?: any
-    USER_CREATE?: any
-    USER_DELETE?: any
-    USER_UPDATE?: any
-    USER_VIEW?: any
+    AUDIT_READ?: any
+    ROLES_CREATE?: any
+    ROLES_DELETE?: any
+    ROLES_READ?: any
+    ROLES_UPDATE?: any
+    USERS_CREATE?: any
+    USERS_DELETE?: any
+    USERS_MANAGE_PERMISSIONS?: any
+    USERS_MANAGE_ROLES?: any
+    USERS_MANAGE_STATUS?: any
+    USERS_READ?: any
+    USERS_UPDATE?: any
+    WORKSPACE_READ?: any
+    WORKSPACE_TRANSFER_OWNERSHIP?: any
+    WORKSPACE_UPDATE?: any
   },
   ResolversTypes['Permissions']
 >
@@ -1203,6 +1382,7 @@ export type QueryResolvers<
     Partial<QuerygetUsersArgs>
   >
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>
+  workspace?: Resolver<ResolversTypes['Workspace'], ParentType, ContextType>
 }
 
 export type ResourceShareLinkResolvers<
@@ -1233,11 +1413,13 @@ export type RoleResolvers<
   ParentType extends ResolversParentTypes['Role'] = ResolversParentTypes['Role'],
 > = {
   createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
+  description?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>
+  isSystem?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>
-  ownerId?: Resolver<ResolversTypes['String'], ParentType, ContextType>
   permissions?: Resolver<Array<ResolversTypes['Permissions']>, ParentType, ContextType>
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
+  workspaceId?: Resolver<ResolversTypes['String'], ParentType, ContextType>
 }
 
 export type RoleConnectionResolvers<
@@ -1248,6 +1430,11 @@ export type RoleConnectionResolvers<
   items?: Resolver<Array<ResolversTypes['Role']>, ParentType, ContextType>
   pageInfo?: Resolver<ResolversTypes['PaginationInfo'], ParentType, ContextType>
 }
+
+export type RoleSortFieldResolvers = EnumResolverSignature<
+  { createdAt?: any; name?: any; updatedAt?: any },
+  ResolversTypes['RoleSortField']
+>
 
 export type SignedUploadUrlResolvers<
   ContextType = any,
@@ -1260,6 +1447,11 @@ export type SignedUploadUrlResolvers<
   signedUrl?: Resolver<ResolversTypes['String'], ParentType, ContextType>
   storageKey?: Resolver<ResolversTypes['String'], ParentType, ContextType>
 }
+
+export type SortDirectionResolvers = EnumResolverSignature<
+  { ASC?: any; DESC?: any },
+  ResolversTypes['SortDirection']
+>
 
 export type TwoFactorMethodResolvers = EnumResolverSignature<
   { AUTHENTICATOR?: any; EMAIL?: any },
@@ -1280,14 +1472,44 @@ export type UserResolvers<
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>
   mfaSettings?: Resolver<Maybe<ResolversTypes['MfaSettings']>, ParentType, ContextType>
   permissions?: Resolver<Array<ResolversTypes['Permissions']>, ParentType, ContextType>
+  status?: Resolver<ResolversTypes['UserStatus'], ParentType, ContextType>
   updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
   userType?: Resolver<ResolversTypes['UserType'], ParentType, ContextType>
   username?: Resolver<ResolversTypes['String'], ParentType, ContextType>
+  workspaceId?: Resolver<ResolversTypes['String'], ParentType, ContextType>
 }
 
+export type UserSortFieldResolvers = EnumResolverSignature<
+  { createdAt?: any; email?: any; updatedAt?: any; username?: any },
+  ResolversTypes['UserSortField']
+>
+
+export type UserStatusResolvers = EnumResolverSignature<
+  { ACTIVE?: any; INVITED?: any; SUSPENDED?: any },
+  ResolversTypes['UserStatus']
+>
+
 export type UserTypeResolvers = EnumResolverSignature<
-  { CUSTOMER?: any; EMPLOYEE?: any; OWNER?: any; SUPPLIER?: any },
+  { MEMBER?: any; OWNER?: any },
   ResolversTypes['UserType']
+>
+
+export type WorkspaceResolvers<
+  ContextType = any,
+  ParentType extends ResolversParentTypes['Workspace'] = ResolversParentTypes['Workspace'],
+> = {
+  createdAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>
+  ownerId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>
+  slug?: Resolver<ResolversTypes['String'], ParentType, ContextType>
+  status?: Resolver<ResolversTypes['WorkspaceStatus'], ParentType, ContextType>
+  updatedAt?: Resolver<ResolversTypes['DateTime'], ParentType, ContextType>
+}
+
+export type WorkspaceStatusResolvers = EnumResolverSignature<
+  { ACTIVE?: any; ARCHIVED?: any; SUSPENDED?: any },
+  ResolversTypes['WorkspaceStatus']
 >
 
 export type Resolvers<ContextType = any> = {
@@ -1314,9 +1536,15 @@ export type Resolvers<ContextType = any> = {
   ResourceShareLinkConnection?: ResourceShareLinkConnectionResolvers<ContextType>
   Role?: RoleResolvers<ContextType>
   RoleConnection?: RoleConnectionResolvers<ContextType>
+  RoleSortField?: RoleSortFieldResolvers
   SignedUploadUrl?: SignedUploadUrlResolvers<ContextType>
+  SortDirection?: SortDirectionResolvers
   TwoFactorMethod?: TwoFactorMethodResolvers
   Upload?: GraphQLScalarType
   User?: UserResolvers<ContextType>
+  UserSortField?: UserSortFieldResolvers
+  UserStatus?: UserStatusResolvers
   UserType?: UserTypeResolvers
+  Workspace?: WorkspaceResolvers<ContextType>
+  WorkspaceStatus?: WorkspaceStatusResolvers
 }

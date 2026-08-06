@@ -28,6 +28,12 @@ export const typeDefs = {
               type: { kind: 'NamedType', name: { kind: 'Name', value: 'RoleFilterInput' } },
               directives: [],
             },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'sort' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'RoleSortInput' } },
+              directives: [],
+            },
           ],
           type: {
             kind: 'NonNullType',
@@ -271,6 +277,12 @@ export const typeDefs = {
               type: { kind: 'NamedType', name: { kind: 'Name', value: 'UsersFilterInput' } },
               directives: [],
             },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'sort' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'UserSortInput' } },
+              directives: [],
+            },
           ],
           type: {
             kind: 'NonNullType',
@@ -303,6 +315,16 @@ export const typeDefs = {
           name: { kind: 'Name', value: 'me' },
           arguments: [],
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'User' } },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'workspace' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Workspace' } },
+          },
           directives: [],
         },
       ],
@@ -534,7 +556,14 @@ export const typeDefs = {
         {
           kind: 'FieldDefinition',
           name: { kind: 'Name', value: 'logout' },
-          arguments: [],
+          arguments: [
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'refreshToken' },
+              type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+              directives: [],
+            },
+          ],
           type: {
             kind: 'NonNullType',
             type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
@@ -912,6 +941,96 @@ export const typeDefs = {
         },
         {
           kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'updateUserStatus' },
+          arguments: [
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'id' },
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'ID' } },
+              },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'data' },
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'UpdateUserStatusInput' } },
+              },
+              directives: [],
+            },
+          ],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'ManagedUser' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'setUserRoles' },
+          arguments: [
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'userId' },
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'ID' } },
+              },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'data' },
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'SetUserRolesInput' } },
+              },
+              directives: [],
+            },
+          ],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'ManagedUser' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'setUserPermissions' },
+          arguments: [
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'userId' },
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'ID' } },
+              },
+              directives: [],
+            },
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'data' },
+              type: {
+                kind: 'NonNullType',
+                type: {
+                  kind: 'NamedType',
+                  name: { kind: 'Name', value: 'SetUserPermissionsInput' },
+                },
+              },
+              directives: [],
+            },
+          ],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'ManagedUser' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
           name: { kind: 'Name', value: 'deleteUser' },
           arguments: [
             {
@@ -1023,6 +1142,49 @@ export const typeDefs = {
           },
           directives: [],
         },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'updateWorkspace' },
+          arguments: [
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'data' },
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'UpdateWorkspaceInput' } },
+              },
+              directives: [],
+            },
+          ],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Workspace' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'transferOwnership' },
+          arguments: [
+            {
+              kind: 'InputValueDefinition',
+              name: { kind: 'Name', value: 'data' },
+              type: {
+                kind: 'NonNullType',
+                type: {
+                  kind: 'NamedType',
+                  name: { kind: 'Name', value: 'TransferOwnershipInput' },
+                },
+              },
+              directives: [],
+            },
+          ],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Workspace' } },
+          },
+          directives: [],
+        },
       ],
       directives: [],
       interfaces: [],
@@ -1111,6 +1273,38 @@ export const typeDefs = {
       ],
     },
     {
+      kind: 'EnumTypeDefinition',
+      name: { kind: 'Name', value: 'SortDirection' },
+      directives: [],
+      values: [
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'ASC' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'DESC' }, directives: [] },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'SortInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'field' },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'direction' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'SortDirection' } },
+          defaultValue: { kind: 'EnumValue', value: 'DESC' },
+          directives: [],
+        },
+      ],
+    },
+    {
       kind: 'InputObjectTypeDefinition',
       name: { kind: 'Name', value: 'AttachmentInput' },
       directives: [],
@@ -1191,38 +1385,110 @@ export const typeDefs = {
       name: { kind: 'Name', value: 'Permissions' },
       directives: [],
       values: [
-        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'USER_VIEW' }, directives: [] },
         {
           kind: 'EnumValueDefinition',
-          name: { kind: 'Name', value: 'USER_CREATE' },
+          name: { kind: 'Name', value: 'USERS_READ' },
           directives: [],
         },
         {
           kind: 'EnumValueDefinition',
-          name: { kind: 'Name', value: 'USER_UPDATE' },
+          name: { kind: 'Name', value: 'USERS_CREATE' },
           directives: [],
         },
         {
           kind: 'EnumValueDefinition',
-          name: { kind: 'Name', value: 'USER_DELETE' },
-          directives: [],
-        },
-        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'ROLE_VIEW' }, directives: [] },
-        {
-          kind: 'EnumValueDefinition',
-          name: { kind: 'Name', value: 'ROLE_CREATE' },
+          name: { kind: 'Name', value: 'USERS_UPDATE' },
           directives: [],
         },
         {
           kind: 'EnumValueDefinition',
-          name: { kind: 'Name', value: 'ROLE_UPDATE' },
+          name: { kind: 'Name', value: 'USERS_DELETE' },
           directives: [],
         },
         {
           kind: 'EnumValueDefinition',
-          name: { kind: 'Name', value: 'ROLE_DELETE' },
+          name: { kind: 'Name', value: 'USERS_MANAGE_STATUS' },
           directives: [],
         },
+        {
+          kind: 'EnumValueDefinition',
+          name: { kind: 'Name', value: 'USERS_MANAGE_ROLES' },
+          directives: [],
+        },
+        {
+          kind: 'EnumValueDefinition',
+          name: { kind: 'Name', value: 'USERS_MANAGE_PERMISSIONS' },
+          directives: [],
+        },
+        {
+          kind: 'EnumValueDefinition',
+          name: { kind: 'Name', value: 'ROLES_READ' },
+          directives: [],
+        },
+        {
+          kind: 'EnumValueDefinition',
+          name: { kind: 'Name', value: 'ROLES_CREATE' },
+          directives: [],
+        },
+        {
+          kind: 'EnumValueDefinition',
+          name: { kind: 'Name', value: 'ROLES_UPDATE' },
+          directives: [],
+        },
+        {
+          kind: 'EnumValueDefinition',
+          name: { kind: 'Name', value: 'ROLES_DELETE' },
+          directives: [],
+        },
+        {
+          kind: 'EnumValueDefinition',
+          name: { kind: 'Name', value: 'WORKSPACE_READ' },
+          directives: [],
+        },
+        {
+          kind: 'EnumValueDefinition',
+          name: { kind: 'Name', value: 'WORKSPACE_UPDATE' },
+          directives: [],
+        },
+        {
+          kind: 'EnumValueDefinition',
+          name: { kind: 'Name', value: 'WORKSPACE_TRANSFER_OWNERSHIP' },
+          directives: [],
+        },
+        {
+          kind: 'EnumValueDefinition',
+          name: { kind: 'Name', value: 'AUDIT_READ' },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'EnumTypeDefinition',
+      name: { kind: 'Name', value: 'UserType' },
+      directives: [],
+      values: [
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'OWNER' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'MEMBER' }, directives: [] },
+      ],
+    },
+    {
+      kind: 'EnumTypeDefinition',
+      name: { kind: 'Name', value: 'UserStatus' },
+      directives: [],
+      values: [
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'ACTIVE' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'SUSPENDED' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'INVITED' }, directives: [] },
+      ],
+    },
+    {
+      kind: 'EnumTypeDefinition',
+      name: { kind: 'Name', value: 'WorkspaceStatus' },
+      directives: [],
+      values: [
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'ACTIVE' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'SUSPENDED' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'ARCHIVED' }, directives: [] },
       ],
     },
     {
@@ -1339,6 +1605,21 @@ export const typeDefs = {
           },
           directives: [],
         },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'workspaceName' },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'workspaceSlug' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
       ],
     },
     {
@@ -1407,7 +1688,14 @@ export const typeDefs = {
         },
         {
           kind: 'FieldDefinition',
-          name: { kind: 'Name', value: 'ownerId' },
+          name: { kind: 'Name', value: 'description' },
+          arguments: [],
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'workspaceId' },
           arguments: [],
           type: {
             kind: 'NonNullType',
@@ -1428,6 +1716,16 @@ export const typeDefs = {
                 type: { kind: 'NamedType', name: { kind: 'Name', value: 'Permissions' } },
               },
             },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'isSystem' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
           },
           directives: [],
         },
@@ -1488,6 +1786,37 @@ export const typeDefs = {
       ],
     },
     {
+      kind: 'EnumTypeDefinition',
+      name: { kind: 'Name', value: 'RoleSortField' },
+      directives: [],
+      values: [
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'name' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'createdAt' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'updatedAt' }, directives: [] },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'RoleSortInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'field' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'RoleSortField' } },
+          defaultValue: { kind: 'EnumValue', value: 'createdAt' },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'direction' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'SortDirection' } },
+          defaultValue: { kind: 'EnumValue', value: 'DESC' },
+          directives: [],
+        },
+      ],
+    },
+    {
       kind: 'InputObjectTypeDefinition',
       name: { kind: 'Name', value: 'RoleFilterInput' },
       directives: [],
@@ -1496,6 +1825,12 @@ export const typeDefs = {
           kind: 'InputValueDefinition',
           name: { kind: 'Name', value: 'dateRange' },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateRangeInput' } },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'isSystem' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'Boolean' } },
           directives: [],
         },
       ],
@@ -1512,6 +1847,12 @@ export const typeDefs = {
             kind: 'NonNullType',
             type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
           },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'description' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
           directives: [],
         },
         {
@@ -1539,6 +1880,12 @@ export const typeDefs = {
         {
           kind: 'InputValueDefinition',
           name: { kind: 'Name', value: 'name' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'description' },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
           directives: [],
         },
@@ -2175,17 +2522,6 @@ export const typeDefs = {
       ],
     },
     {
-      kind: 'EnumTypeDefinition',
-      name: { kind: 'Name', value: 'UserType' },
-      directives: [],
-      values: [
-        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'OWNER' }, directives: [] },
-        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'EMPLOYEE' }, directives: [] },
-        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'CUSTOMER' }, directives: [] },
-        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'SUPPLIER' }, directives: [] },
-      ],
-    },
-    {
       kind: 'ObjectTypeDefinition',
       name: { kind: 'Name', value: 'ManagedUser' },
       interfaces: [],
@@ -2240,9 +2576,22 @@ export const typeDefs = {
         },
         {
           kind: 'FieldDefinition',
-          name: { kind: 'Name', value: 'ownerId' },
+          name: { kind: 'Name', value: 'status' },
           arguments: [],
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UserStatus' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'workspaceId' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
           directives: [],
         },
         {
@@ -2271,7 +2620,7 @@ export const typeDefs = {
               kind: 'ListType',
               type: {
                 kind: 'NonNullType',
-                type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'Permissions' } },
               },
             },
           },
@@ -2334,6 +2683,38 @@ export const typeDefs = {
       ],
     },
     {
+      kind: 'EnumTypeDefinition',
+      name: { kind: 'Name', value: 'UserSortField' },
+      directives: [],
+      values: [
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'username' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'email' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'createdAt' }, directives: [] },
+        { kind: 'EnumValueDefinition', name: { kind: 'Name', value: 'updatedAt' }, directives: [] },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'UserSortInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'field' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'UserSortField' } },
+          defaultValue: { kind: 'EnumValue', value: 'createdAt' },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'direction' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'SortDirection' } },
+          defaultValue: { kind: 'EnumValue', value: 'DESC' },
+          directives: [],
+        },
+      ],
+    },
+    {
       kind: 'InputObjectTypeDefinition',
       name: { kind: 'Name', value: 'CreateUserInput' },
       directives: [],
@@ -2362,15 +2743,6 @@ export const typeDefs = {
           type: {
             kind: 'NonNullType',
             type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
-          },
-          directives: [],
-        },
-        {
-          kind: 'InputValueDefinition',
-          name: { kind: 'Name', value: 'userType' },
-          type: {
-            kind: 'NonNullType',
-            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UserType' } },
           },
           directives: [],
         },
@@ -2417,26 +2789,62 @@ export const typeDefs = {
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
           directives: [],
         },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'UpdateUserStatusInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'status' },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UserStatus' } },
+          },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'SetUserRolesInput' },
+      directives: [],
+      fields: [
         {
           kind: 'InputValueDefinition',
           name: { kind: 'Name', value: 'roleIds' },
           type: {
-            kind: 'ListType',
+            kind: 'NonNullType',
             type: {
-              kind: 'NonNullType',
-              type: { kind: 'NamedType', name: { kind: 'Name', value: 'ID' } },
+              kind: 'ListType',
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'ID' } },
+              },
             },
           },
           directives: [],
         },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'SetUserPermissionsInput' },
+      directives: [],
+      fields: [
         {
           kind: 'InputValueDefinition',
           name: { kind: 'Name', value: 'customPermissions' },
           type: {
-            kind: 'ListType',
+            kind: 'NonNullType',
             type: {
-              kind: 'NonNullType',
-              type: { kind: 'NamedType', name: { kind: 'Name', value: 'Permissions' } },
+              kind: 'ListType',
+              type: {
+                kind: 'NonNullType',
+                type: { kind: 'NamedType', name: { kind: 'Name', value: 'Permissions' } },
+              },
             },
           },
           directives: [],
@@ -2450,8 +2858,8 @@ export const typeDefs = {
       fields: [
         {
           kind: 'InputValueDefinition',
-          name: { kind: 'Name', value: 'userType' },
-          type: { kind: 'NamedType', name: { kind: 'Name', value: 'UserType' } },
+          name: { kind: 'Name', value: 'status' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'UserStatus' } },
           directives: [],
         },
         {
@@ -2542,6 +2950,26 @@ export const typeDefs = {
         },
         {
           kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'status' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'UserStatus' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'workspaceId' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
           name: { kind: 'Name', value: 'permissions' },
           arguments: [],
           type: {
@@ -2600,6 +3028,116 @@ export const typeDefs = {
           kind: 'InputValueDefinition',
           name: { kind: 'Name', value: 'avatar' },
           type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'ObjectTypeDefinition',
+      name: { kind: 'Name', value: 'Workspace' },
+      interfaces: [],
+      directives: [],
+      fields: [
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'id' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'ID' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'name' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'slug' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'status' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'WorkspaceStatus' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'ownerId' },
+          arguments: [],
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'createdAt' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateTime' } },
+          },
+          directives: [],
+        },
+        {
+          kind: 'FieldDefinition',
+          name: { kind: 'Name', value: 'updatedAt' },
+          arguments: [],
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'DateTime' } },
+          },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'UpdateWorkspaceInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'name' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'slug' },
+          type: { kind: 'NamedType', name: { kind: 'Name', value: 'String' } },
+          directives: [],
+        },
+      ],
+    },
+    {
+      kind: 'InputObjectTypeDefinition',
+      name: { kind: 'Name', value: 'TransferOwnershipInput' },
+      directives: [],
+      fields: [
+        {
+          kind: 'InputValueDefinition',
+          name: { kind: 'Name', value: 'newOwnerUserId' },
+          type: {
+            kind: 'NonNullType',
+            type: { kind: 'NamedType', name: { kind: 'Name', value: 'ID' } },
+          },
           directives: [],
         },
       ],

@@ -1,8 +1,9 @@
 import { EmailReservationStatus, Prisma } from '@prisma/client'
-import { prisma } from '@/config/prisma'
-import { ConflictError } from '@/errors'
+import { getDbForWorkspace, prisma } from '@/config/prisma'
+import { logDependencyFailure } from '@/config/logger'
+import { ConflictError, DependencyUnavailableError } from '@/errors'
 
-/** Default TTL for PENDING reservations before they may be reclaimed. */
+/** Default TTL for PENDING reservations before they may be reconciled. */
 export const PENDING_RESERVATION_TTL_MS = 15 * 60 * 1000
 
 export type ReserveEmailInput = {
@@ -20,28 +21,127 @@ export type IdentityRoute = {
   status: EmailReservationStatus
 }
 
-async function reclaimExpiredPending(email: string): Promise<void> {
+export type ReconcileResult = 'activated' | 'released' | 'kept'
+
+/**
+ * Reconcile an expired PENDING reservation against its recorded shard.
+ * Never deletes solely because expiresAt passed.
+ */
+export async function reconcileExpiredPendingReservation(
+  email: string
+): Promise<ReconcileResult> {
+  const row = await prisma.globalEmailReservation.findUnique({ where: { email } })
+  if (!row || row.status !== EmailReservationStatus.PENDING) {
+    return 'kept'
+  }
+  if (!row.expiresAt || row.expiresAt >= new Date()) {
+    return 'kept'
+  }
+
+  if (!row.shardId || !row.workspaceId || !row.userId) {
+    await prisma.globalEmailReservation.deleteMany({
+      where: {
+        email,
+        userId: row.userId,
+        status: EmailReservationStatus.PENDING,
+        expiresAt: { lt: new Date() },
+      },
+    })
+    return 'released'
+  }
+
+  let client
+  try {
+    client = getDbForWorkspace({
+      workspaceId: row.workspaceId,
+      shardId: row.shardId,
+    })
+  } catch (error) {
+    logDependencyFailure({
+      dependency: 'identity-reservation',
+      operation: 'reconcile-expired-shard-unavailable',
+      error,
+    })
+    throw new DependencyUnavailableError(
+      'Cannot reconcile expired email reservation; recorded shard is unavailable',
+      {
+        originalError: error instanceof Error ? error : undefined,
+        extensions: {
+          email,
+          userId: row.userId,
+          workspaceId: row.workspaceId,
+          shardId: row.shardId,
+        },
+      }
+    )
+  }
+
+  let user: { id: string; email: string; workspaceId: string } | null
+  try {
+    user = await client.user.findFirst({
+      where: {
+        id: row.userId,
+        email: row.email,
+        workspaceId: row.workspaceId,
+      },
+      select: { id: true, email: true, workspaceId: true },
+    })
+  } catch (error) {
+    throw new DependencyUnavailableError(
+      'Cannot reconcile expired email reservation; shard lookup failed',
+      {
+        originalError: error instanceof Error ? error : undefined,
+        extensions: {
+          email,
+          userId: row.userId,
+          workspaceId: row.workspaceId,
+          shardId: row.shardId,
+        },
+      }
+    )
+  }
+
+  if (user) {
+    // Conditional activate — concurrent callers remain safe
+    await prisma.globalEmailReservation.updateMany({
+      where: {
+        email,
+        userId: row.userId,
+        status: EmailReservationStatus.PENDING,
+      },
+      data: {
+        status: EmailReservationStatus.ACTIVE,
+        expiresAt: null,
+      },
+    })
+    return 'activated'
+  }
+
   await prisma.globalEmailReservation.deleteMany({
     where: {
       email,
+      userId: row.userId,
       status: EmailReservationStatus.PENDING,
       expiresAt: { lt: new Date() },
     },
   })
+  return 'released'
 }
 
 /**
  * Reserve an email on the control-plane DB before inserting a User on any shard.
- * Creates a PENDING row with expiry so crashed processes do not permanently block emails.
- * Idempotent for the same userId while still PENDING and unexpired.
+ * Creates a PENDING row with expiry. Idempotent for the same userId while PENDING.
  */
 export async function reserveEmail(input: ReserveEmailInput): Promise<void> {
   const { email, userId, workspaceId, shardId } = input
-  await reclaimExpiredPending(email)
+  await reconcileExpiredPendingReservation(email)
 
   const existing = await prisma.globalEmailReservation.findUnique({ where: { email } })
   if (existing) {
-    if (existing.status === EmailReservationStatus.ACTIVE) {
+    if (
+      existing.status === EmailReservationStatus.ACTIVE ||
+      existing.status === EmailReservationStatus.RELEASE_PENDING
+    ) {
       throw new ConflictError('A user with this email already exists')
     }
     if (
@@ -49,7 +149,6 @@ export async function reserveEmail(input: ReserveEmailInput): Promise<void> {
       existing.userId === userId &&
       (!existing.expiresAt || existing.expiresAt > new Date())
     ) {
-      // Idempotent retry of the same signup attempt
       await prisma.globalEmailReservation.update({
         where: { email },
         data: {
@@ -85,7 +184,7 @@ export async function reserveEmail(input: ReserveEmailInput): Promise<void> {
   }
 }
 
-/** Mark reservation ACTIVE after the shard user write succeeds. */
+/** Mark reservation ACTIVE after the shard user write succeeds. Idempotent. */
 export async function activateEmailReservation(email: string, userId: string): Promise<void> {
   const updated = await prisma.globalEmailReservation.updateMany({
     where: { email, userId, status: EmailReservationStatus.PENDING },
@@ -95,7 +194,6 @@ export async function activateEmailReservation(email: string, userId: string): P
     },
   })
   if (updated.count === 0) {
-    // Already active for this user is fine (idempotent); otherwise leave for reconcile
     const current = await prisma.globalEmailReservation.findUnique({ where: { email } })
     if (
       current?.userId === userId &&
@@ -103,18 +201,114 @@ export async function activateEmailReservation(email: string, userId: string): P
     ) {
       return
     }
-    throw new ConflictError('Email reservation could not be activated')
+    throw new DependencyUnavailableError('Email reservation could not be activated', {
+      extensions: { email, userId },
+    })
+  }
+}
+
+/**
+ * Activate after a successful shard commit.
+ * On failure, leave PENDING for reconciliation — never release.
+ */
+export async function activateAfterShardCommit(email: string, userId: string): Promise<void> {
+  try {
+    await activateEmailReservation(email, userId)
+  } catch (error) {
+    logDependencyFailure({
+      dependency: 'identity-reservation',
+      operation: 'activate-after-commit',
+      error,
+    })
+    throw new DependencyUnavailableError(
+      'Account was created but identity activation is pending',
+      {
+        originalError: error instanceof Error ? error : undefined,
+        extensions: { email, userId, code: 'IDENTITY_ACTIVATION_PENDING' },
+      }
+    )
   }
 }
 
 /**
  * Release a reservation only when email + userId match.
- * Used after failed shard writes and after user deletion (emails are reusable).
+ * Propagates control-plane failures (callers must not ignore them silently).
  */
 export async function releaseEmailReservation(email: string, userId: string): Promise<void> {
-  await prisma.globalEmailReservation
-    .deleteMany({ where: { email, userId } })
-    .catch(() => undefined)
+  await prisma.globalEmailReservation.deleteMany({ where: { email, userId } })
+}
+
+/** Best-effort release after a rolled-back shard write; logs but does not hide the original error. */
+export async function releaseAfterFailedShardWrite(
+  email: string,
+  userId: string
+): Promise<void> {
+  try {
+    await releaseEmailReservation(email, userId)
+  } catch (error) {
+    logDependencyFailure({
+      dependency: 'identity-reservation',
+      operation: 'release-after-failed-shard-write',
+      error,
+    })
+  }
+}
+
+/**
+ * After hard-deleting a shard user, release the reservation.
+ * On failure, mark RELEASE_PENDING and throw — email is not yet reusable.
+ */
+export async function releaseAfterUserDelete(email: string, userId: string): Promise<void> {
+  try {
+    await releaseEmailReservation(email, userId)
+  } catch (error) {
+    logDependencyFailure({
+      dependency: 'identity-reservation',
+      operation: 'release-after-user-delete',
+      error,
+    })
+    try {
+      await prisma.globalEmailReservation.updateMany({
+        where: { email, userId },
+        data: { status: EmailReservationStatus.RELEASE_PENDING },
+      })
+    } catch (markError) {
+      logDependencyFailure({
+        dependency: 'identity-reservation',
+        operation: 'mark-release-pending',
+        error: markError,
+      })
+    }
+    throw new DependencyUnavailableError(
+      'User was deleted but email reservation cleanup is pending; email is not yet reusable',
+      {
+        originalError: error instanceof Error ? error : undefined,
+        extensions: {
+          email,
+          userId,
+          code: 'IDENTITY_RELEASE_PENDING',
+        },
+      }
+    )
+  }
+}
+
+/** Idempotent cleanup for RELEASE_PENDING rows (email + userId). */
+export async function reconcileReleasePending(
+  email: string,
+  userId: string
+): Promise<'released' | 'kept'> {
+  const row = await prisma.globalEmailReservation.findUnique({ where: { email } })
+  if (!row || row.userId !== userId) return 'kept'
+  if (
+    row.status !== EmailReservationStatus.RELEASE_PENDING &&
+    row.status !== EmailReservationStatus.ACTIVE
+  ) {
+    return 'kept'
+  }
+
+  await prisma.globalEmailReservation.deleteMany({ where: { email, userId } })
+  return 'released'
 }
 
 /** Lookup control-plane routing for an email (ACTIVE only). */

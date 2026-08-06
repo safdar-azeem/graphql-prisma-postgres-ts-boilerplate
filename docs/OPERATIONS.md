@@ -69,7 +69,8 @@ Readiness reports `degradedShardCount` without exposing shard identifiers. An un
 - Rate limits use verified JWTs only for the authenticated bucket
 - Separate access/refresh/storage secrets; explicit issuer/audience/algorithm and token purpose
 - Auth email uniqueness uses control-plane `GlobalEmailReservation` (`PENDING`/`ACTIVE`, expiry, routing fields) + per-DB unique index
-- Deleted users release reservations (emails reusable) — see [MIGRATIONS.md](./MIGRATIONS.md)
+- Deleted users release reservations (emails reusable only after successful control-plane cleanup; otherwise `RELEASE_PENDING`) — see [MIGRATIONS.md](./MIGRATIONS.md)
+- `ACTIVE` identity routes never silently fall back to other shards
 - Access management permissions are separate from `users.update`
 
 ## Upgrade policy

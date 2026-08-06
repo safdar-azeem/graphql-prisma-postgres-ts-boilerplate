@@ -1,13 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import * as PrismaConfig from '@/config/prisma'
 import * as EmailUtil from '@/utils/email.util'
 import * as AuthService from '@/modules/auth/services/auth.service'
-
-vi.mock('@/config/prisma', () => ({
-  findUserAcrossShards: vi.fn(),
-  assignWorkspaceShard: vi.fn(),
-  getDbForWorkspace: vi.fn(),
-}))
 
 vi.mock('@/utils/email.util', () => ({
   sendEmail: vi.fn().mockResolvedValue('ok'),
@@ -17,12 +10,11 @@ vi.mock('@/cache', () => ({
   cache: { invalidateUser: vi.fn() },
 }))
 
-vi.mock('@/identity/email-reservation.service', () => ({
-  reserveEmail: vi.fn(),
-  activateEmailReservation: vi.fn(),
-  releaseEmailReservation: vi.fn(),
-  findIdentityByEmail: vi.fn().mockResolvedValue(null),
+vi.mock('@/identity/resolve-user-by-email', () => ({
+  resolveUserByEmail: vi.fn(),
 }))
+
+import * as ResolveUser from '@/identity/resolve-user-by-email'
 
 describe('forgotPassword', () => {
   beforeEach(() => {
@@ -30,7 +22,7 @@ describe('forgotPassword', () => {
   })
 
   it('returns the same public result whether or not the email exists', async () => {
-    vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
+    vi.mocked(ResolveUser.resolveUserByEmail).mockResolvedValue({
       result: null,
       client: null,
       shardId: null,
@@ -40,7 +32,7 @@ describe('forgotPassword', () => {
     const client = {
       user: { update: vi.fn().mockResolvedValue({}) },
     }
-    vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
+    vi.mocked(ResolveUser.resolveUserByEmail).mockResolvedValue({
       result: { id: 'u1', email: 'known@example.com' },
       client,
       shardId: 'shard_1',
@@ -56,7 +48,7 @@ describe('forgotPassword', () => {
     const client = {
       user: { update: vi.fn().mockResolvedValue({}) },
     }
-    vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
+    vi.mocked(ResolveUser.resolveUserByEmail).mockResolvedValue({
       result: { id: 'u1', email: 'known@example.com' },
       client,
       shardId: 'shard_1',

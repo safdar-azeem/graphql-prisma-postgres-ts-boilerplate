@@ -23,4 +23,6 @@ enum MfaMethod {
 enum EmailReservationStatus {
   PENDING
   ACTIVE
+  /// User deleted on shard; control-plane release incomplete (email not yet reusable)
+  RELEASE_PENDING
 }

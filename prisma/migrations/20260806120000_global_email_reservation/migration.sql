@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "EmailReservationStatus" AS ENUM ('PENDING', 'ACTIVE');
+CREATE TYPE "EmailReservationStatus" AS ENUM ('PENDING', 'ACTIVE', 'RELEASE_PENDING');
 
 -- CreateTable
 CREATE TABLE "GlobalEmailReservation" (

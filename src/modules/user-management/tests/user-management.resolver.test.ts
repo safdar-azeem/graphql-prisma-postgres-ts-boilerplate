@@ -17,10 +17,18 @@ vi.mock('@/cache', () => ({
 
 vi.mock('@/identity/email-reservation.service', () => ({
   reserveEmail: vi.fn().mockResolvedValue(undefined),
-  activateEmailReservation: vi.fn().mockResolvedValue(undefined),
-  releaseEmailReservation: vi.fn().mockResolvedValue(undefined),
-  findIdentityByEmail: vi.fn().mockResolvedValue(null),
+  activateAfterShardCommit: vi.fn().mockResolvedValue(undefined),
+  releaseAfterFailedShardWrite: vi.fn().mockResolvedValue(undefined),
+  releaseAfterUserDelete: vi.fn().mockResolvedValue(undefined),
 }))
+
+vi.mock('@/config/prisma', () => ({
+  getDbForWorkspace: vi.fn(),
+}))
+
+import { getDbForWorkspace } from '@/config/prisma'
+import * as EmailReservation from '@/identity/email-reservation.service'
+import { ValidationError } from '@/errors'
 
 describe('User Management Service', () => {
   let client: any
@@ -48,6 +56,7 @@ describe('User Management Service', () => {
       },
     }
     vi.clearAllMocks()
+    vi.mocked(getDbForWorkspace).mockImplementation(() => client)
   })
 
   it('lists members excluding owners', async () => {
@@ -99,6 +108,48 @@ describe('User Management Service', () => {
 
     expect(AuthUtils.hashPassword).toHaveBeenCalledWith('password123')
     expect((result as any).password).toBeUndefined()
+    expect(EmailReservation.activateAfterShardCommit).toHaveBeenCalled()
+    expect(EmailReservation.releaseAfterFailedShardWrite).not.toHaveBeenCalled()
+  })
+
+  it('does not release reservation when activation fails after member create', async () => {
+    vi.mocked(AuthUtils.hashPassword).mockResolvedValue('hashed')
+    client.user.create.mockResolvedValue({
+      id: 'u2',
+      email: 'a@b.com',
+      username: 'alice',
+      password: 'hashed',
+      userType: UserType.MEMBER,
+      status: UserStatus.ACTIVE,
+      workspaceId: 'ws-1',
+      customPermissions: [],
+      roles: [],
+    })
+    vi.mocked(EmailReservation.activateAfterShardCommit).mockRejectedValueOnce(
+      new Error('Account was created but identity activation is pending')
+    )
+
+    await expect(
+      UserManagementService.createUser(client, 'ws-1', ownerActor, {
+        email: 'a@b.com',
+        username: 'alice',
+        password: 'password123',
+      })
+    ).rejects.toThrow(/identity activation is pending/i)
+
+    expect(EmailReservation.releaseAfterFailedShardWrite).not.toHaveBeenCalled()
+  })
+
+  it('fails member creation when workspace has no persisted shardId', async () => {
+    client.workspace.findUnique.mockResolvedValue({ id: 'ws-1', shardId: null })
+
+    await expect(
+      UserManagementService.createUser(client, 'ws-1', ownerActor, {
+        email: 'a@b.com',
+        username: 'alice',
+        password: 'password123',
+      })
+    ).rejects.toBeInstanceOf(ValidationError)
   })
 
   it('rejects deleting the owner', async () => {

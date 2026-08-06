@@ -1,12 +1,20 @@
 import crypto from 'crypto'
 import { UserStatus, UserType, type PrismaClient } from '@prisma/client'
-import { AuthorizationError, mapPrismaError } from '@/errors'
+import {
+  AuthorizationError,
+  DependencyUnavailableError,
+  NotFoundError,
+  ValidationError,
+  mapPrismaError,
+} from '@/errors'
 import { cache } from '@/cache'
+import { getDbForWorkspace } from '@/config/prisma'
 import { hashPassword } from '@/modules/auth/utils/auth.utils'
 import {
-  activateEmailReservation,
+  activateAfterShardCommit,
   reserveEmail,
-  releaseEmailReservation,
+  releaseAfterFailedShardWrite,
+  releaseAfterUserDelete,
 } from '@/identity/email-reservation.service'
 import { getPagination, getPageInfo, getDateRangeFilter, getSafeOrderBy } from '@/utils/query.util'
 import { toGraphqlPermissions } from '@/authorization/graphqlPermissions'
@@ -136,19 +144,38 @@ export async function createUser(
 
   const workspace = await client.workspace.findUnique({
     where: { id: workspaceId },
-    select: { shardId: true },
+    select: { id: true, shardId: true },
   })
-  const shardId = workspace?.shardId || 'shard_1'
+  if (!workspace) {
+    throw new NotFoundError('Workspace not found')
+  }
+  if (!workspace.shardId) {
+    throw new ValidationError(
+      'Workspace has no persisted shard assignment; backfill shardId before creating members'
+    )
+  }
+
+  const routedClient = getDbForWorkspace({
+    workspaceId,
+    shardId: workspace.shardId,
+  })
+  if (routedClient !== client) {
+    throw new DependencyUnavailableError(
+      'Workspace shard assignment does not match the request database client',
+      { extensions: { workspaceId, shardId: workspace.shardId } }
+    )
+  }
 
   await reserveEmail({
     email: input.email,
     userId,
     workspaceId,
-    shardId,
+    shardId: workspace.shardId,
   })
 
+  let newUser
   try {
-    const newUser = await client.user.create({
+    newUser = await client.user.create({
       data: {
         id: userId,
         email: input.email,
@@ -162,14 +189,15 @@ export async function createUser(
       },
       include: { roles: true },
     })
-    await activateEmailReservation(input.email, userId)
-    return mapManagedUser(newUser)
   } catch (error) {
-    await releaseEmailReservation(input.email, userId)
+    await releaseAfterFailedShardWrite(input.email, userId)
     const mapped = mapPrismaError(error)
     if (mapped) throw mapped
     throw error
   }
+
+  await activateAfterShardCommit(input.email, userId)
+  return mapManagedUser(newUser)
 }
 
 /** Profile-only update — no roles, permissions, or status. */
@@ -274,8 +302,8 @@ export async function deleteUser(client: PrismaClient, workspaceId: string, id: 
   assertNotOwnerTarget(target, 'delete')
   const email = target.email as string
   await client.user.delete({ where: { id } })
-  // Option B: emails are reusable after hard delete — release matching reservation
-  await releaseEmailReservation(email, id)
+  // Option B: release after delete; failures are not silent — email not reusable until cleanup
+  await releaseAfterUserDelete(email, id)
   await cache.invalidateUser(id)
   return true
 }

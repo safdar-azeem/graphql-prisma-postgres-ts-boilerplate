@@ -46,12 +46,18 @@ vi.mock('@/utils/email.util', () => ({
 
 vi.mock('@/identity/email-reservation.service', () => ({
   reserveEmail: vi.fn().mockResolvedValue(undefined),
-  activateEmailReservation: vi.fn().mockResolvedValue(undefined),
-  releaseEmailReservation: vi.fn().mockResolvedValue(undefined),
+  activateAfterShardCommit: vi.fn().mockResolvedValue(undefined),
+  releaseAfterFailedShardWrite: vi.fn().mockResolvedValue(undefined),
+  releaseAfterUserDelete: vi.fn().mockResolvedValue(undefined),
   findIdentityByEmail: vi.fn().mockResolvedValue(null),
 }))
 
+vi.mock('@/identity/resolve-user-by-email', () => ({
+  resolveUserByEmail: vi.fn(),
+}))
+
 import * as EmailReservation from '@/identity/email-reservation.service'
+import * as ResolveUser from '@/identity/resolve-user-by-email'
 
 describe('Auth Service', () => {
   let mockClient: any
@@ -74,6 +80,8 @@ describe('Auth Service', () => {
     }
     vi.clearAllMocks()
     vi.mocked(EmailReservation.reserveEmail).mockResolvedValue(undefined)
+    vi.mocked(EmailReservation.activateAfterShardCommit).mockResolvedValue(undefined)
+    vi.mocked(EmailReservation.releaseAfterFailedShardWrite).mockResolvedValue(undefined)
   })
 
   describe('signup', () => {
@@ -119,6 +127,45 @@ describe('Auth Service', () => {
       expect(result.token).toBe('access')
       expect((result.user as any).password).toBeUndefined()
       expect(mockClient.$transaction).toHaveBeenCalled()
+      expect(EmailReservation.activateAfterShardCommit).toHaveBeenCalled()
+      expect(EmailReservation.releaseAfterFailedShardWrite).not.toHaveBeenCalled()
+    })
+
+    it('does not release reservation when activation fails after shard commit', async () => {
+      const createdUser = {
+        id: 'owner-1',
+        email: 'test@example.com',
+        username: 'testuser',
+        password: 'hashed',
+        userType: UserType.OWNER,
+        workspaceId: 'ws-1',
+        status: UserStatus.ACTIVE,
+      }
+
+      vi.mocked(PrismaConfig.assignWorkspaceShard).mockReturnValue({
+        client: mockClient,
+        shardId: 'shard_1',
+      })
+      mockClient.workspace.findUnique.mockResolvedValue(null)
+      mockClient.workspace.create.mockResolvedValue({ id: 'ws-1', slug: 'acme' })
+      mockClient.user.create.mockResolvedValue(createdUser)
+      mockClient.workspace.update.mockResolvedValue({ id: 'ws-1', ownerId: 'owner-1' })
+      mockClient.role.create.mockResolvedValue({ id: 'role-1' })
+      vi.mocked(AuthUtils.hashPassword).mockResolvedValue('hashed')
+      vi.mocked(EmailReservation.activateAfterShardCommit).mockRejectedValueOnce(
+        new Error('Account was created but identity activation is pending')
+      )
+
+      await expect(
+        AuthService.signup({
+          email: 'test@example.com',
+          username: 'testuser',
+          password: 'password123',
+          workspaceName: 'Acme',
+        })
+      ).rejects.toThrow(/identity activation is pending/i)
+
+      expect(EmailReservation.releaseAfterFailedShardWrite).not.toHaveBeenCalled()
     })
 
     it('rejects reserved or existing emails via control-plane reservation', async () => {
@@ -153,7 +200,7 @@ describe('Auth Service', () => {
         mfaSettings: null,
       }
 
-      vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
+      vi.mocked(ResolveUser.resolveUserByEmail).mockResolvedValue({
         result: user as any,
         client: mockClient,
         shardId: 'shard_1',
@@ -178,7 +225,7 @@ describe('Auth Service', () => {
     })
 
     it('rejects invalid password', async () => {
-      vi.mocked(PrismaConfig.findUserAcrossShards).mockResolvedValue({
+      vi.mocked(ResolveUser.resolveUserByEmail).mockResolvedValue({
         result: {
           id: '1',
           email: 'test@example.com',

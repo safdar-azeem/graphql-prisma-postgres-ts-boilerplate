@@ -4,8 +4,10 @@
 /// Lifecycle:
 /// 1. PENDING — email claimed before shard user insert (expires if process dies)
 /// 2. ACTIVE  — user exists on the indicated shard
+/// 3. RELEASE_PENDING — shard user deleted; control-plane release incomplete
 ///
-/// Deleted users release the reservation (email may be reused) — see OPERATIONS.md.
+/// Expired PENDING must be reconciled against the recorded shard before delete.
+/// Deleted users release the reservation (email reusable only after successful cleanup).
 model GlobalEmailReservation {
   email       String                 @id
   userId      String

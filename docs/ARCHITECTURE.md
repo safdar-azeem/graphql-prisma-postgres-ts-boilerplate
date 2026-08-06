@@ -28,9 +28,9 @@ Only authenticated identity model. Auth email uniqueness is enforced by:
 1. Per-database `@unique` on `User.email`
 2. Control-plane `GlobalEmailReservation` (written via default `DATABASE_URL` **before** shard insert)
 
-Reservation lifecycle: `PENDING` (with `expiresAt`) → shard write → `ACTIVE` (stores `userId`, `workspaceId`, `shardId` for direct routing). Expired `PENDING` rows are reclaimed on the next reservation attempt. Hard-deleted users **release** their reservation (emails are reusable). See [MIGRATIONS.md](./MIGRATIONS.md).
+Reservation lifecycle: `PENDING` (with `expiresAt`) → shard write → `ACTIVE` (stores `userId`, `workspaceId`, `shardId` for direct routing). Expired `PENDING` rows are **reconciled against the recorded shard** (activate if user exists; delete only if missing; keep if shard unavailable). Activation failure after a successful shard commit never releases the reservation. Hard-deleted users release the reservation; control-plane failure marks `RELEASE_PENDING` (email not reusable yet). See [MIGRATIONS.md](./MIGRATIONS.md).
 
-Login prefers identity routing (`email → shardId`); shard scan remains a legacy fallback.
+Login uses identity routing for `ACTIVE` rows and **never** silently scans other shards. Shard scan is only for emails with no control-plane identity (legacy backfill gap).
 
 Fields include `workspaceId`, email, username, password hash, `userType` (`OWNER` | `MEMBER`), `status`, MFA/OAuth metadata, roles, `customPermissions`.
 
