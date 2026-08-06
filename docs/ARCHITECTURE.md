@@ -28,9 +28,18 @@ Only authenticated identity model. Auth email uniqueness is enforced by:
 1. Per-database `@unique` on `User.email`
 2. Control-plane `GlobalEmailReservation` (written via default `DATABASE_URL` **before** shard insert)
 
-Reservation lifecycle: `PENDING` (with `expiresAt`) → shard write → `ACTIVE` (stores `userId`, `workspaceId`, `shardId` for direct routing). Expired `PENDING` rows are **reconciled against the recorded shard** (activate if user exists; delete only if missing; keep if shard unavailable). Activation failure after a successful shard commit never releases the reservation. Hard-deleted users release the reservation; control-plane failure marks `RELEASE_PENDING` (email not reusable yet). See [MIGRATIONS.md](./MIGRATIONS.md).
+Reservation lifecycle: `PENDING` (with `expiresAt`) → shard write → `ACTIVE` (stores `userId`, `workspaceId`, `shardId` for direct routing). Expired `PENDING` rows are **reconciled against the recorded shard** (activate if user exists; delete only if missing; keep if shard unavailable). Activation failure after a successful shard commit never releases the reservation. User deletion marks `RELEASE_PENDING` **before** the shard delete, then removes the reservation after success — so a control-plane outage cannot leave an undiscoverable `ACTIVE` orphan. See [MIGRATIONS.md](./MIGRATIONS.md).
 
-Login uses identity routing for `ACTIVE` rows and **never** silently scans other shards. Shard scan is only for emails with no control-plane identity (legacy backfill gap).
+Login / email resolve behavior:
+
+| Reservation | Behavior |
+|---|---|
+| None | Temporary legacy cross-shard scan (backfill gap only) |
+| `ACTIVE` | Exactly the recorded shard; never silent fallback |
+| `PENDING` | Recorded shard only — activate if user exists; conflict if not ready; never scan |
+| `RELEASE_PENDING` | Auth blocked until cleanup; never scan |
+
+Shard scan is **only** for emails with **no** control-plane reservation row.
 
 Fields include `workspaceId`, email, username, password hash, `userType` (`OWNER` | `MEMBER`), `status`, MFA/OAuth metadata, roles, `customPermissions`.
 
