@@ -4,10 +4,33 @@ These are the migration SQL files included in this repository. Review the files 
 
 ## Deploy validation
 
+### Fresh empty database
+
+`P3005 The database schema is not empty` means the target DB already has objects but no compatible `_prisma_migrations` history. Use a **new empty** disposable database:
+
+```bash
+# create an empty DB, then:
+DATABASE_URL=<empty-db-url> yarn db:deploy
+```
+
+This applies both migrations from zero (`baseline`, then `global_email_reservation`).
+
+### Existing schema (prior `db push` / sharding sync)
+
+Do **not** run `migrate deploy` blindly on a non-empty DB without migration history. Safe baseline / upgrade:
+
+1. Confirm the live schema matches `prisma/migrations/20260806000000_baseline/migration.sql`.
+2. Baseline that migration with Prisma’s supported process (`prisma migrate resolve --applied 20260806000000_baseline`).
+3. Deploy only later migrations: `yarn db:deploy` (applies `global_email_reservation`).
+4. Backfill existing users into `GlobalEmailReservation` (`ACTIVE` with `userId`, `workspaceId`, `shardId`).
+5. Validate duplicate emails and missing `Workspace.shardId` before enabling identity routing.
+
 ```bash
 yarn install --frozen-lockfile
 yarn db:generate
-yarn db:deploy   # fresh disposable DB, then again on a prior-schema copy
+DATABASE_URL=<empty-db-url> yarn db:deploy
+# then on a prior-schema copy after baselining:
+DATABASE_URL=<prior-schema-copy-url> yarn db:deploy
 yarn test:ci
 yarn build
 ```
@@ -16,14 +39,32 @@ Do not use `db push --force-reset` / `--accept-data-loss` as merge evidence.
 
 ## Email reservation policy
 
-**Option B — reusable emails:** hard-deleting a user releases the matching reservation (`email` + `userId`). If control-plane release fails, the row is marked `RELEASE_PENDING` and the API returns a partial-operation error — the email is **not** reusable until cleanup succeeds (`reconcileReleasePending`).
+**Option B — reusable emails:** hard-delete marks the reservation `RELEASE_PENDING` **before** deleting the shard user, then deletes the reservation after the user is gone. If the final reservation delete fails, the row stays `RELEASE_PENDING` (discoverable by batch reconcile). If the pre-delete mark fails, the shard user is **not** deleted — no undiscoverable `ACTIVE` orphan.
+
+### `RELEASE_PENDING` cleanup trigger
+
+Run the operations command (or schedule it):
+
+```bash
+yarn identity:reconcile
+# or single row:
+yarn identity:reconcile --email=user@example.com --userId=<id>
+```
+
+`reconcileReleasePending` checks the recorded shard:
+
+- `RELEASE_PENDING` + missing user → delete reservation
+- `RELEASE_PENDING` + user still present → restore `ACTIVE`
+- Unavailable shard → keep the row
+- Orphan `ACTIVE` + confirmed missing user → delete (manual / single-row path)
 
 Reservation lifecycle:
 
 1. `PENDING` (+ `expiresAt`) before shard write
 2. `ACTIVE` after successful activation (stores routing: `userId`, `workspaceId`, `shardId`)
 3. Expired `PENDING` is reconciled against the recorded shard before any delete
-4. `RELEASE_PENDING` after user delete when control-plane release failed
+4. `RELEASE_PENDING` marked **before** shard user delete; reservation removed after delete succeeds
+5. Cleanup via `yarn identity:reconcile` / `reconcileAllReleasePending`
 
 ---
 
