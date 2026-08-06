@@ -14,11 +14,12 @@ src/modules/<module>/
 ```
 
 1. Add Prisma model under `prisma/schema/` if needed.
-2. Create migration (`yarn db:migrate:dev` locally).
-3. Add GraphQL SDL under the module.
-4. Implement service + thin resolver.
-5. Register resolvers in `src/modules/index.ts`.
-6. Run `yarn generate` (do not hand-edit `*.generated.*`).
+2. Author a migration: `npx prisma migrate dev --name describe_change`.
+3. Apply it to all databases: `yarn db:update`.
+4. Add GraphQL SDL under the module.
+5. Implement service + thin resolver.
+6. Register resolvers in `src/modules/index.ts`.
+7. Run `yarn generate` (do not hand-edit `*.generated.*`).
 
 ## Add a GraphQL query / mutation
 
@@ -66,14 +67,33 @@ Never scatter raw permission strings.
 
 Use `createRole` with permissions from the GraphQL `Permissions` enum. System roles (`isSystem: true`) cannot be updated or deleted.
 
-## Prisma migration
+## Database workflow
+
+Two commands:
 
 ```bash
-yarn db:generate
-yarn db:migrate:dev --name describe_change   # local
-yarn db:deploy                               # apply existing migrations
-yarn db:migrate                              # sharding-aware helper when multi-shard
+yarn db:update    # validate config, generate client, apply migrations to all databases
+yarn db:studio    # sharding-aware database browser
 ```
+
+Do not use direct Prisma migration commands for database deployment or fleet synchronization. `prisma migrate dev` is permitted only for authoring a new migration file. Use `yarn db:update` to apply committed migrations across the control database and all shards.
+
+### Author a new migration
+
+```bash
+npx prisma migrate dev --name describe_change
+```
+
+This is a migration-authoring operation only — it generates the migration SQL file against
+`DATABASE_URL`. Once the migration is committed, `yarn db:update` applies it across all databases.
+
+### Apply migrations
+
+```bash
+yarn db:update
+```
+
+`db:update` handles the complete fleet, including Prisma Client generation.
 
 Do not run destructive schema sync at API startup.
 
@@ -107,7 +127,8 @@ Throw `AuthenticationError`, `AuthorizationError`, `ValidationError`, `NotFoundE
 - `src/types/resolvers.generated.ts`
 - Prisma client under `node_modules/.prisma`
 
-After SDL or Prisma schema changes, regenerate with `yarn generate` and `yarn db:generate` (when approved). Prefer running tests/builds to validate PRs; never hand-edit generated output or run destructive DB resets without explicit approval.
+After SDL or Prisma schema changes, regenerate with `yarn generate`. Prisma Client is
+generated automatically by `yarn db:update` and `yarn dev`.
 
 ## Validate before PR
 
@@ -115,7 +136,7 @@ After SDL or Prisma schema changes, regenerate with `yarn generate` and `yarn db
 yarn install --frozen-lockfile
 yarn test:ci
 yarn build
-yarn db:deploy   # disposable DB — not force-reset
+yarn db:update   # disposable DB — not force-reset
 ```
 
 `yarn test` uses a compact reporter that still prints full failure details (file, message, expected/received, stack). Use `yarn test:verbose` or `yarn test:ci` for PR validation.

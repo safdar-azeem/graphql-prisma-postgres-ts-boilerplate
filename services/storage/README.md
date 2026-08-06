@@ -47,13 +47,8 @@ cp .env.example .env
 # Create database
 createdb storage
 
-# Generate Prisma client
-npx prisma generate
-
-# Local experimentation only (prefer migrations in shared/prod environments)
-npx prisma migrate deploy
-# or for throwaway local DBs:
-# npx prisma db push
+# Generate Prisma Client, validate config, apply migrations
+yarn db:update
 
 ```
 

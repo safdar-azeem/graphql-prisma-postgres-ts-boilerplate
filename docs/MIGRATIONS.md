@@ -2,38 +2,77 @@
 
 These are the migration SQL files included in this repository. Review the files under `prisma/migrations/` directly; the full contents are also inlined below for PR review bundles.
 
-## Deploy validation
+## Applying migrations
+
+```bash
+yarn db:update
+```
+
+`db:update` validates configuration, generates the Prisma Client, preflights every database,
+applies committed migrations to the control database and all configured shards, checks for
+schema drift, and exits non-zero if any target fails. Already-applied migrations are never
+re-run.
+
+Do not use direct Prisma migration commands for database deployment or fleet synchronization. `prisma migrate dev` is permitted only for authoring a new migration file. Use `yarn db:update` to apply committed migrations across the control database and all shards.
 
 ### Fresh empty database
 
-`P3005 The database schema is not empty` means the target DB already has objects but no compatible `_prisma_migrations` history. Use a **new empty** disposable database:
-
 ```bash
-# create an empty DB, then:
-DATABASE_URL=<empty-db-url> yarn db:deploy
+yarn db:update
 ```
 
-This applies both migrations from zero (`baseline`, then `global_email_reservation`).
+This applies all migrations from zero across the control database and every configured shard.
 
 ### Existing schema (prior `db push` / sharding sync)
 
-Do **not** run `migrate deploy` blindly on a non-empty DB without migration history. Safe baseline / upgrade:
+Do **not** run migrations blindly on a non-empty database without migration history.
 
-1. Confirm the live schema matches `prisma/migrations/20260806000000_baseline/migration.sql`.
-2. Baseline that migration with Prisma’s supported process (`prisma migrate resolve --applied 20260806000000_baseline`).
-3. Deploy only later migrations: `yarn db:deploy` (applies `global_email_reservation`).
-4. Backfill existing users into `GlobalEmailReservation` (`ACTIVE` with `userId`, `workspaceId`, `shardId`).
-5. Validate duplicate emails and missing `Workspace.shardId` before enabling identity routing.
+Configure a verified legacy baseline in `prisma-sharding.config.json`:
+
+```json
+{
+  "migrations": {
+    "legacyBaseline": {
+      "until": "20260806000000_baseline",
+      "verified": true
+    }
+  }
+}
+```
+
+`until` is the newest migration whose schema **and** data effects you verified are already
+present in every legacy database. `verified: true` is that explicit attestation.
+
+Then run:
 
 ```bash
-yarn install --frozen-lockfile
-yarn db:generate
-DATABASE_URL=<empty-db-url> yarn db:deploy
-# then on a prior-schema copy after baselining:
-DATABASE_URL=<prior-schema-copy-url> yarn db:deploy
-yarn test:ci
-yarn build
+yarn db:update
 ```
+
+On the next run, any database with tables but no `_prisma_migrations` history gets the
+baseline recorded (history rows only — no SQL runs), and the remaining migrations are
+applied normally:
+
+```text
+✅ shard_1  Baselined 1, 1 migration applied
+```
+
+Without a verified config, the run stops with a clear message and touches nothing:
+
+```text
+❌ shard_1  Legacy database detected: tables exist without Prisma migration history.
+
+ℹ️  Configure migrations.legacyBaseline (prisma-sharding.config.json) before running yarn db:update.
+No database was modified.
+```
+
+### Backfill after baseline
+
+After baselining, migrations after the cutoff are applied normally. If later migrations
+include data backfills, they run as committed SQL:
+
+1. Backfill existing users into `GlobalEmailReservation` (`ACTIVE` with `userId`, `workspaceId`, `shardId`).
+2. Validate duplicate emails and missing `Workspace.shardId` before enabling identity routing.
 
 Do not use `db push --force-reset` / `--accept-data-loss` as merge evidence.
 

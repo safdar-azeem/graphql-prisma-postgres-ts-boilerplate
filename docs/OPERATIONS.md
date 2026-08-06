@@ -21,25 +21,29 @@ In **production**, equal access/refresh secrets and legacy `JWT_SECRET` fallback
 | `TRUST_PROXY` | Enable only behind a trusted reverse proxy |
 | `ALLOW_BATCHED_QUERIES` | Default `false` |
 | `REDIS_REQUIRED` | When `true`, readiness fails if Redis is down |
+| `SHARD_STRICT_DRIFT` | When `true`, schema drift fails validation (recommended for CI/production) |
 
-## Database migrations
+## Database workflow
 
 ```bash
-yarn db:generate
-yarn db:deploy
+yarn db:update
 ```
+
+`db:update` is the single command for all environments — local development, Docker, CI,
+staging, and production. It validates shard configuration, generates the Prisma Client,
+preflights migration state, applies committed migrations to the control database and every
+configured shard, and reports failures clearly.
+
+Do not use direct Prisma migration commands for database deployment or fleet synchronization. `prisma migrate dev` is permitted only for authoring a new migration file. Use `yarn db:update` to apply committed migrations across the control database and all shards.
 
 Migrations (SQL reviewed in [MIGRATIONS.md](./MIGRATIONS.md)):
 
 - `prisma/migrations/20260806000000_baseline/migration.sql` — Workspace, User, Role, global unique email, one-owner partial unique index
 - `prisma/migrations/20260806120000_global_email_reservation/migration.sql` — control-plane reservation/routing table
 
-Prefer migrate deploy over `db push` / force-reset. Never use `--force-reset` or `--accept-data-loss` as production acceptance evidence.
+Never use `--force-reset` or `--accept-data-loss` as production acceptance evidence.
 
-Validate:
-
-1. Empty database: `yarn db:deploy`
-2. Upgrade from prior schema with representative data (ownership, emails, roles)
+For CI and production, set `SHARD_STRICT_DRIFT=true` to make real schema drift fail validation.
 
 ## Queues
 
@@ -78,6 +82,6 @@ Readiness reports `degradedShardCount` without exposing shard identifiers. An un
 ## Upgrade policy
 
 - Align Node engine, Docker image, CI, and `@types/node`
-- After GraphQL/Prisma schema changes: `yarn db:generate && yarn generate`
+- After GraphQL/Prisma schema changes: `yarn db:update && yarn generate`
 - Prefer safe validation (codegen, tests, build) on relevant PRs; never edit generated files by hand
 - CI should use `yarn install --frozen-lockfile` and `yarn test:ci`

@@ -12,6 +12,7 @@ Production-oriented modular monolith for multi-tenant APIs.
 - **Jobs:** Optional BullMQ + Redis
 - **Tenancy:** `Workspace` + `User` + `Role` (no membership join table)
 - **Identity:** globally unique authenticated email
+- **Sharding:** optional `prisma-sharding` with persistent `Workspace.shardId`
 
 ## Architecture summary
 
@@ -45,13 +46,15 @@ docs/                   Architecture, development, operations
 ```bash
 cp .env.example .env
 yarn install
-yarn db:generate
-yarn db:deploy          # or yarn db:migrate:dev for local iteration
-yarn generate           # GraphQL codegen
 yarn dev
 ```
 
-GraphQL: `http://localhost:4200/graphql`  
+`yarn dev` validates shard configuration, generates the Prisma Client, applies committed
+migrations to the control database and every configured shard, generates GraphQL types,
+then starts the API and sharding-aware Studio.
+
+GraphQL: `http://localhost:4200/graphql`
+Studio: `http://localhost:51212`
 Health: `/health/live`, `/health/ready`
 
 ## Environment
@@ -70,20 +73,33 @@ Queues are **opt-in** (`ENABLE_QUEUES=true`).
 
 | Script | Purpose |
 |--------|---------|
-| `yarn dev` | Generate GraphQL types + run API |
+| `yarn dev` | Update databases, generate types, start API + Studio |
 | `yarn build` | Codegen + Prisma generate + esbuild bundle |
-| `yarn test` | Vitest (custom reporter with full failure details) |
-| `yarn test:verbose` | Vitest verbose reporter |
-| `yarn test:ci` | `db:generate` + GraphQL generate + verbose tests |
-| `yarn db:generate` | Prisma client |
-| `yarn db:deploy` | Apply migrations |
-| `yarn db:migrate` | Sharding-aware migrate helper |
+| `yarn test` | Vitest (compact reporter with full failure details) |
+| `yarn test:ci` | Prisma generate + GraphQL generate + verbose tests |
+| `yarn db:update` | Validate config, generate client, apply migrations to all databases |
+| `yarn db:studio` | Sharding-aware database browser |
 | `yarn generate` | GraphQL codegen |
+
+## Database workflow
+
+`yarn db:update` is the single command for all database synchronization:
+
+```bash
+yarn db:update
+```
+
+It validates shard configuration, generates the Prisma Client, preflights migration state,
+applies committed migrations to the control database and every configured shard, and
+reports failures clearly. Already-applied migrations are never re-run.
+
+Do not use direct Prisma migration commands for database deployment or fleet synchronization. `prisma migrate dev` is permitted only for authoring a new migration file. Use `yarn db:update` to apply committed migrations across the control database and all shards.
 
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Development](docs/DEVELOPMENT.md)
+- [Migrations](docs/MIGRATIONS.md)
 - [Operations & Security](docs/OPERATIONS.md)
 
 ## Important rules
@@ -91,4 +107,4 @@ Queues are **opt-in** (`ENABLE_QUEUES=true`).
 - Do not edit `*.generated.*` files — regenerate with `yarn generate`.
 - Do not authorize by role name; use permission IDs.
 - Do not put password hashes in GraphQL context.
-- Prefer migrate deploy over `db push` for schema changes.
+- Do not use direct Prisma migration commands for database deployment or fleet synchronization. `prisma migrate dev` is permitted only for authoring a new migration file. Use `yarn db:update` to apply committed migrations across the control database and all shards.

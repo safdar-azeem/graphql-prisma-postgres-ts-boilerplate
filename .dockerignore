@@ -1,44 +1,39 @@
-# node_modules
-node_modules
-npm-debug.log
-yarn-error.log
-
-# Build output
-dist
-
-# Git
-.git
-.gitignore
-
-# Environment files (use .env.docker instead)
+# Environment files & secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.docker
 
-# IDE
+# Git & GitHub
+.git
+.github
+
+# Dependencies and Build
+node_modules
+dist
+.prisma-temp
+
+# Logs and Data
+*.log
+logs
+uploads
+backups
+scratch
+coverage
+.nyc_output
+
+# OS & IDE
+.DS_Store
+Thumbs.db
 .vscode
 .idea
 *.swp
 *.swo
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
-logs
-
-# Test
-coverage
-.nyc_output
-
-# Documentation
+# Development & Documentation
 docs
 *.md
 !README.md
-
-# Development files not needed in container
 .editorconfig
 .prettierrc
 .eslintrc*

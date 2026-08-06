@@ -71,11 +71,8 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy all source files
 COPY . .
 
-# Generate Prisma client
-RUN npx prisma generate
-
-# Generate GraphQL types and build production bundle
-RUN yarn generate && yarn build
+# Build production bundle (yarn build generates GraphQL types and Prisma client)
+RUN yarn build
 
 # Prune dev dependencies, keeping only production deps
 # Save Prisma client before pruning
@@ -86,7 +83,26 @@ RUN cp -R node_modules/.prisma ./.prisma-temp && \
   rm -rf ./.prisma-temp
 
 # =============================================================================
-# Stage 4: PRODUCTION - Minimal runtime image
+# Stage 4: MIGRATOR - Dedicated production migration runner (includes Prisma CLI)
+# =============================================================================
+FROM node:22-alpine AS migrator
+
+RUN apk add --no-cache tini
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# Copy full dependencies including Prisma CLI
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+ENTRYPOINT ["/sbin/tini", "--"]
+
+CMD ["yarn", "db:update"]
+
+# =============================================================================
+# Stage 5: PRODUCTION - Minimal runtime image
 # =============================================================================
 FROM node:22-alpine AS production
 

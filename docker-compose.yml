@@ -24,6 +24,24 @@ services:
       - app-network
 
   # ===========================================================================
+  # Fleet Database Update (Runs once before app replicas start)
+  # ===========================================================================
+  db-update:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    command: ["yarn", "db:update"]
+    env_file:
+      - .env.docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: "no"
+
+  # ===========================================================================
   # Application (Development with hot-reload)
   # ===========================================================================
   app:
@@ -44,6 +62,8 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+      db-update:
+        condition: service_completed_successfully
     restart: unless-stopped
     networks:
       - app-network
