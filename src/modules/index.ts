@@ -5,6 +5,7 @@ import { userResolver } from './user'
 import { uploadResolver } from './upload'
 import { roleResolver } from './role'
 import { userManagementResolver } from './user-management'
+import { workspaceResolvers } from './workspace'
 
 export const resolvers = mergeResolvers([
   scalars,
@@ -13,4 +14,5 @@ export const resolvers = mergeResolvers([
   uploadResolver,
   roleResolver,
   userManagementResolver,
+  ...workspaceResolvers,
 ])

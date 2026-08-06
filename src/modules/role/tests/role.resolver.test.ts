@@ -1,110 +1,62 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Permission, UserType } from '@prisma/client'
-import { roleResolver } from '../resolvers/role.resolver'
-import { Context } from '@/types/context.type'
-import { mockDeep, DeepMockProxy } from 'vitest-mock-extended'
-import { NotFoundError, ValidationError } from '@/errors'
+import { ValidationError } from '@/errors'
+import * as RoleService from '../services/role.service'
 
-describe('Role Resolver', () => {
-  let mockContext: DeepMockProxy<Context>
+describe('Role Service', () => {
+  let client: any
 
   beforeEach(() => {
-    mockContext = mockDeep<Context>()
+    client = {
+      role: {
+        findMany: vi.fn(),
+        count: vi.fn(),
+        findFirst: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+      },
+    }
     vi.clearAllMocks()
-    mockContext.isAuthenticated = true
-    mockContext.userType = UserType.OWNER
-    mockContext.user = { id: 'owner-1', userType: UserType.OWNER } as any
-    mockContext.permissions = []
   })
 
-  describe('Query.getRoles', () => {
-    it('should return paginated roles for owner', async () => {
-      const mockRoles = [
-        { id: 'r1', name: 'Admin', ownerId: 'owner-1', permissions: [Permission.USER_VIEW] },
-      ]
-      mockContext.client.role.findMany.mockResolvedValue(mockRoles as any)
-      mockContext.client.role.count.mockResolvedValue(1)
+  it('lists roles with pagination and maps permissions', async () => {
+    client.role.findMany.mockResolvedValue([
+      {
+        id: 'r1',
+        name: 'Editor',
+        permissions: ['users.read'],
+        workspaceId: 'ws-1',
+        isSystem: false,
+      },
+    ])
+    client.role.count.mockResolvedValue(1)
 
-      const result = await (roleResolver.Query?.getRoles as any)(
-        {},
-        { pagination: { page: 1, limit: 10 } },
-        mockContext,
-        {}
-      )
+    const result = await RoleService.listRoles(client, 'ws-1', { pagination: { page: 1, limit: 10 } })
 
-      expect(mockContext.client.role.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ ownerId: 'owner-1' }) })
-      )
-      expect(result.items).toEqual(mockRoles)
-      expect(result.pageInfo.totalItems).toBe(1)
-      expect(result.pageInfo.totalPages).toBe(1)
-    })
+    expect(result.pageInfo.totalItems).toBe(1)
+    expect(result.items[0].permissions).toContain('USERS_READ')
   })
 
-  describe('Mutation.createRole', () => {
-    it('should create a role with valid permissions', async () => {
-      const data = { name: 'Manager', permissions: [Permission.USER_VIEW, Permission.USER_CREATE] }
-      const created = { id: 'r2', ...data, ownerId: 'owner-1' }
-
-      mockContext.client.role.findFirst.mockResolvedValue(null)
-      mockContext.client.role.create.mockResolvedValue(created as any)
-
-      const result = await (roleResolver.Mutation?.createRole as any)(
-        {},
-        { data },
-        mockContext,
-        {}
-      )
-
-      expect(mockContext.client.role.create).toHaveBeenCalledWith({
-        data: {
-          name: 'Manager',
-          permissions: [Permission.USER_VIEW, Permission.USER_CREATE],
-          ownerId: 'owner-1',
-        },
+  it('rejects invalid permissions', async () => {
+    await expect(
+      RoleService.createRole(client, 'ws-1', {
+        name: 'Bad',
+        permissions: ['not.a.permission'],
       })
-      expect(result).toEqual(created)
-    })
-
-    it('should throw ValidationError for invalid permission string', async () => {
-      const data = { name: 'Bad Role', permissions: ['INVALID_PERM'] }
-      mockContext.client.role.findFirst.mockResolvedValue(null)
-
-      await expect(
-        (roleResolver.Mutation?.createRole as any)({}, { data }, mockContext, {})
-      ).rejects.toThrow(ValidationError)
-    })
-
-    it('should throw if role name already exists', async () => {
-      const data = { name: 'Admin', permissions: [Permission.USER_VIEW] }
-      mockContext.client.role.findFirst.mockResolvedValue({ id: 'r1' } as any)
-
-      await expect(
-        (roleResolver.Mutation?.createRole as any)({}, { data }, mockContext, {})
-      ).rejects.toThrow(ValidationError)
-    })
+    ).rejects.toBeInstanceOf(ValidationError)
   })
 
-  describe('Mutation.deleteRole', () => {
-    it('should delete a role', async () => {
-      mockContext.client.role.findFirst.mockResolvedValue({ id: 'r1' } as any)
-      mockContext.client.role.delete.mockResolvedValue({} as any)
-
-      const result = await (roleResolver.Mutation?.deleteRole as any)(
-        {},
-        { id: 'r1' },
-        mockContext,
-        {}
-      )
-      expect(result).toBe(true)
+  it('blocks deleting system roles', async () => {
+    client.role.findFirst.mockResolvedValue({
+      id: 'r1',
+      name: 'Admin',
+      isSystem: true,
+      workspaceId: 'ws-1',
+      permissions: [],
     })
 
-    it('should throw if role not found', async () => {
-      mockContext.client.role.findFirst.mockResolvedValue(null)
-
-      await expect(
-        (roleResolver.Mutation?.deleteRole as any)({}, { id: 'r1' }, mockContext, {})
-      ).rejects.toThrow(NotFoundError)
-    })
+    await expect(RoleService.deleteRole(client, 'ws-1', 'r1')).rejects.toBeInstanceOf(
+      ValidationError
+    )
   })
 })

@@ -1,8 +1,10 @@
 type Role {
   id: ID!
   name: String!
-  ownerId: String!
+  description: String
+  workspaceId: String!
   permissions: [Permissions!]!
+  isSystem: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -12,22 +14,41 @@ type RoleConnection {
   pageInfo: PaginationInfo!
 }
 
+enum RoleSortField {
+  name
+  createdAt
+  updatedAt
+}
+
+input RoleSortInput {
+  field: RoleSortField = createdAt
+  direction: SortDirection = DESC
+}
+
 input RoleFilterInput {
   dateRange: DateRangeInput
+  isSystem: Boolean
 }
 
 input CreateRoleInput {
   name: String!
+  description: String
   permissions: [Permissions!]!
 }
 
 input UpdateRoleInput {
   name: String
+  description: String
   permissions: [Permissions!]
 }
 
 extend type Query {
-  getRoles(pagination: PaginationInput, search: String, filter: RoleFilterInput): RoleConnection!
+  getRoles(
+    pagination: PaginationInput
+    search: String
+    filter: RoleFilterInput
+    sort: RoleSortInput
+  ): RoleConnection!
   getRole(id: ID!): Role!
 }
 

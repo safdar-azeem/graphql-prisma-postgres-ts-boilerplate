@@ -1,8 +1,18 @@
 enum UserType {
   OWNER
-  EMPLOYEE
-  CUSTOMER
-  SUPPLIER
+  MEMBER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INVITED
+}
+
+enum WorkspaceStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
 }
 
 enum MfaMethod {
@@ -10,13 +20,7 @@ enum MfaMethod {
   AUTHENTICATOR
 }
 
-enum Permission {
-  USER_VIEW
-  USER_CREATE
-  USER_UPDATE
-  USER_DELETE
-  ROLE_VIEW
-  ROLE_CREATE
-  ROLE_UPDATE
-  ROLE_DELETE
+enum EmailReservationStatus {
+  PENDING
+  ACTIVE
 }

@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
-import { JWT_SECRET } from '../constants/index.js'
+import {
+  STORAGE_SERVICE_TOKEN_SECRET,
+  STORAGE_SERVICE_TOKEN_ISSUER,
+  STORAGE_SERVICE_TOKEN_AUDIENCE,
+  STORAGE_SERVICE_TOKEN_TYPE,
+  FILE_VIEW_TOKEN_TYPE,
+  JWT_ALGORITHM,
+} from '../constants/index.js'
 import type { AuthUser, RequestContext } from '../types/index.js'
 import { sendError } from '../utils/response.util.js'
 
@@ -8,33 +15,76 @@ declare global {
   namespace Express {
     interface Request {
       context: RequestContext
+      fileView?: { fileId: string; ownerId: string }
     }
   }
 }
 
+/** Internal service auth: Authorization Bearer only — never cookies or query strings. */
+export function extractServiceBearerToken(req: Request): string | null {
+  const header = req.headers.authorization
+  if (!header || typeof header !== 'string') return null
+  if (!header.startsWith('Bearer ')) return null
+  const token = header.slice(7).trim()
+  return token || null
+}
+
+export function verifyStorageServiceToken(token: string): AuthUser | null {
+  try {
+    const decoded = jwt.verify(token, STORAGE_SERVICE_TOKEN_SECRET, {
+      algorithms: [JWT_ALGORITHM],
+      issuer: STORAGE_SERVICE_TOKEN_ISSUER,
+      audience: STORAGE_SERVICE_TOKEN_AUDIENCE,
+    }) as {
+      _id: string
+      email?: string
+      role?: string
+      tokenType?: string
+    }
+
+    if (decoded.tokenType !== STORAGE_SERVICE_TOKEN_TYPE || !decoded._id) {
+      return null
+    }
+
+    return {
+      id: decoded._id,
+      email: decoded.email || '',
+      role: decoded.role || 'USER',
+    }
+  } catch {
+    return null
+  }
+}
+
+export function verifyFileViewToken(
+  token: string
+): { fileId: string; ownerId: string } | null {
+  try {
+    const decoded = jwt.verify(token, STORAGE_SERVICE_TOKEN_SECRET, {
+      algorithms: [JWT_ALGORITHM],
+      issuer: STORAGE_SERVICE_TOKEN_ISSUER,
+      audience: STORAGE_SERVICE_TOKEN_AUDIENCE,
+    }) as {
+      fileId?: string
+      ownerId?: string
+      tokenType?: string
+    }
+
+    if (
+      decoded.tokenType !== FILE_VIEW_TOKEN_TYPE ||
+      !decoded.fileId ||
+      !decoded.ownerId
+    ) {
+      return null
+    }
+    return { fileId: decoded.fileId, ownerId: decoded.ownerId }
+  } catch {
+    return null
+  }
+}
+
 export const authMiddleware = (req: Request, res: Response, next: NextFunction): void => {
-  let token = req.headers.authorization
-
-  if (token && token.startsWith('Bearer ')) {
-    token = token.slice(7)
-  }
-
-  // Handle Cookies for seamless image loading (<img> tags)
-  if (!token && req.cookies?.token) {
-    token = req.cookies.token
-  }
-  if (!token && req.cookies?.accessToken) {
-    token = req.cookies.accessToken
-  }
-  // ADDED: Handle 'auth_token' cookie sent by frontend
-  if (!token && req.cookies?.auth_token) {
-    token = req.cookies.auth_token
-  }
-
-  // Handle query parameter (fallback)
-  if (!token && req.query?.token) {
-    token = req.query.token as string
-  }
+  const token = extractServiceBearerToken(req)
 
   if (!token) {
     req.context = {
@@ -45,31 +95,52 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
     return
   }
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as {
-      _id: string
-      email?: string
-      role?: string
-    }
-
-    const user: AuthUser = {
-      id: decoded._id,
-      email: decoded.email || '',
-      role: decoded.role || 'USER',
-    }
-
-    req.context = {
-      user,
-      isAuthenticated: true,
-    }
-    next()
-  } catch {
+  const user = verifyStorageServiceToken(token)
+  if (!user) {
     req.context = {
       user: null,
       isAuthenticated: false,
     }
     next()
+    return
   }
+
+  req.context = {
+    user,
+    isAuthenticated: true,
+  }
+  next()
+}
+
+/**
+ * Optional query-token auth for file content URLs only.
+ * Accepts purpose-limited file-view tokens — never storage-service tokens.
+ */
+export const fileViewQueryAuth = (req: Request, res: Response, next: NextFunction): void => {
+  const queryToken = typeof req.query?.token === 'string' ? req.query.token : null
+  if (!queryToken) {
+    next()
+    return
+  }
+
+  // Reject internal service tokens in URLs even if present
+  if (verifyStorageServiceToken(queryToken)) {
+    res.status(401).send('Service tokens must not be passed in URLs')
+    return
+  }
+
+  const view = verifyFileViewToken(queryToken)
+  if (!view) {
+    next()
+    return
+  }
+
+  req.fileView = view
+  req.context = {
+    user: { id: view.ownerId, email: '', role: 'USER' },
+    isAuthenticated: true,
+  }
+  next()
 }
 
 export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {

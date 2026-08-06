@@ -1,0 +1,21 @@
+/// Control-plane identity reservation + routing directory.
+/// Always written via the default DATABASE_URL client (`prisma`), not shard routing.
+///
+/// Lifecycle:
+/// 1. PENDING — email claimed before shard user insert (expires if process dies)
+/// 2. ACTIVE  — user exists on the indicated shard
+///
+/// Deleted users release the reservation (email may be reused) — see OPERATIONS.md.
+model GlobalEmailReservation {
+  email       String                 @id
+  userId      String
+  workspaceId String?
+  shardId     String?
+  status      EmailReservationStatus @default(PENDING)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  expiresAt   DateTime?
+
+  @@index([status, expiresAt])
+  @@index([userId])
+}

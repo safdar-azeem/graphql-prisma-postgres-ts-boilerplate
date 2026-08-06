@@ -23,6 +23,16 @@ input DateRangeInput {
   to: DateTime
 }
 
+enum SortDirection {
+  ASC
+  DESC
+}
+
+input SortInput {
+  field: String!
+  direction: SortDirection = DESC
+}
+
 input AttachmentInput {
   fileName: String!
   fileUrl: String!
@@ -37,14 +47,38 @@ type AttachmentFile {
   fileSize: Float
 }
 
-# Must stay in sync with Prisma Permission enum in prisma/schema/enums.prisma
+# Must stay in sync with src/authorization/permissions.ts keys
 enum Permissions {
-  USER_VIEW
-  USER_CREATE
-  USER_UPDATE
-  USER_DELETE
-  ROLE_VIEW
-  ROLE_CREATE
-  ROLE_UPDATE
-  ROLE_DELETE
+  USERS_READ
+  USERS_CREATE
+  USERS_UPDATE
+  USERS_DELETE
+  USERS_MANAGE_STATUS
+  USERS_MANAGE_ROLES
+  USERS_MANAGE_PERMISSIONS
+  ROLES_READ
+  ROLES_CREATE
+  ROLES_UPDATE
+  ROLES_DELETE
+  WORKSPACE_READ
+  WORKSPACE_UPDATE
+  WORKSPACE_TRANSFER_OWNERSHIP
+  AUDIT_READ
+}
+
+enum UserType {
+  OWNER
+  MEMBER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INVITED
+}
+
+enum WorkspaceStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
 }

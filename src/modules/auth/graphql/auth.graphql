@@ -16,6 +16,8 @@ input SignupInput {
   email: String!
   username: String!
   password: String!
+  workspaceName: String!
+  workspaceSlug: String
 }
 
 input LoginInput {
@@ -47,6 +49,6 @@ extend type Mutation {
 
   # Token Management
   refreshTokens(refreshToken: String!): AuthPayload!
-  logout: Boolean!
+  logout(refreshToken: String): Boolean!
   logoutAll: Boolean!
 }

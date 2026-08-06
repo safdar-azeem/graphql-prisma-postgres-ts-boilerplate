@@ -1,0 +1,21 @@
+model Workspace {
+  id      String          @id @default(cuid())
+  name    String
+  slug    String          @unique
+  status  WorkspaceStatus @default(ACTIVE)
+  /// Persistent shard assignment — set once at workspace creation
+  shardId String?
+
+  /// Protected owner user (UserType.OWNER). Set immediately after owner user creation.
+  ownerId String? @unique
+  owner   User?   @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+
+  users User[] @relation("WorkspaceUsers")
+  roles Role[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shardId])
+  @@index([status])
+}

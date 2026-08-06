@@ -1,13 +1,18 @@
-import { User, PrismaClient, UserType, Permission } from '@prisma/client'
+import type { PrismaClient, User, UserType, UserStatus, WorkspaceStatus } from '@prisma/client'
+import type { PermissionId } from '@/authorization/permissions'
 
+/** Authenticated user without password hash. */
 export type AuthUser = Omit<User, 'password'>
 
 export interface Context {
-  user: AuthUser
-  password: string
+  user: AuthUser | null
   isAuthenticated: boolean
-  client: PrismaClient
+  /** True when access token is valid but MFA verification is still pending. */
+  is2faPending: boolean
+  client: PrismaClient | null
   userType?: UserType
-  ownerId: string
-  permissions: Permission[]
+  workspaceId: string
+  workspaceStatus?: WorkspaceStatus
+  permissions: PermissionId[]
+  userStatus?: UserStatus
 }

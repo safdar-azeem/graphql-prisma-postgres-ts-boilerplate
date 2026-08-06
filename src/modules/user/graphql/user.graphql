@@ -9,6 +9,8 @@ type User {
   username: String!
   avatar: String
   userType: UserType!
+  status: UserStatus!
+  workspaceId: String!
   permissions: [Permissions!]!
   mfaSettings: MfaSettings
   createdAt: DateTime!

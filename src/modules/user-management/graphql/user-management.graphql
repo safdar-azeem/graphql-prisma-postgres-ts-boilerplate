@@ -1,20 +1,13 @@
-# Must stay in sync with Prisma UserType enum in prisma/schema/enums.prisma
-enum UserType {
-  OWNER
-  EMPLOYEE
-  CUSTOMER
-  SUPPLIER
-}
-
 type ManagedUser {
   id: ID!
   email: String!
   username: String!
   avatar: String
   userType: UserType!
-  ownerId: String
+  status: UserStatus!
+  workspaceId: String!
   roles: [Role!]!
-  customPermissions: [String!]!
+  customPermissions: [Permissions!]!
   createdAt: DateTime!
   updatedAt: DateTime!
 }
@@ -24,11 +17,22 @@ type ManagedUserConnection {
   pageInfo: PaginationInfo!
 }
 
+enum UserSortField {
+  username
+  email
+  createdAt
+  updatedAt
+}
+
+input UserSortInput {
+  field: UserSortField = createdAt
+  direction: SortDirection = DESC
+}
+
 input CreateUserInput {
   email: String!
   username: String!
   password: String!
-  userType: UserType!
   roleIds: [ID!]
   customPermissions: [Permissions!]
 }
@@ -36,23 +40,41 @@ input CreateUserInput {
 input UpdateUserInput {
   username: String
   avatar: String
-  roleIds: [ID!]
-  customPermissions: [Permissions!]
+}
+
+input UpdateUserStatusInput {
+  status: UserStatus!
+}
+
+input SetUserRolesInput {
+  roleIds: [ID!]!
+}
+
+input SetUserPermissionsInput {
+  customPermissions: [Permissions!]!
 }
 
 input UsersFilterInput {
-  userType: UserType
+  status: UserStatus
   dateRange: DateRangeInput
 }
 
 extend type Query {
-  getUsers(pagination: PaginationInput, search: String, filter: UsersFilterInput): ManagedUserConnection!
+  getUsers(
+    pagination: PaginationInput
+    search: String
+    filter: UsersFilterInput
+    sort: UserSortInput
+  ): ManagedUserConnection!
   getUser(id: ID!): ManagedUser!
 }
 
 extend type Mutation {
   createUser(data: CreateUserInput!): ManagedUser!
   updateUser(id: ID!, data: UpdateUserInput!): ManagedUser!
+  updateUserStatus(id: ID!, data: UpdateUserStatusInput!): ManagedUser!
+  setUserRoles(userId: ID!, data: SetUserRolesInput!): ManagedUser!
+  setUserPermissions(userId: ID!, data: SetUserPermissionsInput!): ManagedUser!
   deleteUser(id: ID!): Boolean!
   assignRolesToUser(userId: ID!, roleIds: [ID!]!): ManagedUser!
   removeRolesFromUser(userId: ID!, roleIds: [ID!]!): ManagedUser!

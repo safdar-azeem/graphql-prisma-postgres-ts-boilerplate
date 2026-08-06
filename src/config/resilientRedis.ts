@@ -1,5 +1,8 @@
 import Redis from 'ioredis'
 
+const redisTlsEnabled = process.env.REDIS_TLS === 'true'
+const redisTlsInsecure = process.env.REDIS_TLS_INSECURE === 'true'
+
 class ResilientRedis {
   private static instance: ResilientRedis
   public client: Redis
@@ -15,14 +18,12 @@ class ResilientRedis {
       port: REDIS_PORT,
       password: REDIS_PASSWORD,
       maxRetriesPerRequest: 3,
-      retryStrategy: (times) => {
-        // Retry practically forever, but with backoff
-        // If we stop retrying, ioredis emits 'end' and we can't reconnect easily without manual intervention
-        return Math.min(times * 200, 5000)
-      },
+      retryStrategy: (times) => Math.min(times * 200, 5000),
       lazyConnect: true,
       enableReadyCheck: true,
-      tls: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+      tls: redisTlsEnabled
+        ? { rejectUnauthorized: !redisTlsInsecure }
+        : undefined,
     })
 
     this.setupListeners()
@@ -30,26 +31,22 @@ class ResilientRedis {
 
   private setupListeners() {
     this.client.on('connect', () => {
-      console.log('[Redis] Connection established')
+      this.isConnected = false
     })
 
     this.client.on('ready', () => {
-      console.log('[Redis] Ready to accept commands')
       this.isConnected = true
     })
 
-    this.client.on('error', (err) => {
-      console.error('[Redis] Connection error:', err.message)
+    this.client.on('error', () => {
       this.isConnected = false
     })
 
     this.client.on('close', () => {
-      console.warn('[Redis] Connection closed')
       this.isConnected = false
     })
 
     this.client.on('reconnecting', () => {
-      console.log('[Redis] Reconnecting...')
       this.isConnected = false
     })
   }
@@ -70,7 +67,14 @@ class ResilientRedis {
       await this.client.connect()
     } catch (error: any) {
       console.error('[Redis] Initial connection failed:', error.message)
-      // We don't throw here to allow app to start even if Redis is down
+    }
+  }
+
+  public async disconnect(): Promise<void> {
+    try {
+      await this.client.quit()
+    } catch {
+      this.client.disconnect()
     }
   }
 }
@@ -79,3 +83,4 @@ export const resilientRedis = ResilientRedis.getInstance()
 export const redisClient = resilientRedis.client
 export const isRedisHealthy = () => resilientRedis.isHealthy()
 export const connectResilientRedis = () => resilientRedis.connect()
+export const disconnectResilientRedis = () => resilientRedis.disconnect()

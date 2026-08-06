@@ -10,7 +10,7 @@ A modular, provider-agnostic file storage microservice built with Express, Prism
 - 🗃️ **File management** - Upload, download, delete with metadata tracking
 - 🔗 **Share links** - Time-limited shareable links for files and folders
 - 🌐 **Folder sharing** - Browse shared folders via HTML page
-- 🔑 **JWT authentication** - Secure API access with shared JWT secret
+- 🔑 **Service JWT authentication** - Internal API calls use `Authorization: Bearer` storage-service tokens only
 - 👤 **Owner-based access control** - Strict ownership enforcement on all endpoints
 - 🔍 **Advanced filtering** - Search, date range, pagination
 - 🎭 **Configurable URL Masking** - Toggle between Proxy Mode (Masked) and Direct Mode (S3/CDN)
@@ -50,8 +50,10 @@ createdb storage
 # Generate Prisma client
 npx prisma generate
 
-# Push schema to database
-npx prisma db push
+# Local experimentation only (prefer migrations in shared/prod environments)
+npx prisma migrate deploy
+# or for throwaway local DBs:
+# npx prisma db push
 
 ```
 
@@ -69,6 +71,16 @@ yarn start
 
 The service runs on `http://localhost:4201` by default.
 
+### Authentication
+
+| Token type | How accepted | Purpose |
+|------------|--------------|---------|
+| `tokenType: storage-service` | `Authorization: Bearer` only | Internal API → storage management |
+| `tokenType: file-view` | Query `?token=` on content URLs only | Short-lived file viewing |
+| Share-link tokens | Share routes | Public/passworded sharing |
+
+Cookies and query strings must **not** carry storage-service tokens. Startup requires `STORAGE_SERVICE_TOKEN_SECRET` (min 32 chars); legacy `JWT_SECRET` fallback is rejected.
+
 ## Configuration
 
 ### Environment Variables
@@ -77,7 +89,7 @@ The service runs on `http://localhost:4201` by default.
 | ---------------------- | ----------------------------------------------------------------- | ------------------ |
 | `DATABASE_URL`         | PostgreSQL connection string                                      | Required           |
 | `PORT`                 | Service port                                                      | `4201`             |
-| `JWT_SECRET`           | JWT secret (must match main service)                              | Required           |
+| `STORAGE_SERVICE_TOKEN_SECRET` | Must match main API storage-service token secret            | Required           |
 | `STORAGE_TYPE`         | Provider: `local`, `s3`, `cloudinary`, `imagekit`                 | `local`            |
 | `FILE_PROXY_MODE`      | `true` = Mask URLs (Proxy), `false` = Direct Provider URLs        | `true`             |
 | `STORAGE_PUBLIC_URL`   | Public URL for share links                                        | Service URL        |

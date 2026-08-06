@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express'
 import crypto from 'crypto'
 import { pipeline } from 'stream/promises'
-import { requireAuth } from '../middleware/auth.middleware.js'
+import { requireAuth, fileViewQueryAuth } from '../middleware/auth.middleware.js'
 import { sendSuccess, sendNoContent } from '../utils/response.util.js'
 import { prisma } from '../config/prisma.js'
 import {
@@ -116,6 +116,7 @@ router.get(
 
 router.get(
   '/:id/content',
+  fileViewQueryAuth,
   async (req: Request<{ id: string }>, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params
@@ -123,6 +124,13 @@ router.get(
       const file = await prisma.file.findUnique({ where: { id } })
       if (!file || file.status !== 'UPLOADED') {
         res.status(404).send('File not found')
+        return
+      }
+
+      // Purpose-limited file-view tokens may only access their bound fileId
+      if (req.fileView && req.fileView.fileId !== id) {
+        res.setHeader('Cache-Control', 'no-store')
+        res.status(403).send('Access denied')
         return
       }
 

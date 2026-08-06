@@ -8,6 +8,9 @@ export enum ErrorCode {
   FORBIDDEN = 'FORBIDDEN',
   BAD_USER_INPUT = 'BAD_USER_INPUT',
   NOT_FOUND = 'NOT_FOUND',
+  CONFLICT = 'CONFLICT',
+  RATE_LIMITED = 'RATE_LIMITED',
+  DEPENDENCY_UNAVAILABLE = 'DEPENDENCY_UNAVAILABLE',
   INTERNAL_SERVER_ERROR = 'INTERNAL_SERVER_ERROR',
 }
 
@@ -32,10 +35,6 @@ class BaseGraphQLError extends GraphQLError {
   }
 }
 
-/**
- * Thrown when a user is not authenticated but authentication is required.
- * Results in HTTP 401 equivalent.
- */
 export class AuthenticationError extends BaseGraphQLError {
   constructor(
     message = 'You must be logged in to perform this action',
@@ -45,10 +44,6 @@ export class AuthenticationError extends BaseGraphQLError {
   }
 }
 
-/**
- * Thrown when a user is authenticated but doesn't have permission.
- * Results in HTTP 403 equivalent.
- */
 export class AuthorizationError extends BaseGraphQLError {
   constructor(
     message = 'You do not have permission to perform this action',
@@ -58,32 +53,65 @@ export class AuthorizationError extends BaseGraphQLError {
   }
 }
 
-/**
- * Thrown when user input validation fails.
- * Results in HTTP 400 equivalent.
- */
 export class ValidationError extends BaseGraphQLError {
   constructor(message: string, options?: CustomErrorOptions) {
     super(message, ErrorCode.BAD_USER_INPUT, options)
   }
 }
 
-/**
- * Thrown when a requested resource is not found.
- * Results in HTTP 404 equivalent.
- */
 export class NotFoundError extends BaseGraphQLError {
   constructor(message = 'The requested resource was not found', options?: CustomErrorOptions) {
     super(message, ErrorCode.NOT_FOUND, options)
   }
 }
 
-/**
- * Thrown for unexpected server errors.
- * Results in HTTP 500 equivalent.
- */
+export class ConflictError extends BaseGraphQLError {
+  constructor(message = 'The request conflicts with the current state', options?: CustomErrorOptions) {
+    super(message, ErrorCode.CONFLICT, options)
+  }
+}
+
+export class RateLimitError extends BaseGraphQLError {
+  constructor(message = 'Too many requests. Please try again later.', options?: CustomErrorOptions) {
+    super(message, ErrorCode.RATE_LIMITED, options)
+  }
+}
+
+export class DependencyUnavailableError extends BaseGraphQLError {
+  constructor(
+    message = 'A required dependency is temporarily unavailable',
+    options?: CustomErrorOptions
+  ) {
+    super(message, ErrorCode.DEPENDENCY_UNAVAILABLE, options)
+  }
+}
+
 export class InternalError extends BaseGraphQLError {
   constructor(message = 'An unexpected error occurred', options?: CustomErrorOptions) {
     super(message, ErrorCode.INTERNAL_SERVER_ERROR, options)
+  }
+}
+
+/** Map common Prisma error codes to application errors. */
+export function mapPrismaError(error: unknown): Error | null {
+  if (!error || typeof error !== 'object') return null
+  const code = (error as { code?: string }).code
+  const meta = (error as { meta?: { target?: string[] } }).meta
+
+  switch (code) {
+    case 'P2002': {
+      const fields = meta?.target?.join(', ') || 'field'
+      return new ConflictError(`A record with this ${fields} already exists`)
+    }
+    case 'P2025':
+      return new NotFoundError('The requested record was not found')
+    case 'P2003':
+      return new ValidationError('Referenced record does not exist or belongs to another workspace')
+    case 'P1001':
+    case 'P1002':
+    case 'P1017':
+      return new DependencyUnavailableError('Database is temporarily unavailable')
+    default:
+      return null
   }
 }

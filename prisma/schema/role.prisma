@@ -1,15 +1,19 @@
 model Role {
-  id          String       @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
-  ownerId     String
-  owner       User         @relation("OwnedRoles", fields: [ownerId], references: [id], onDelete: Cascade)
-  permissions Permission[]
+  description String?
+  /// Stable permission identifiers from the authorization catalog (e.g. users.read)
+  permissions String[]
+  isSystem    Boolean @default(false)
 
-  users User[] @relation("UserRoles")
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  users User[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([name, ownerId])
-  @@index([ownerId])
+  @@unique([name, workspaceId])
+  @@index([workspaceId])
 }

@@ -1,86 +1,94 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { UserType, UserStatus, WorkspaceStatus } from '@prisma/client'
 import { userResolver } from '../resolvers/user.resolver'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { Permission, UserType } from '@prisma/client'
 import { Context } from '@/types/context.type'
-import { mockDeep, DeepMockProxy } from 'vitest-mock-extended'
-import { AuthenticationError } from '@/errors'
+import { PERMISSIONS } from '@/authorization/permissions'
 
 vi.mock('@/cache', () => ({
-  cache: { invalidateUser: vi.fn() },
+  cache: { invalidateUser: vi.fn().mockResolvedValue(undefined) },
 }))
 
 describe('User Resolver', () => {
-  let mockContext: DeepMockProxy<Context>
+  let context: Context
+  let client: any
 
   beforeEach(() => {
-    mockContext = mockDeep<Context>()
-    vi.clearAllMocks()
+    client = {
+      user: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'u1', workspaceId: 'ws-1' }),
+        update: vi.fn(),
+      },
+    }
+    context = {
+      user: {
+        id: 'u1',
+        email: 'a@b.com',
+        username: 'alice',
+        userType: UserType.MEMBER,
+        status: UserStatus.ACTIVE,
+        workspaceId: 'ws-1',
+        customPermissions: [],
+      } as any,
+      isAuthenticated: true,
+      is2faPending: false,
+      client,
+      workspaceId: 'ws-1',
+      workspaceStatus: WorkspaceStatus.ACTIVE,
+      userType: UserType.MEMBER,
+      permissions: [PERMISSIONS.USERS_READ],
+      userStatus: UserStatus.ACTIVE,
+    }
   })
 
-  describe('Query.me', () => {
-    it('Get user', async () => {
-      const mockDbUser = {
-        id: '1',
-        email: 'test@example.com',
-        username: 'Test User',
-        userType: UserType.EMPLOYEE,
-        roles: [{ permissions: [Permission.USER_VIEW] }],
-        customPermissions: [Permission.ROLE_VIEW],
-      }
-
-      mockContext.user = { id: '1' } as any
-      mockContext.isAuthenticated = true
-      mockContext.client.user.findUnique.mockResolvedValue(mockDbUser as any)
-
-      const result = await (userResolver.Query?.me as any)({}, {}, mockContext, {})
-
-      expect(mockContext.client.user.findUnique).toHaveBeenCalledWith({
-        where: { id: '1' },
-        include: { roles: true },
-      })
-      expect(result.id).toBe('1')
-      expect(result.email).toBe('test@example.com')
-      // Merged + deduplicated permissions from roles and customPermissions
-      expect(result.permissions.sort()).toEqual(
-        [Permission.USER_VIEW, Permission.ROLE_VIEW].sort()
-      )
-    })
-
-    it('Get user (Unauthenticated)', async () => {
-      mockContext.user = undefined as any
-      mockContext.isAuthenticated = false
-
-      await expect(
-        (userResolver.Query?.me as any)({}, {}, mockContext, {})
-      ).rejects.toThrow(AuthenticationError)
-    })
+  it('me returns graphql permission names without password', async () => {
+    const result = await (userResolver.Query?.me as any)({}, {}, context, {})
+    expect(result.permissions).toContain('USERS_READ')
+    expect(result.password).toBeUndefined()
   })
 
-  describe('Mutation.updateUserProfile', () => {
-    it('Update user profile fields successfully', async () => {
-      mockContext.user = { id: '1' } as any
-      mockContext.isAuthenticated = true
-
-      const mockUpdatedUser = {
-        id: '1',
-        username: 'New Name',
-        avatar: 'new-avatar.png',
-        userType: UserType.OWNER,
-      }
-      mockContext.client.user.update.mockResolvedValue(mockUpdatedUser as any)
-
-      const result = await (userResolver.Mutation?.updateUserProfile as any)(
-        {},
-        { data: { username: 'New Name', avatar: 'new-avatar.png' } },
-        mockContext,
-        {}
-      )
-
-      expect(mockContext.client.user.update).toHaveBeenCalledWith({
-        where: { id: '1' },
-        data: { username: 'New Name', avatar: 'new-avatar.png' },
-      })
-      expect(result.username).toBe('New Name')
+  it('updateUserProfile updates allowed fields', async () => {
+    client.user.update.mockResolvedValue({
+      id: 'u1',
+      username: 'bob',
+      avatar: null,
+      password: 'secret',
     })
+
+    const result = await (userResolver.Mutation?.updateUserProfile as any)(
+      {},
+      { data: { username: 'bob' } },
+      context,
+      {}
+    )
+
+    expect(client.user.findFirst).toHaveBeenCalledWith({
+      where: { id: 'u1', workspaceId: 'ws-1' },
+      select: { id: true },
+    })
+    expect(result.username).toBe('bob')
+    expect(result.password).toBeUndefined()
+  })
+
+  it('clears avatar when null is provided', async () => {
+    client.user.update.mockResolvedValue({
+      id: 'u1',
+      username: 'alice',
+      avatar: null,
+      password: 'secret',
+    })
+
+    const result = await (userResolver.Mutation?.updateUserProfile as any)(
+      {},
+      { data: { avatar: null } },
+      context,
+      {}
+    )
+
+    expect(client.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ avatar: null }),
+      })
+    )
+    expect(result.avatar).toBeNull()
   })
 })

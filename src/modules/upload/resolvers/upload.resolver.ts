@@ -2,14 +2,18 @@ import { requireAuth } from '@/guards'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
 import { storageBridge } from '../services/storage-bridge.service'
-import { ValidationError, InternalError } from '@/errors'
+import { ValidationError } from '@/errors'
+import { mapUploadError } from '../utils/upload-errors'
 import { generateToken } from '@/modules/auth'
 
 const getInternalToken = (context: Context): string => {
   if ((context as any)._internalStorageToken) {
     return (context as any)._internalStorageToken
   }
-  const token = generateToken({ _id: context.user.id, email: context.user.email })
+  const token = generateToken({
+    _id: context.user!.id,
+    email: context.user!.email,
+  })
   ;(context as any)._internalStorageToken = token
   return token
 }
@@ -28,7 +32,7 @@ export const uploadResolver: Resolvers<Context> = {
           updatedAt: new Date(file.updatedAt),
         }
       } catch (error) {
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to fetch file')
+        throw mapUploadError(error, 'Failed to fetch file')
       }
     }),
 
@@ -46,7 +50,7 @@ export const uploadResolver: Resolvers<Context> = {
           pageInfo: result.pageInfo,
         }
       } catch (error) {
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to fetch files')
+        throw mapUploadError(error, 'Failed to fetch files')
       }
     }),
 
@@ -72,7 +76,7 @@ export const uploadResolver: Resolvers<Context> = {
           })),
         }
       } catch (error) {
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to fetch folder')
+        throw mapUploadError(error, 'Failed to fetch folder')
       }
     }),
 
@@ -90,7 +94,7 @@ export const uploadResolver: Resolvers<Context> = {
           pageInfo: result.pageInfo,
         }
       } catch (error) {
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to fetch folders')
+        throw mapUploadError(error, 'Failed to fetch folders')
       }
     }),
 
@@ -99,9 +103,7 @@ export const uploadResolver: Resolvers<Context> = {
         const token = getInternalToken(context)
         return await storageBridge.getFileDownloadUrl(id, token)
       } catch (error) {
-        throw new InternalError(
-          error instanceof Error ? error.message : 'Failed to get download URL'
-        )
+        throw mapUploadError(error, 'Failed to get download URL')
       }
     }),
 
@@ -119,9 +121,7 @@ export const uploadResolver: Resolvers<Context> = {
           pageInfo: result.pageInfo,
         }
       } catch (error) {
-        throw new InternalError(
-          error instanceof Error ? error.message : 'Failed to get file share links'
-        )
+        throw mapUploadError(error, 'Failed to get file share links')
       }
     }),
 
@@ -139,9 +139,7 @@ export const uploadResolver: Resolvers<Context> = {
           pageInfo: result.pageInfo,
         }
       } catch (error) {
-        throw new InternalError(
-          error instanceof Error ? error.message : 'Failed to get folder share links'
-        )
+        throw mapUploadError(error, 'Failed to get folder share links')
       }
     }),
   },
@@ -162,9 +160,7 @@ export const uploadResolver: Resolvers<Context> = {
         }
       } catch (error) {
         if (error instanceof ValidationError) throw error
-        throw new InternalError(
-          error instanceof Error ? error.message : 'Failed to request upload URL'
-        )
+        throw mapUploadError(error, 'Failed to request upload URL')
       }
     }),
 
@@ -179,7 +175,7 @@ export const uploadResolver: Resolvers<Context> = {
           updatedAt: new Date(file.updatedAt),
         }
       } catch (error) {
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to confirm upload')
+        throw mapUploadError(error, 'Failed to confirm upload')
       }
     }),
 
@@ -188,7 +184,7 @@ export const uploadResolver: Resolvers<Context> = {
         const token = getInternalToken(context)
         return await storageBridge.cancelUpload(fileId, token)
       } catch (error) {
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to cancel upload')
+        throw mapUploadError(error, 'Failed to cancel upload')
       }
     }),
 
@@ -202,7 +198,7 @@ export const uploadResolver: Resolvers<Context> = {
         return await storageBridge.deleteFiles(ids, token)
       } catch (error) {
         if (error instanceof ValidationError) throw error
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to delete files')
+        throw mapUploadError(error, 'Failed to delete files')
       }
     }),
 
@@ -217,9 +213,7 @@ export const uploadResolver: Resolvers<Context> = {
           updatedAt: new Date(file.updatedAt),
         }
       } catch (error) {
-        throw new InternalError(
-          error instanceof Error ? error.message : 'Failed to toggle file public'
-        )
+        throw mapUploadError(error, 'Failed to toggle file public')
       }
     }),
 
@@ -239,7 +233,7 @@ export const uploadResolver: Resolvers<Context> = {
         }
       } catch (error) {
         if (error instanceof ValidationError) throw error
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to create folder')
+        throw mapUploadError(error, 'Failed to create folder')
       }
     }),
 
@@ -259,7 +253,7 @@ export const uploadResolver: Resolvers<Context> = {
         }
       } catch (error) {
         if (error instanceof ValidationError) throw error
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to rename folder')
+        throw mapUploadError(error, 'Failed to rename folder')
       }
     }),
 
@@ -274,7 +268,7 @@ export const uploadResolver: Resolvers<Context> = {
           updatedAt: new Date(folder.updatedAt),
         }
       } catch (error) {
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to move folder')
+        throw mapUploadError(error, 'Failed to move folder')
       }
     }),
 
@@ -283,7 +277,7 @@ export const uploadResolver: Resolvers<Context> = {
         const token = getInternalToken(context)
         return await storageBridge.deleteFolder(id, token)
       } catch (error) {
-        throw new InternalError(error instanceof Error ? error.message : 'Failed to delete folder')
+        throw mapUploadError(error, 'Failed to delete folder')
       }
     }),
 
@@ -303,9 +297,7 @@ export const uploadResolver: Resolvers<Context> = {
         }
       } catch (error) {
         if (error instanceof ValidationError) throw error
-        throw new InternalError(
-          error instanceof Error ? error.message : 'Failed to create share link'
-        )
+        throw mapUploadError(error, 'Failed to create share link')
       }
     }),
 
@@ -314,9 +306,7 @@ export const uploadResolver: Resolvers<Context> = {
         const token = getInternalToken(context)
         return await storageBridge.deleteShareLink(id, token)
       } catch (error) {
-        throw new InternalError(
-          error instanceof Error ? error.message : 'Failed to delete share link'
-        )
+        throw mapUploadError(error, 'Failed to delete share link')
       }
     }),
   },

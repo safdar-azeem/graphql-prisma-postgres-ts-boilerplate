@@ -1,5 +1,5 @@
 import { redis, isRedisHealthy } from '@/config/redis'
-import { getShardForUser, findUserAcrossShards } from '@/config/prisma'
+import { findUserAcrossShards } from '@/config/prisma'
 import { AuthUser } from '@/types/context.type'
 import { serialize, deserialize } from '@/utils/serializer.util'
 
@@ -8,12 +8,17 @@ const USER_CACHE_TTL = 3600 // 1 hour in seconds
 
 interface CachedUser {
   user: AuthUser
-  password: string
+  workspaceId: string
   shardId?: string
 }
 
 const getUserCacheKey = (userId: string): string => {
   return `${USER_CACHE_PREFIX}${userId}`
+}
+
+const toAuthUser = (user: { password?: string } & Record<string, unknown>): AuthUser => {
+  const { password: _password, ...rest } = user
+  return rest as AuthUser
 }
 
 export const getUser = async (userId: string): Promise<CachedUser | null> => {
@@ -32,20 +37,24 @@ export const getUser = async (userId: string): Promise<CachedUser | null> => {
     console.warn('[UserCache] Cache read failed, falling back to DB:', error.message)
   }
 
-  const { result: user, shardId } = await findUserAcrossShards((client) =>
-    client.user.findUnique({ where: { id: userId } })
+  const { result: user, shardId, client } = await findUserAcrossShards((c) =>
+    c.user.findUnique({
+      where: { id: userId },
+      include: { workspace: { select: { shardId: true } } },
+    })
   )
 
-  if (!user || !shardId) {
+  if (!user || !shardId || !client) {
     return null
   }
 
-  const { password, ...userWithoutPassword } = user
+  const workspaceShardId = (user as any).workspace?.shardId ?? shardId
+  const authUser = toAuthUser(user as any)
 
   const cachedUser: CachedUser = {
-    user: userWithoutPassword,
-    password,
-    shardId,
+    user: authUser,
+    workspaceId: authUser.workspaceId,
+    shardId: workspaceShardId,
   }
 
   setUser(userId, cachedUser).catch((err) => {
@@ -94,24 +103,17 @@ export const invalidateUsers = async (userIds: string[]): Promise<void> => {
 
 export const refreshUser = async (userId: string): Promise<CachedUser | null> => {
   await invalidateUser(userId)
+  return getUser(userId)
+}
 
-  const { result: user, shardId } = await findUserAcrossShards((client) =>
-    client.user.findUnique({ where: { id: userId } })
-  )
-
-  if (!user || !shardId) {
-    return null
-  }
-
-  const { password, ...userWithoutPassword } = user
-
-  const cachedUser: CachedUser = {
-    user: userWithoutPassword,
-    password,
-    shardId,
-  }
-
-  await setUser(userId, cachedUser)
-
-  return cachedUser
+/** Load password hash only when needed for verification — never put in context. */
+export const getUserPasswordHash = async (
+  userId: string,
+  client: { user: { findUnique: Function } }
+): Promise<string | null> => {
+  const user = await client.user.findUnique({
+    where: { id: userId },
+    select: { password: true },
+  })
+  return user?.password ?? null
 }

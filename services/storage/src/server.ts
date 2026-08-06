@@ -10,6 +10,7 @@ import {
   STORAGE_TYPE,
   FILE_PROXY_MODE,
   CORS_ALLOWED_ORIGINS,
+  validateStorageSecrets,
 } from './constants/index.js'
 import { authMiddleware } from './middleware/auth.middleware.js'
 import { errorMiddleware, notFoundMiddleware } from './middleware/error.middleware.js'
@@ -53,6 +54,7 @@ const getCorsOptions = (): CorsOptions => {
 }
 
 async function startServer() {
+  validateStorageSecrets()
   await initializeProvider()
 
   const app = express()

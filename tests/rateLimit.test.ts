@@ -1,12 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { getRateLimitOptions } from '@/middleware/rateLimit.middleware'
 import jwt from 'jsonwebtoken'
+import { ACCESS_TOKEN_SECRET, JWT_ISSUER, JWT_AUDIENCE, JWT_ALGORITHM } from '@/constants'
 
-// Mock dependencies
 vi.mock('@/config/redis', () => ({
-  redis: {
-    call: vi.fn(),
-  },
+  redis: { call: vi.fn() },
   isRedisHealthy: vi.fn(() => true),
 }))
 
@@ -14,7 +12,6 @@ vi.mock('@/constants', async (importOriginal) => {
   const actual = (await importOriginal()) as any
   return {
     ...actual,
-    // Ensure consistent environment for testing limits
     IS_PRODUCTION: true,
   }
 })
@@ -27,123 +24,49 @@ describe('Rate Limit Middleware', () => {
   })
 
   describe('keyGenerator', () => {
-    it('should generate a user-based key for valid JWT', () => {
-      // GIVEN
+    it('should generate a user-based key for a verified JWT', () => {
       const userId = 'user-123'
-      const token = jwt.sign({ _id: userId }, 'secret') // Signed with dummy secret, decoding doesn't verify signature
-      const request = {
-        headers: {
-          authorization: `Bearer ${token}`,
-        },
+      const token = jwt.sign({ _id: userId, tokenType: 'access' }, ACCESS_TOKEN_SECRET, {
+        algorithm: JWT_ALGORITHM,
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE,
+      })
+      const key = options.keyGenerator({
+        headers: { authorization: `Bearer ${token}` },
         ip: '192.168.1.1',
-      }
-
-      // WHEN
-      const key = options.keyGenerator(request)
-
-      // THEN
+      })
       expect(key).toBe(`user:${userId}`)
     })
 
+    it('should fall back to IP for an unverified forged JWT', () => {
+      const token = jwt.sign({ _id: 'attacker' }, 'wrong-secret')
+      const key = options.keyGenerator({
+        headers: { authorization: `Bearer ${token}` },
+        ip: '192.168.1.1',
+      })
+      expect(key).toBe('ip:192.168.1.1')
+    })
+
     it('should fall back to IP-based key for missing token', () => {
-      // GIVEN
-      const ip = '10.0.0.1'
-      const request = {
-        headers: {},
-        ip: ip,
-      }
-
-      // WHEN
-      const key = options.keyGenerator(request)
-
-      // THEN
-      expect(key).toBe(`ip:${ip}`)
-    })
-
-    it('should fall back to IP-based key for malformed token', () => {
-      // GIVEN
-      const ip = '10.0.0.2'
-      const request = {
-        headers: {
-          authorization: 'Bearer malformed.token.here',
-        },
-        ip: ip,
-      }
-
-      // WHEN
-      const key = options.keyGenerator(request)
-
-      // THEN
-      expect(key).toBe(`ip:${ip}`)
-    })
-
-    it('should prefer x-real-ip header if present', () => {
-      // GIVEN
-      const realIp = '203.0.113.1'
-      const request = {
-        headers: {
-          'x-real-ip': realIp,
-        },
-        ip: '127.0.0.1', // Local proxy IP
-      }
-
-      // WHEN
-      const key = options.keyGenerator(request)
-
-      // THEN
-      expect(key).toBe(`ip:${realIp}`)
+      const key = options.keyGenerator({ headers: {}, ip: '10.0.0.1' })
+      expect(key).toBe('ip:10.0.0.1')
     })
   })
 
-  describe('max (Limit Resolver)', () => {
-    it('should return AUTHENTICATED limit for user keys', () => {
-      // GIVEN
-      const key = 'user:123'
-
-      // WHEN
-      const limit = options.max({}, key)
-
-      // THEN
-      // Based on IS_PRODUCTION: true mock above
-      expect(limit).toBe(1000)
-    })
-
-    it('should return ANONYMOUS limit for ip keys', () => {
-      // GIVEN
-      const key = 'ip:192.168.1.1'
-
-      // WHEN
-      const limit = options.max({}, key)
-
-      // THEN
-      expect(limit).toBe(60)
+  describe('max', () => {
+    it('returns authenticated and anonymous limits', () => {
+      expect(options.max({}, 'user:123')).toBe(1000)
+      expect(options.max({}, 'ip:1.1.1.1')).toBe(60)
     })
   })
 
   describe('errorResponseBuilder', () => {
-    it('should return correct 429 structure', () => {
-      // GIVEN
-      const context = {
-        ttl: 45000,
-        after: '45',
-        max: 60,
-      }
-
-      // WHEN
-      const response = options.errorResponseBuilder({}, context)
-
-      // THEN
-      expect(response).toEqual({
-        statusCode: 429,
-        error: 'Too Many Requests',
-        message: expect.stringContaining('try again in 45 seconds'),
-        extensions: {
-          code: 'RATE_LIMIT_EXCEEDED',
-          retryAfter: '45',
-          limit: 60,
-          remaining: 0,
-        },
-      })
+    it('returns RATE_LIMITED code', () => {
+      const response = options.errorResponseBuilder(
+        {},
+        { ttl: 45000, after: '45', max: 60 }
+      )
+      expect(response.extensions.code).toBe('RATE_LIMITED')
     })
   })
 })

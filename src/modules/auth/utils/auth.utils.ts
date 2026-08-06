@@ -1,8 +1,6 @@
 import bcrypt from 'bcrypt'
-import jwt, { SignOptions } from 'jsonwebtoken'
-import { JWT_EXPIRES_IN_SECONDS, JWT_SECRET } from '@/constants'
+import { generateStorageServiceToken, verifyStorageServiceToken } from '@/config/tokens'
 
-// Password Utils
 const SALT_ROUNDS = 12
 
 export const hashPassword = async (password: string): Promise<string> => {
@@ -16,25 +14,23 @@ export const comparePassword = async (
   return bcrypt.compare(password, hashedPassword)
 }
 
-// Token Utils
+/** @deprecated Use generateStorageServiceToken — kept for upload module import path. */
 export interface TokenPayload {
   _id: string
   email?: string
   is2faPending?: boolean
 }
 
+/** Short-lived internal token for storage-service proxy calls only. */
 export const generateToken = (payload: TokenPayload): string => {
-  const options: SignOptions = {
-    expiresIn: JWT_EXPIRES_IN_SECONDS,
-  }
-
-  return jwt.sign(payload, JWT_SECRET, options)
+  return generateStorageServiceToken({
+    _id: payload._id,
+    email: payload.email,
+  })
 }
 
 export const verifyToken = (token: string): TokenPayload | null => {
-  try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload
-  } catch {
-    return null
-  }
+  const decoded = verifyStorageServiceToken(token)
+  if (!decoded) return null
+  return { _id: decoded._id, email: decoded.email }
 }

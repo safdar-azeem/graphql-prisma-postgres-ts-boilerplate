@@ -1,0 +1,27 @@
+type Workspace {
+  id: ID!
+  name: String!
+  slug: String!
+  status: WorkspaceStatus!
+  ownerId: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+input UpdateWorkspaceInput {
+  name: String
+  slug: String
+}
+
+input TransferOwnershipInput {
+  newOwnerUserId: ID!
+}
+
+extend type Query {
+  workspace: Workspace!
+}
+
+extend type Mutation {
+  updateWorkspace(data: UpdateWorkspaceInput!): Workspace!
+  transferOwnership(data: TransferOwnershipInput!): Workspace!
+}

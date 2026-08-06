@@ -1,39 +1,20 @@
 import { RateLimitPluginOptions } from '@fastify/rate-limit'
 import { redis, isRedisHealthy } from '@/config/redis'
 import { IS_PRODUCTION } from '@/constants'
-import jwt from 'jsonwebtoken'
+import { verifyAccessToken } from '@/config/tokens'
 
 /**
- * Rate Limit Strategy & Configuration
- * ---------------------------------
- * We implement a hybrid rate limiting strategy similar to major platforms (GitHub, Twitter):
+ * Hybrid rate limiting:
+ * - Authenticated (verified JWT): higher limit
+ * - Anonymous / invalid token: IP-based lower limit
  *
- * 1. Authenticated Users (User-ID based):
- * - Higher limits (e.g., 1000 req/min)
- * - Rate limits follow the user regardless of IP/Device
- *
- * 2. Unauthenticated Users (IP based):
- * - Lower limits (e.g., 60 req/min)
- * - Protects against brute-force, scraping, and DDoS
- *
- * Infrastructure:
- * - Uses Redis for distributed counter state (works across multiple server instances)
- * - Uses Fastify's trustProxy to correctly identify client IP behind Nginx/LoadBalancers
+ * Never trusts unverified jwt.decode for privileged buckets.
  */
 
 const LIMITS = {
-  // Authenticated: 1000 req/min (Standard API usage)
   AUTHENTICATED: IS_PRODUCTION ? 1000 : 5000,
-  // Anonymous: 60 req/min (Login/Signup/Public strictness)
   ANONYMOUS: IS_PRODUCTION ? 60 : 300,
-  // Window: 1 minute
   WINDOW_MS: 60 * 1000,
-}
-
-interface DecodedToken {
-  _id: string
-  iat?: number
-  exp?: number
 }
 
 export const getRateLimitOptions = (): RateLimitPluginOptions => {
@@ -46,70 +27,46 @@ export const getRateLimitOptions = (): RateLimitPluginOptions => {
   return {
     timeWindow: LIMITS.WINDOW_MS,
     redis: isHealthy ? redis : undefined,
-    // Whitelist health checks and root to prevent internal monitoring issues
-    allowList: ['/health', '/'],
-
-    // Use a custom name to identify this limiter in headers
+    allowList: ['/health', '/health/live', '/health/ready', '/'],
     nameSpace: 'api-rate-limit',
 
-    /**
-     * Dynamic Limit Resolver
-     * Returns the max requests allowed based on the key prefix.
-     */
-    max: (req, key) => {
+    max: (_req, key) => {
       if (key.startsWith('user:')) {
         return LIMITS.AUTHENTICATED
       }
       return LIMITS.ANONYMOUS
     },
 
-    /**
-     * Hybrid Key Generator
-     * Determines if the request is from a User or an IP.
-     */
     keyGenerator: (request) => {
       const authHeader = request.headers.authorization || (request.headers.token as string)
 
-      // 1. Authenticated User Strategy
       if (authHeader) {
         try {
           const token = authHeader.replace('Bearer ', '')
-
-          // We decode locally without verification for speed in the rate-limit phase.
-          // The actual AuthGuard will verify validity later.
-          // If the token is garbage, this fails and falls back to IP.
-          const decoded = jwt.decode(token) as DecodedToken | null
-
-          if (decoded?._id) {
+          const decoded = verifyAccessToken(token)
+          if (decoded?._id && !decoded.is2faPending) {
             return `user:${decoded._id}`
           }
-        } catch (err) {
-          // Token parsing failed; treat as anonymous
+        } catch {
+          // fall through to IP
         }
       }
 
-      // 2. IP Fallback Strategy
-      // fastify.trustProxy must be true for this to work behind Nginx
-      const clientIp = (request.headers['x-real-ip'] as string) || request.ip || '127.0.0.1'
-      return `ip:${clientIp}`
+      return `ip:${request.ip || '127.0.0.1'}`
     },
 
-    /**
-     * Custom Error Response (RFC 7807 compliant structure)
-     */
     errorResponseBuilder: (_request, context) => ({
       statusCode: 429,
       error: 'Too Many Requests',
       message: `Rate limit exceeded. Please try again in ${Math.ceil(context.ttl / 1000)} seconds.`,
       extensions: {
-        code: 'RATE_LIMIT_EXCEEDED',
+        code: 'RATE_LIMITED',
         retryAfter: context.after,
         limit: context.max,
         remaining: 0,
       },
     }),
 
-    // Expose standard RateLimit headers
     addHeaders: {
       'x-ratelimit-limit': true,
       'x-ratelimit-remaining': true,
@@ -117,6 +74,6 @@ export const getRateLimitOptions = (): RateLimitPluginOptions => {
       'retry-after': true,
     },
 
-    skipOnError: true, // Allow request if rate limit store fails
+    skipOnError: true,
   }
 }
