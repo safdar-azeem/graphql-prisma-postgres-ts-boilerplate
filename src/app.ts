@@ -107,6 +107,8 @@ export async function buildApp(): Promise<FastifyInstance> {
 
     const payload = {
       status: ready ? 'ready' : 'not_ready',
+      commitSha: process.env.COMMIT_SHA || 'unknown',
+      releaseGroup: process.env.RELEASE_GROUP || 'unknown',
       checks: {
         database: db.defaultOk,
         redis: redisReady,
