@@ -1,13 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { DependencyUnavailableError } from '@/errors'
 
-const findIdentityByEmail = vi.fn()
+const getEmailReservation = vi.fn()
+const activateEmailReservation = vi.fn()
+const reconcileExpiredPendingReservation = vi.fn()
 const getDbForWorkspace = vi.fn()
 const findUserAcrossShards = vi.fn()
 const findUnique = vi.fn()
 
 vi.mock('@/identity/email-reservation.service', () => ({
-  findIdentityByEmail: (...args: any[]) => findIdentityByEmail(...args),
+  getEmailReservation: (...args: any[]) => getEmailReservation(...args),
+  activateEmailReservation: (...args: any[]) => activateEmailReservation(...args),
+  reconcileExpiredPendingReservation: (...args: any[]) =>
+    reconcileExpiredPendingReservation(...args),
 }))
 
 vi.mock('@/config/prisma', () => ({
@@ -25,8 +30,8 @@ describe('resolveUserByEmail', () => {
     vi.clearAllMocks()
   })
 
-  it('uses legacy scan only when no ACTIVE identity exists', async () => {
-    findIdentityByEmail.mockResolvedValue(null)
+  it('uses legacy scan only when no control-plane reservation exists', async () => {
+    getEmailReservation.mockResolvedValue(null)
     findUserAcrossShards.mockResolvedValue({
       result: { id: 'u1', email: 'a@b.com' },
       client: {},
@@ -41,8 +46,8 @@ describe('resolveUserByEmail', () => {
     expect(result.result?.id).toBe('u1')
   })
 
-  it('returns the user from exactly the persisted shard', async () => {
-    findIdentityByEmail.mockResolvedValue({
+  it('returns the user from exactly the persisted ACTIVE shard', async () => {
+    getEmailReservation.mockResolvedValue({
       email: 'a@b.com',
       userId: 'u1',
       workspaceId: 'ws-1',
@@ -70,7 +75,7 @@ describe('resolveUserByEmail', () => {
   })
 
   it('does not scan other shards when ACTIVE shard is unavailable', async () => {
-    findIdentityByEmail.mockResolvedValue({
+    getEmailReservation.mockResolvedValue({
       email: 'a@b.com',
       userId: 'u1',
       workspaceId: 'ws-1',
@@ -91,7 +96,7 @@ describe('resolveUserByEmail', () => {
   })
 
   it('does not scan other shards when ACTIVE identity user is missing', async () => {
-    findIdentityByEmail.mockResolvedValue({
+    getEmailReservation.mockResolvedValue({
       email: 'a@b.com',
       userId: 'u1',
       workspaceId: 'ws-1',
@@ -107,5 +112,68 @@ describe('resolveUserByEmail', () => {
       extensions: expect.objectContaining({ code: 'IDENTITY_INTEGRITY_ERROR' }),
     })
     expect(findUserAcrossShards).not.toHaveBeenCalled()
+  })
+
+  it('PENDING never invokes findUserAcrossShards; activates when shard user exists', async () => {
+    getEmailReservation.mockResolvedValue({
+      email: 'a@b.com',
+      userId: 'u1',
+      workspaceId: 'ws-1',
+      shardId: 'shard_2',
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    getDbForWorkspace.mockReturnValue({ user: { findUnique } })
+    findUnique.mockResolvedValue({
+      id: 'u1',
+      email: 'a@b.com',
+      workspaceId: 'ws-1',
+    })
+    activateEmailReservation.mockResolvedValue(undefined)
+
+    const { resolveUserByEmail } = await import('@/identity/resolve-user-by-email')
+    const result = await resolveUserByEmail('a@b.com')
+
+    expect(activateEmailReservation).toHaveBeenCalledWith('a@b.com', 'u1')
+    expect(findUserAcrossShards).not.toHaveBeenCalled()
+    expect(result.result?.id).toBe('u1')
+  })
+
+  it('PENDING without shard user returns conflict and does not scan', async () => {
+    getEmailReservation.mockResolvedValue({
+      email: 'a@b.com',
+      userId: 'u1',
+      workspaceId: 'ws-1',
+      shardId: 'shard_2',
+      status: 'PENDING',
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    getDbForWorkspace.mockReturnValue({ user: { findUnique } })
+    findUnique.mockResolvedValue(null)
+
+    const { resolveUserByEmail } = await import('@/identity/resolve-user-by-email')
+    await expect(resolveUserByEmail('a@b.com')).rejects.toMatchObject({
+      name: 'ConflictError',
+      message: 'Email reservation is pending and the account is not ready',
+    })
+    expect(findUserAcrossShards).not.toHaveBeenCalled()
+  })
+
+  it('RELEASE_PENDING blocks auth and never scans shards', async () => {
+    getEmailReservation.mockResolvedValue({
+      email: 'a@b.com',
+      userId: 'u1',
+      workspaceId: 'ws-1',
+      shardId: 'shard_2',
+      status: 'RELEASE_PENDING',
+    })
+
+    const { resolveUserByEmail } = await import('@/identity/resolve-user-by-email')
+    await expect(resolveUserByEmail('a@b.com')).rejects.toMatchObject({
+      name: 'DependencyUnavailableError',
+      extensions: expect.objectContaining({ code: 'IDENTITY_RELEASE_PENDING' }),
+    })
+    expect(findUserAcrossShards).not.toHaveBeenCalled()
+    expect(getDbForWorkspace).not.toHaveBeenCalled()
   })
 })
