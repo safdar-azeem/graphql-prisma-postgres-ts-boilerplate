@@ -48,6 +48,8 @@ vi.mock('@/identity/email-reservation.service', () => ({
   reserveEmail: vi.fn().mockResolvedValue(undefined),
   activateAfterShardCommit: vi.fn().mockResolvedValue(undefined),
   releaseAfterFailedShardWrite: vi.fn().mockResolvedValue(undefined),
+  markReleasePendingBeforeDelete: vi.fn().mockResolvedValue(undefined),
+  finalizeReleaseAfterUserDelete: vi.fn().mockResolvedValue(undefined),
   releaseAfterUserDelete: vi.fn().mockResolvedValue(undefined),
   findIdentityByEmail: vi.fn().mockResolvedValue(null),
 }))
