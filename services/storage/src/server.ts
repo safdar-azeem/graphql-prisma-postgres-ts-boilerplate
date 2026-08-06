@@ -1,6 +1,5 @@
 import express from 'express'
 import cors from 'cors'
-import type { CorsOptions } from 'cors'
 import cookieParser from 'cookie-parser'
 import path from 'path'
 import routes from './routes/index.js'
@@ -13,45 +12,12 @@ import {
   validateStorageSecrets,
 } from './constants/index.js'
 import { authMiddleware } from './middleware/auth.middleware.js'
+import { getCorsOptions, parseAllowedOrigins } from './middleware/cors.js'
 import { errorMiddleware, notFoundMiddleware } from './middleware/error.middleware.js'
 import { initializeProvider } from './providers/index.js'
 import { localConfig } from './config/storage.config.js'
 import { prisma } from './config/prisma.js'
-
-// --- SEC-2: CORS Configuration ---
-const getAllowedOrigins = (): string[] => {
-  const origins = new Set<string>()
-  if (CORS_ALLOWED_ORIGINS) {
-    CORS_ALLOWED_ORIGINS.split(',').forEach((origin) => {
-      if (origin.trim()) origins.add(origin.trim())
-    })
-  }
-  return Array.from(origins)
-}
-
-const allowedOrigins = getAllowedOrigins()
-
-const getCorsOptions = (): CorsOptions => {
-  if (IS_DEVELOPMENT) {
-    return { origin: true, credentials: true }
-  }
-  return {
-    origin: (origin, callback) => {
-      if (!origin) {
-        callback(null, true)
-        return
-      }
-      if (allowedOrigins.some((allowed) => origin === allowed || origin.startsWith(allowed))) {
-        callback(null, true)
-      } else {
-        callback(new Error('Not allowed by CORS policy'), false)
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE', 'PATCH'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Share-Password'],
-  }
-}
+import { shouldMountLocalStaticUploads } from './utils/local-static.js'
 
 async function startServer() {
   // Fail closed before provider/network initialization
@@ -59,6 +25,7 @@ async function startServer() {
   await initializeProvider()
 
   const app = express()
+  const allowedOrigins = parseAllowedOrigins(CORS_ALLOWED_ORIGINS)
 
   app.use(cors(getCorsOptions()))
   app.use(express.json({ limit: '1mb' }))
@@ -67,24 +34,24 @@ async function startServer() {
 
   app.use(authMiddleware)
 
-  // LOCAL STORAGE: Serve uploaded files directly via /uploads path.
-  // Only enabled when STORAGE_TYPE=local. For S3/OBS/Cloudinary, files are
-  // served by the provider — no static serving needed.
-  // In FILE_PROXY_MODE=true, access still goes through /api/files/:id/content.
-  // In FILE_PROXY_MODE=false (default for local dev), the /uploads path is used directly.
-  if (STORAGE_TYPE === 'local') {
+  // Never mount /uploads in proxy mode — private files would bypass auth/file-view tokens.
+  // Direct mode treats /uploads paths as publicly readable; private files must use
+  // /api/files/:id/content with Authorization or a purpose-limited file-view token.
+  if (shouldMountLocalStaticUploads(STORAGE_TYPE, FILE_PROXY_MODE)) {
     const absoluteStoragePath = path.resolve(localConfig.storagePath)
-    app.use('/uploads', express.static(absoluteStoragePath, {
-      // SEC: Prevent directory listing
-      index: false,
-      // PERF: Cache static files for 1 hour
-      maxAge: '1h',
-      // SEC: Restrict to known MIME types only
-      setHeaders: (res) => {
-        res.setHeader('X-Content-Type-Options', 'nosniff')
-      },
-    }))
-    console.log(`   Static files: /uploads -> ${absoluteStoragePath}`)
+    app.use(
+      '/uploads',
+      express.static(absoluteStoragePath, {
+        index: false,
+        maxAge: '1h',
+        setHeaders: (res) => {
+          res.setHeader('X-Content-Type-Options', 'nosniff')
+        },
+      })
+    )
+    console.log(`   Static files: /uploads -> ${absoluteStoragePath} (public direct mode)`)
+  } else if (STORAGE_TYPE === 'local' && FILE_PROXY_MODE) {
+    console.log('   Static /uploads disabled (FILE_PROXY_MODE=true); use /api/files/:id/content')
   }
 
   app.get('/health', (_req, res) => {
@@ -92,6 +59,7 @@ async function startServer() {
       status: 'ok',
       provider: STORAGE_TYPE,
       proxyMode: FILE_PROXY_MODE,
+      localStaticUploads: shouldMountLocalStaticUploads(STORAGE_TYPE, FILE_PROXY_MODE),
       timestamp: new Date().toISOString(),
     })
   })
@@ -113,7 +81,6 @@ async function startServer() {
     }
   })
 
-  // ARCH-4: Graceful shutdown
   const gracefulShutdown = async (signal: string) => {
     console.log(`\n[Storage] ${signal} received. Shutting down gracefully...`)
     server.close(async () => {
