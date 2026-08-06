@@ -12,13 +12,17 @@ vi.mock('@/modules/auth/utils/auth.utils', () => ({
 }))
 
 vi.mock('@/cache', () => ({
-  cache: { invalidateUser: vi.fn() },
+  cache: {
+    invalidateUser: vi.fn().mockResolvedValue(undefined),
+  },
 }))
 
 vi.mock('@/identity/email-reservation.service', () => ({
   reserveEmail: vi.fn().mockResolvedValue(undefined),
   activateAfterShardCommit: vi.fn().mockResolvedValue(undefined),
   releaseAfterFailedShardWrite: vi.fn().mockResolvedValue(undefined),
+  markReleasePendingBeforeDelete: vi.fn().mockResolvedValue(undefined),
+  finalizeReleaseAfterUserDelete: vi.fn().mockResolvedValue(undefined),
   releaseAfterUserDelete: vi.fn().mockResolvedValue(undefined),
 }))
 
@@ -28,7 +32,6 @@ vi.mock('@/config/prisma', () => ({
 
 import { getDbForWorkspace } from '@/config/prisma'
 import * as EmailReservation from '@/identity/email-reservation.service'
-import { ValidationError } from '@/errors'
 
 describe('User Management Service', () => {
   let client: any
@@ -57,6 +60,8 @@ describe('User Management Service', () => {
     }
     vi.clearAllMocks()
     vi.mocked(getDbForWorkspace).mockImplementation(() => client)
+    vi.mocked(EmailReservation.markReleasePendingBeforeDelete).mockResolvedValue(undefined)
+    vi.mocked(EmailReservation.finalizeReleaseAfterUserDelete).mockResolvedValue(undefined)
   })
 
   it('lists members excluding owners', async () => {
@@ -163,5 +168,85 @@ describe('User Management Service', () => {
     await expect(UserManagementService.deleteUser(client, 'ws-1', 'owner')).rejects.toBeInstanceOf(
       ValidationError
     )
+  })
+
+  it('does not delete the shard user when control-plane release mark fails', async () => {
+    const { DependencyUnavailableError } = await import('@/errors')
+
+    client.user.findFirst.mockResolvedValue({
+      id: 'member-1',
+      email: 'm@b.com',
+      userType: UserType.MEMBER,
+      workspaceId: 'ws-1',
+      roles: [],
+    })
+    vi.mocked(EmailReservation.markReleasePendingBeforeDelete).mockRejectedValue(
+      new DependencyUnavailableError(
+        'Cannot start user deletion; identity release marker could not be written',
+        { extensions: { code: 'IDENTITY_RELEASE_MARK_FAILED' } }
+      )
+    )
+
+    await expect(
+      UserManagementService.deleteUser(client, 'ws-1', 'member-1')
+    ).rejects.toMatchObject({
+      name: 'DependencyUnavailableError',
+      extensions: expect.objectContaining({ code: 'IDENTITY_RELEASE_MARK_FAILED' }),
+    })
+    expect(client.user.delete).not.toHaveBeenCalled()
+    expect(EmailReservation.finalizeReleaseAfterUserDelete).not.toHaveBeenCalled()
+  })
+
+  it('does not finalize reservation when shard user deletion fails after mark', async () => {
+    client.user.findFirst.mockResolvedValue({
+      id: 'member-1',
+      email: 'm@b.com',
+      userType: UserType.MEMBER,
+      workspaceId: 'ws-1',
+      roles: [],
+    })
+    vi.mocked(EmailReservation.markReleasePendingBeforeDelete).mockResolvedValue(undefined)
+    client.user.delete.mockRejectedValue(new Error('shard delete failed'))
+
+    await expect(UserManagementService.deleteUser(client, 'ws-1', 'member-1')).rejects.toThrow(
+      /shard delete failed/
+    )
+    expect(EmailReservation.markReleasePendingBeforeDelete).toHaveBeenCalled()
+    expect(EmailReservation.finalizeReleaseAfterUserDelete).not.toHaveBeenCalled()
+  })
+
+  it('invalidates user cache when finalize release fails after delete', async () => {
+    const { cache } = await import('@/cache')
+    const { DependencyUnavailableError } = await import('@/errors')
+
+    client.user.findFirst.mockResolvedValue({
+      id: 'member-1',
+      email: 'm@b.com',
+      userType: UserType.MEMBER,
+      workspaceId: 'ws-1',
+      roles: [],
+    })
+    client.user.delete.mockResolvedValue({})
+    vi.mocked(EmailReservation.markReleasePendingBeforeDelete).mockResolvedValue(undefined)
+    vi.mocked(EmailReservation.finalizeReleaseAfterUserDelete).mockRejectedValue(
+      new DependencyUnavailableError(
+        'User was deleted but email reservation cleanup is pending; email is not yet reusable',
+        { extensions: { code: 'IDENTITY_RELEASE_PENDING' } }
+      )
+    )
+
+    await expect(
+      UserManagementService.deleteUser(client, 'ws-1', 'member-1')
+    ).rejects.toMatchObject({
+      name: 'DependencyUnavailableError',
+      extensions: expect.objectContaining({ code: 'IDENTITY_RELEASE_PENDING' }),
+    })
+
+    expect(EmailReservation.markReleasePendingBeforeDelete).toHaveBeenCalledWith(
+      'm@b.com',
+      'member-1'
+    )
+    expect(client.user.delete).toHaveBeenCalledWith({ where: { id: 'member-1' } })
+    expect(cache.invalidateUser).toHaveBeenCalledWith('member-1')
   })
 })
