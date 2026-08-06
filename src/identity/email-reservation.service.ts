@@ -19,6 +19,7 @@ export type IdentityRoute = {
   workspaceId: string
   shardId: string
   status: EmailReservationStatus
+  expiresAt?: Date | null
 }
 
 export type ReconcileResult = 'activated' | 'released' | 'kept'
@@ -255,30 +256,92 @@ export async function releaseAfterFailedShardWrite(
 }
 
 /**
- * After hard-deleting a shard user, release the reservation.
- * On failure, mark RELEASE_PENDING and throw — email is not yet reusable.
+ * Durable delete marker: mark RELEASE_PENDING on the control plane BEFORE
+ * deleting the shard user. Failures here must abort deletion so we never leave
+ * an undiscoverable ACTIVE orphan after a successful shard delete.
  */
-export async function releaseAfterUserDelete(email: string, userId: string): Promise<void> {
+export async function markReleasePendingBeforeDelete(
+  email: string,
+  userId: string
+): Promise<void> {
   try {
-    await releaseEmailReservation(email, userId)
+    const updated = await prisma.globalEmailReservation.updateMany({
+      where: {
+        email,
+        userId,
+        status: {
+          in: [EmailReservationStatus.ACTIVE, EmailReservationStatus.PENDING],
+        },
+      },
+      data: {
+        status: EmailReservationStatus.RELEASE_PENDING,
+        expiresAt: null,
+      },
+    })
+
+    if (updated.count > 0) return
+
+    const current = await prisma.globalEmailReservation.findUnique({ where: { email } })
+    if (!current) {
+      // Legacy user with no control-plane row — safe to proceed
+      return
+    }
+    if (
+      current.userId === userId &&
+      current.status === EmailReservationStatus.RELEASE_PENDING
+    ) {
+      // Idempotent retry after a previous partial delete
+      return
+    }
+
+    throw new ConflictError('Email reservation does not match the user being deleted', {
+      extensions: { email, userId, code: 'IDENTITY_RELEASE_MISMATCH' },
+    })
+  } catch (error) {
+    if (error instanceof ConflictError || error instanceof DependencyUnavailableError) {
+      throw error
+    }
+    logDependencyFailure({
+      dependency: 'identity-reservation',
+      operation: 'mark-release-pending-before-delete',
+      error,
+    })
+    throw new DependencyUnavailableError(
+      'Cannot start user deletion; identity release marker could not be written',
+      {
+        originalError: error instanceof Error ? error : undefined,
+        extensions: {
+          email,
+          userId,
+          code: 'IDENTITY_RELEASE_MARK_FAILED',
+        },
+      }
+    )
+  }
+}
+
+/**
+ * After successful shard user deletion, remove the RELEASE_PENDING reservation.
+ * On failure the row stays RELEASE_PENDING and remains discoverable by batch reconcile.
+ */
+export async function finalizeReleaseAfterUserDelete(
+  email: string,
+  userId: string
+): Promise<void> {
+  try {
+    await prisma.globalEmailReservation.deleteMany({
+      where: {
+        email,
+        userId,
+        status: EmailReservationStatus.RELEASE_PENDING,
+      },
+    })
   } catch (error) {
     logDependencyFailure({
       dependency: 'identity-reservation',
-      operation: 'release-after-user-delete',
+      operation: 'finalize-release-after-user-delete',
       error,
     })
-    try {
-      await prisma.globalEmailReservation.updateMany({
-        where: { email, userId },
-        data: { status: EmailReservationStatus.RELEASE_PENDING },
-      })
-    } catch (markError) {
-      logDependencyFailure({
-        dependency: 'identity-reservation',
-        operation: 'mark-release-pending',
-        error: markError,
-      })
-    }
     throw new DependencyUnavailableError(
       'User was deleted but email reservation cleanup is pending; email is not yet reusable',
       {
@@ -293,13 +356,27 @@ export async function releaseAfterUserDelete(email: string, userId: string): Pro
   }
 }
 
-/** Idempotent cleanup for RELEASE_PENDING rows (email + userId). */
+/** @deprecated Use markReleasePendingBeforeDelete + finalizeReleaseAfterUserDelete */
+export async function releaseAfterUserDelete(email: string, userId: string): Promise<void> {
+  await finalizeReleaseAfterUserDelete(email, userId)
+}
+
+export type ReconcileReleaseResult = 'released' | 'kept' | 'restored'
+
+/**
+ * Reconcile a RELEASE_PENDING (or orphan ACTIVE) row against the recorded shard.
+ * - User missing → delete reservation
+ * - User still present + RELEASE_PENDING → restore ACTIVE
+ * - User still present + ACTIVE → keep
+ * - Shard unavailable → preserve row
+ */
 export async function reconcileReleasePending(
   email: string,
   userId: string
-): Promise<'released' | 'kept'> {
+): Promise<ReconcileReleaseResult> {
   const row = await prisma.globalEmailReservation.findUnique({ where: { email } })
   if (!row || row.userId !== userId) return 'kept'
+
   if (
     row.status !== EmailReservationStatus.RELEASE_PENDING &&
     row.status !== EmailReservationStatus.ACTIVE
@@ -307,13 +384,142 @@ export async function reconcileReleasePending(
     return 'kept'
   }
 
-  await prisma.globalEmailReservation.deleteMany({ where: { email, userId } })
-  return 'released'
+  if (!row.shardId || !row.workspaceId) {
+    return 'kept'
+  }
+
+  let client
+  try {
+    client = getDbForWorkspace({
+      workspaceId: row.workspaceId,
+      shardId: row.shardId,
+    })
+  } catch (error) {
+    logDependencyFailure({
+      dependency: 'identity-reservation',
+      operation: 'reconcile-release-shard-unavailable',
+      error,
+    })
+    throw new DependencyUnavailableError(
+      'Cannot reconcile identity cleanup; recorded shard is unavailable',
+      {
+        originalError: error instanceof Error ? error : undefined,
+        extensions: {
+          email,
+          userId: row.userId,
+          workspaceId: row.workspaceId,
+          shardId: row.shardId,
+        },
+      }
+    )
+  }
+
+  let user: { id: string } | null
+  try {
+    user = await client.user.findFirst({
+      where: {
+        id: row.userId,
+        email: row.email,
+        workspaceId: row.workspaceId,
+      },
+      select: { id: true },
+    })
+  } catch (error) {
+    throw new DependencyUnavailableError(
+      'Cannot reconcile identity cleanup; shard lookup failed',
+      {
+        originalError: error instanceof Error ? error : undefined,
+        extensions: {
+          email,
+          userId: row.userId,
+          workspaceId: row.workspaceId,
+          shardId: row.shardId,
+        },
+      }
+    )
+  }
+
+  if (user) {
+    if (row.status === EmailReservationStatus.RELEASE_PENDING) {
+      await prisma.globalEmailReservation.updateMany({
+        where: {
+          email,
+          userId,
+          status: EmailReservationStatus.RELEASE_PENDING,
+        },
+        data: {
+          status: EmailReservationStatus.ACTIVE,
+          expiresAt: null,
+        },
+      })
+      return 'restored'
+    }
+    return 'kept'
+  }
+
+  const deleted = await prisma.globalEmailReservation.deleteMany({
+    where: {
+      email,
+      userId,
+      status: row.status,
+    },
+  })
+  return deleted.count > 0 ? 'released' : 'kept'
 }
 
-/** Lookup control-plane routing for an email (ACTIVE only). */
-export async function findIdentityByEmail(email: string): Promise<IdentityRoute | null> {
+/** Process all RELEASE_PENDING rows (operations / worker entrypoint). */
+export async function reconcileAllReleasePending(): Promise<{
+  released: number
+  kept: number
+  restored: number
+  errors: number
+}> {
+  const rows = await prisma.globalEmailReservation.findMany({
+    where: { status: EmailReservationStatus.RELEASE_PENDING },
+    select: { email: true, userId: true },
+  })
+
+  let released = 0
+  let kept = 0
+  let restored = 0
+  let errors = 0
+
+  for (const row of rows) {
+    try {
+      const outcome = await reconcileReleasePending(row.email, row.userId)
+      if (outcome === 'released') released++
+      else if (outcome === 'restored') restored++
+      else kept++
+    } catch (error) {
+      errors++
+      logDependencyFailure({
+        dependency: 'identity-reservation',
+        operation: 'reconcile-all-release-pending',
+        error,
+      })
+    }
+  }
+
+  return { released, kept, restored, errors }
+}
+
+/** Any control-plane reservation for an email (all statuses). */
+export async function getEmailReservation(email: string): Promise<IdentityRoute | null> {
   const row = await prisma.globalEmailReservation.findUnique({ where: { email } })
+  if (!row) return null
+  return {
+    email: row.email,
+    userId: row.userId,
+    workspaceId: row.workspaceId || '',
+    shardId: row.shardId || '',
+    status: row.status,
+    expiresAt: row.expiresAt,
+  }
+}
+
+/** Lookup control-plane routing for an email (ACTIVE only, complete route). */
+export async function findIdentityByEmail(email: string): Promise<IdentityRoute | null> {
+  const row = await getEmailReservation(email)
   if (
     !row ||
     row.status !== EmailReservationStatus.ACTIVE ||
@@ -322,11 +528,5 @@ export async function findIdentityByEmail(email: string): Promise<IdentityRoute 
   ) {
     return null
   }
-  return {
-    email: row.email,
-    userId: row.userId,
-    workspaceId: row.workspaceId,
-    shardId: row.shardId,
-    status: row.status,
-  }
+  return row
 }
