@@ -14,6 +14,7 @@ import {
   getFileStream,
 } from '../services/file.service.js'
 import { STREAM_TIMEOUT_MS } from '../constants/index.js'
+import { evaluateFileContentAccess } from '../utils/file-content-access.js'
 
 const router = Router()
 
@@ -127,24 +128,22 @@ router.get(
         return
       }
 
-      // Purpose-limited file-view tokens may only access their bound fileId
-      if (req.fileView && req.fileView.fileId !== id) {
-        res.setHeader('Cache-Control', 'no-store')
-        res.status(403).send('Access denied')
-        return
-      }
+      const decision = evaluateFileContentAccess({
+        fileId: id,
+        isPublic: file.isPublic,
+        ownerId: file.ownerId,
+        isAuthenticated: Boolean(req.context?.isAuthenticated && req.context?.user),
+        userId: req.context?.user?.id,
+        role: req.context?.user?.role,
+        fileView: req.fileView,
+      })
 
-      if (!req.context?.isAuthenticated || !req.context?.user) {
+      if (decision === 'unauthorized') {
         res.setHeader('Cache-Control', 'no-store')
         res.status(401).send('Authentication required')
         return
       }
-
-      if (
-        !file.isPublic &&
-        file.ownerId !== req.context.user.id &&
-        req.context.user.role !== 'ADMIN'
-      ) {
+      if (decision === 'forbidden') {
         res.setHeader('Cache-Control', 'no-store')
         res.status(403).send('Access denied')
         return
