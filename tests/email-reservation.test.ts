@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const findUnique = vi.fn()
 const findFirst = vi.fn()
+const findMany = vi.fn()
 const create = vi.fn()
 const update = vi.fn()
 const updateMany = vi.fn()
@@ -12,6 +13,7 @@ vi.mock('@/config/prisma', () => ({
   prisma: {
     globalEmailReservation: {
       findUnique: (...args: any[]) => findUnique(...args),
+      findMany: (...args: any[]) => findMany(...args),
       create: (...args: any[]) => create(...args),
       update: (...args: any[]) => update(...args),
       updateMany: (...args: any[]) => updateMany(...args),
@@ -173,6 +175,7 @@ describe('email reservation lifecycle', () => {
       workspaceId: 'ws-1',
       shardId: 'shard_2',
       status: 'ACTIVE',
+      expiresAt: null,
     })
     const { findIdentityByEmail } = await import('@/identity/email-reservation.service')
     await expect(findIdentityByEmail('a@b.com')).resolves.toEqual({
@@ -181,6 +184,189 @@ describe('email reservation lifecycle', () => {
       workspaceId: 'ws-1',
       shardId: 'shard_2',
       status: 'ACTIVE',
+      expiresAt: null,
+    })
+  })
+
+  it('marks RELEASE_PENDING before delete and aborts when control plane is down', async () => {
+    updateMany.mockRejectedValue(new Error('control plane down'))
+
+    const { markReleasePendingBeforeDelete } = await import('@/identity/email-reservation.service')
+    await expect(markReleasePendingBeforeDelete('a@b.com', 'u1')).rejects.toMatchObject({
+      name: 'DependencyUnavailableError',
+      extensions: expect.objectContaining({ code: 'IDENTITY_RELEASE_MARK_FAILED' }),
+    })
+  })
+
+  it('marks ACTIVE as RELEASE_PENDING before shard deletion', async () => {
+    updateMany.mockResolvedValue({ count: 1 })
+
+    const { markReleasePendingBeforeDelete } = await import('@/identity/email-reservation.service')
+    await markReleasePendingBeforeDelete('a@b.com', 'u1')
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          email: 'a@b.com',
+          userId: 'u1',
+        }),
+        data: expect.objectContaining({ status: 'RELEASE_PENDING' }),
+      })
+    )
+  })
+
+  it('finalize deletes RELEASE_PENDING; failure leaves discoverable pending state', async () => {
+    deleteMany.mockRejectedValue(new Error('control plane down'))
+
+    const { finalizeReleaseAfterUserDelete } = await import(
+      '@/identity/email-reservation.service'
+    )
+    await expect(finalizeReleaseAfterUserDelete('a@b.com', 'u1')).rejects.toMatchObject({
+      name: 'DependencyUnavailableError',
+      extensions: expect.objectContaining({ code: 'IDENTITY_RELEASE_PENDING' }),
+    })
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        email: 'a@b.com',
+        userId: 'u1',
+        status: 'RELEASE_PENDING',
+      },
+    })
+  })
+
+  it('cleans RELEASE_PENDING when the shard user is missing', async () => {
+    findUnique.mockResolvedValue({
+      email: 'a@b.com',
+      userId: 'u1',
+      workspaceId: 'ws-1',
+      shardId: 'shard_2',
+      status: 'RELEASE_PENDING',
+    })
+    getDbForWorkspace.mockReturnValue({ user: { findFirst } })
+    findFirst.mockResolvedValue(null)
+    deleteMany.mockResolvedValue({ count: 1 })
+
+    const { reconcileReleasePending } = await import('@/identity/email-reservation.service')
+    await expect(reconcileReleasePending('a@b.com', 'u1')).resolves.toBe('released')
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        email: 'a@b.com',
+        userId: 'u1',
+        status: 'RELEASE_PENDING',
+      },
+    })
+  })
+
+  it('restores ACTIVE when RELEASE_PENDING but shard user still exists', async () => {
+    findUnique.mockResolvedValue({
+      email: 'a@b.com',
+      userId: 'u1',
+      workspaceId: 'ws-1',
+      shardId: 'shard_2',
+      status: 'RELEASE_PENDING',
+    })
+    getDbForWorkspace.mockReturnValue({ user: { findFirst } })
+    findFirst.mockResolvedValue({ id: 'u1' })
+    updateMany.mockResolvedValue({ count: 1 })
+
+    const { reconcileReleasePending } = await import('@/identity/email-reservation.service')
+    await expect(reconcileReleasePending('a@b.com', 'u1')).resolves.toBe('restored')
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'ACTIVE' }),
+      })
+    )
+    expect(deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('never deletes ACTIVE when the shard user still exists', async () => {
+    findUnique.mockResolvedValue({
+      email: 'a@b.com',
+      userId: 'u1',
+      workspaceId: 'ws-1',
+      shardId: 'shard_2',
+      status: 'ACTIVE',
+    })
+    getDbForWorkspace.mockReturnValue({ user: { findFirst } })
+    findFirst.mockResolvedValue({ id: 'u1' })
+
+    const { reconcileReleasePending } = await import('@/identity/email-reservation.service')
+    await expect(reconcileReleasePending('a@b.com', 'u1')).resolves.toBe('kept')
+    expect(deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('may clean ACTIVE after confirming the shard user is missing', async () => {
+    findUnique.mockResolvedValue({
+      email: 'a@b.com',
+      userId: 'u1',
+      workspaceId: 'ws-1',
+      shardId: 'shard_2',
+      status: 'ACTIVE',
+    })
+    getDbForWorkspace.mockReturnValue({ user: { findFirst } })
+    findFirst.mockResolvedValue(null)
+    deleteMany.mockResolvedValue({ count: 1 })
+
+    const { reconcileReleasePending } = await import('@/identity/email-reservation.service')
+    await expect(reconcileReleasePending('a@b.com', 'u1')).resolves.toBe('released')
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        email: 'a@b.com',
+        userId: 'u1',
+        status: 'ACTIVE',
+      },
+    })
+  })
+
+  it('preserves identity when recorded shard is unavailable', async () => {
+    findUnique.mockResolvedValue({
+      email: 'a@b.com',
+      userId: 'u1',
+      workspaceId: 'ws-1',
+      shardId: 'missing',
+      status: 'RELEASE_PENDING',
+    })
+    getDbForWorkspace.mockImplementation(() => {
+      throw new Error('shard down')
+    })
+
+    const { reconcileReleasePending } = await import('@/identity/email-reservation.service')
+    await expect(reconcileReleasePending('a@b.com', 'u1')).rejects.toMatchObject({
+      name: 'DependencyUnavailableError',
+    })
+    expect(deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('cleanup is idempotent when the row is already gone', async () => {
+    findUnique.mockResolvedValue(null)
+
+    const { reconcileReleasePending } = await import('@/identity/email-reservation.service')
+    await expect(reconcileReleasePending('a@b.com', 'u1')).resolves.toBe('kept')
+    expect(deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('batch reconcile discovers RELEASE_PENDING recovery state', async () => {
+    findMany.mockResolvedValue([{ email: 'a@b.com', userId: 'u1' }])
+    findUnique.mockResolvedValue({
+      email: 'a@b.com',
+      userId: 'u1',
+      workspaceId: 'ws-1',
+      shardId: 'shard_2',
+      status: 'RELEASE_PENDING',
+    })
+    getDbForWorkspace.mockReturnValue({ user: { findFirst } })
+    findFirst.mockResolvedValue(null)
+    deleteMany.mockResolvedValue({ count: 1 })
+
+    const { reconcileAllReleasePending } = await import('@/identity/email-reservation.service')
+    await expect(reconcileAllReleasePending()).resolves.toEqual({
+      released: 1,
+      kept: 0,
+      restored: 0,
+      errors: 0,
+    })
+    expect(findMany).toHaveBeenCalledWith({
+      where: { status: 'RELEASE_PENDING' },
+      select: { email: true, userId: true },
     })
   })
 })
