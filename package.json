@@ -33,7 +33,8 @@
     "docker:sh": "docker compose exec app sh",
     "test": "vitest run",
     "test:verbose": "VITEST_REPORTER=verbose vitest run --reporter=verbose",
-    "test:ci": "yarn db:generate && yarn generate && yarn test:verbose"
+    "test:ci": "yarn db:generate && yarn generate && yarn test:verbose",
+    "identity:reconcile": "tsx --env-file=.env src/cli/reconcile-identity.ts"
   },
   "devDependencies": {
     "@eddeee888/gcg-typescript-resolver-files": "^0.15.0",
