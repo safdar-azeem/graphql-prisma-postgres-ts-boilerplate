@@ -26,6 +26,7 @@ This repository is a generic GraphQL + Prisma + PostgreSQL API boilerplate.
 - Never use cache as an authentication fallback when the database user is missing.
 - Never silently fall back from a persisted `Workspace.shardId` to another shard.
 - **Database workflow:** Do not use direct Prisma migration commands for database deployment or fleet synchronization. `prisma migrate dev` is permitted only for authoring a new migration file. Use `yarn db:update` to apply committed migrations across the control database and all shards. `yarn db:studio` opens sharding-aware Studio.
+- **Migration safety:** All migrations must follow the expand-contract pattern (see [MIGRATIONS.md](docs/MIGRATIONS.md#expand-contract-migration-policy)). Do not drop columns, rename tables, or add non-nullable constraints without defaults in the same deployment that introduces the code change. The previous application version must remain compatible with the newly applied schema for safe rollback.
 
 ## Module pattern
 
