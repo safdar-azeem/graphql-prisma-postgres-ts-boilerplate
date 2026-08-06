@@ -14,7 +14,8 @@ import {
   activateAfterShardCommit,
   reserveEmail,
   releaseAfterFailedShardWrite,
-  releaseAfterUserDelete,
+  markReleasePendingBeforeDelete,
+  finalizeReleaseAfterUserDelete,
 } from '@/identity/email-reservation.service'
 import { getPagination, getPageInfo, getDateRangeFilter, getSafeOrderBy } from '@/utils/query.util'
 import { toGraphqlPermissions } from '@/authorization/graphqlPermissions'
@@ -301,10 +302,23 @@ export async function deleteUser(client: PrismaClient, workspaceId: string, id: 
   const target = await getWorkspaceMember(client, workspaceId, id)
   assertNotOwnerTarget(target, 'delete')
   const email = target.email as string
+
+  // Durable marker first — control-plane outage aborts before shard delete
+  await markReleasePendingBeforeDelete(email, id)
+
   await client.user.delete({ where: { id } })
-  // Option B: release after delete; failures are not silent — email not reusable until cleanup
-  await releaseAfterUserDelete(email, id)
-  await cache.invalidateUser(id)
+
+  try {
+    // Remove RELEASE_PENDING reservation; failures leave a discoverable row for reconcile
+    await finalizeReleaseAfterUserDelete(email, id)
+  } finally {
+    // Always drop cache after successful shard deletion, even if finalize fails
+    try {
+      await cache.invalidateUser(id)
+    } catch {
+      // Cache cleanup must not replace the identity cleanup error
+    }
+  }
   return true
 }
 
