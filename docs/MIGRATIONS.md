@@ -76,6 +76,38 @@ include data backfills, they run as committed SQL:
 
 Do not use `db push --force-reset` / `--accept-data-loss` as merge evidence.
 
+## Expand-contract migration policy
+
+Blue-green deployment applies migrations **before** starting the candidate release. If the
+candidate fails, traffic rolls back to the previous application version — which must still
+work with the newly applied schema.
+
+Every migration must be **backward-compatible** with the previous release:
+
+| Operation | Expand (safe) | Contract (requires separate deployment) |
+|-----------|---------------|----------------------------------------|
+| Add nullable column | ✅ | — |
+| Add table | ✅ | — |
+| Add index | ✅ | — |
+| Drop column | ❌ | ✅ Only after no running/rollback version reads it |
+| Rename column | ❌ | Use add → backfill → switch code → remove |
+| Drop table | ❌ | ✅ Only after all versions stopped using it |
+| Change column type | ❌ | Add new column → backfill → switch code → remove |
+| Add NOT NULL without default | ❌ | Add nullable → backfill → add constraint |
+
+### Workflow
+
+1. **Expand**: add new columns/tables in migration N. Both old and new code must tolerate
+   the expanded schema.
+2. **Switch**: deploy new code that writes to both old and new locations (or only new).
+3. **Contract**: in a later migration, remove the old column/table. Only deploy this after
+   confirming no running or rollback version depends on it.
+
+### CI enforcement
+
+Set `SHARD_STRICT_DRIFT=true` in CI and production so real schema drift fails validation.
+Review every migration SQL for backward compatibility before merging.
+
 ## Email reservation policy
 
 **Option B — reusable emails:** hard-delete marks the reservation `RELEASE_PENDING` **before** deleting the shard user, then deletes the reservation after the user is gone. If the final reservation delete fails, the row stays `RELEASE_PENDING` (discoverable by batch reconcile). If the pre-delete mark fails, the shard user is **not** deleted — no undiscoverable `ACTIVE` orphan.
