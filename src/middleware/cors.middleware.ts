@@ -29,9 +29,13 @@ const getAllowedOrigins = (): string[] => {
 
 const allowedOrigins = getAllowedOrigins()
 
-const shouldAllowOrigin = (origin: string | undefined): boolean => {
-  // Always allow in development
-  if (IS_DEVELOPMENT) {
+/** Exact origin match only — never prefix matching (avoids app.example.com.attacker.com). */
+export const isOriginAllowed = (
+  origin: string | undefined,
+  allowed: string[] = allowedOrigins,
+  options?: { development?: boolean }
+): boolean => {
+  if (options?.development ?? IS_DEVELOPMENT) {
     return true
   }
 
@@ -40,9 +44,11 @@ const shouldAllowOrigin = (origin: string | undefined): boolean => {
     return true
   }
 
-  // Check if origin is explicitly allowed
-  return allowedOrigins.some((allowed) => origin === allowed)
+  return allowed.includes(origin)
 }
+
+const shouldAllowOrigin = (origin: string | undefined): boolean =>
+  isOriginAllowed(origin, allowedOrigins)
 
 /**
  * Get CORS configuration options for Fastify
