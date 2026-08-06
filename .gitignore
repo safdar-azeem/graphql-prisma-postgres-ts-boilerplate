@@ -28,3 +28,10 @@ logs
 /generated/prisma
 .env
 /.env
+
+# Deployment runtime state
+nginx/active-upstream.conf
+nginx/active-upstream.conf.tmp
+.active-release
+.deployment-recovery-required
+
