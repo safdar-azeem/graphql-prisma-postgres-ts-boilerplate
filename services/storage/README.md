@@ -107,6 +107,7 @@ The `FILE_PROXY_MODE` setting controls how file URLs are returned to the client:
 - **Token:** A short-lived JWT (default: 15 minutes, configurable via `PROXY_TOKEN_EXPIRY`) signed with the service's JWT secret. Encodes `fileId`, `ownerId`, and `type: file_view`.
 - **Caching:** Proxy URLs are cached in-memory to avoid redundant JWT signing. Responses include `ETag` headers, supporting `304 Not Modified` for conditional requests.
 - **Security:** `storageKey` and `publicUrl` are stripped from API responses to prevent bucket path leakage.
+- **Local provider:** Direct `/uploads` static serving is **not** mounted. All reads go through `/api/files/:id/content` (auth, file-view token, or public `isPublic` policy).
 - **Headers:** `Cache-Control: private, max-age=900`, `X-Content-Type-Options: nosniff`, `ETag`.
 - **Pros:**
   - Hides the underlying storage provider (S3/OBS).
@@ -118,7 +119,8 @@ The `FILE_PROXY_MODE` setting controls how file URLs are returned to the client:
 
 - **Behavior:** Returns the direct URL from the provider.
   - _Public Files:_ Returns standard public URL (e.g., `https://s3.amazonaws.com/...`).
-  - _Private Files:_ Returns a short-lived Signed URL.
+  - _Private Files:_ Returns a short-lived Signed URL (cloud) or must use `/api/files/:id/content` with auth/file-view (local).
+- **Local provider:** Mounts `express.static` at `/uploads` and treats those filesystem paths as **publicly readable**. Do not use direct local mode for private files in production — prefer `FILE_PROXY_MODE=true`.
 - **Pros:** Offloads bandwidth to the storage provider/CDN.
 - **Cons:** Exposes bucket URL structure; `storageKey` and `publicUrl` are visible in responses.
 
