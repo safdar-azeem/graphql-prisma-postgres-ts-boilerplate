@@ -1,8 +1,9 @@
-import { Permission, UserType } from '@prisma/client'
+import { Permission, UserType } from '@/generated/prisma/client'
 import { cache } from '@/cache'
 import { verifyAccessToken } from '@/config/tokens'
 import { Context } from '@/types/context.type'
-import { getShardForUser, sharding } from '@/config/prisma'
+import { sharding } from '@/config/sharding'
+import { ShardOwnershipNotFoundError, ShardUnavailableError } from 'prisma-sharding'
 
 export const createContext = async (token: string): Promise<Context> => {
   const bearerToken = token ? token.replace('Bearer ', '') : null
@@ -14,19 +15,17 @@ export const createContext = async (token: string): Promise<Context> => {
   try {
     const decoded = verifyAccessToken(bearerToken)
 
-    if (!decoded?._id) {
+    if (!decoded?._id || !decoded.routingKey) {
       return { user: null as any, password: '', isAuthenticated: false, client: null as any, userType: undefined, ownerId: '', permissions: [] }
     }
 
-    const cachedUser = await cache.getUser(decoded._id)
+    const cachedUser = await cache.getUser(decoded._id, decoded.routingKey)
 
     if (!cachedUser) {
       return { user: null as any, password: '', isAuthenticated: false, client: null as any, userType: undefined, ownerId: '', permissions: [] }
     }
 
-    const client = cachedUser.shardId
-      ? sharding.getShardById(cachedUser.shardId)
-      : getShardForUser(decoded._id)
+    const client = await sharding.resolveShard(decoded.routingKey)
 
     // Fetch user with roles to build the typed permissions array
     const dbUser = await client.user.findUnique({
@@ -62,7 +61,13 @@ export const createContext = async (token: string): Promise<Context> => {
       ownerId,
       permissions,
     }
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof ShardOwnershipNotFoundError ||
+      error instanceof ShardUnavailableError
+    ) {
+      throw error
+    }
     return { user: null as any, password: '', isAuthenticated: false, client: null as any, userType: undefined, ownerId: '', permissions: [] }
   }
 }
