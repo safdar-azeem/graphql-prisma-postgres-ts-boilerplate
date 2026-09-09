@@ -1,8 +1,4 @@
-# Nuxt dev/build outputs
-.output
-.data
-.nuxt
-.nitro
+# Build and tool output
 .cache
 dist
 
@@ -18,13 +14,8 @@ logs
 .fleet
 .idea
 
-# Environment file is committed with safe defaults
-# Override values locally as needed (git will track changes)
-
-/src/generated/prisma
-
-/generated/prisma
-
-/generated/prisma
+# Local environment
 .env
-/.env
+
+# Storage runtime data
+/services/storage/uploads/
