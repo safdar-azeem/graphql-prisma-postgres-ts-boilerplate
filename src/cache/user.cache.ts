@@ -1,5 +1,5 @@
 import { redis, isRedisHealthy } from '@/config/redis'
-import { getShardForUser, findUserAcrossShards } from '@/config/prisma'
+import { sharding } from '@/config/sharding'
 import { AuthUser } from '@/types/context.type'
 import { serialize, deserialize } from '@/utils/serializer.util'
 
@@ -9,14 +9,13 @@ const USER_CACHE_TTL = 3600 // 1 hour in seconds
 interface CachedUser {
   user: AuthUser
   password: string
-  shardId?: string
 }
 
 const getUserCacheKey = (userId: string): string => {
   return `${USER_CACHE_PREFIX}${userId}`
 }
 
-export const getUser = async (userId: string): Promise<CachedUser | null> => {
+export const getUser = async (userId: string, routingKey: string): Promise<CachedUser | null> => {
   const cacheKey = getUserCacheKey(userId)
 
   try {
@@ -32,11 +31,10 @@ export const getUser = async (userId: string): Promise<CachedUser | null> => {
     console.warn('[UserCache] Cache read failed, falling back to DB:', error.message)
   }
 
-  const { result: user, shardId } = await findUserAcrossShards((client) =>
-    client.user.findUnique({ where: { id: userId } })
-  )
+  const client = await sharding.resolveShard(routingKey)
+  const user = await client.user.findUnique({ where: { id: userId } })
 
-  if (!user || !shardId) {
+  if (!user) {
     return null
   }
 
@@ -45,7 +43,6 @@ export const getUser = async (userId: string): Promise<CachedUser | null> => {
   const cachedUser: CachedUser = {
     user: userWithoutPassword,
     password,
-    shardId,
   }
 
   setUser(userId, cachedUser).catch((err) => {
@@ -92,14 +89,16 @@ export const invalidateUsers = async (userIds: string[]): Promise<void> => {
   }
 }
 
-export const refreshUser = async (userId: string): Promise<CachedUser | null> => {
+export const refreshUser = async (
+  userId: string,
+  routingKey: string
+): Promise<CachedUser | null> => {
   await invalidateUser(userId)
 
-  const { result: user, shardId } = await findUserAcrossShards((client) =>
-    client.user.findUnique({ where: { id: userId } })
-  )
+  const client = await sharding.resolveShard(routingKey)
+  const user = await client.user.findUnique({ where: { id: userId } })
 
-  if (!user || !shardId) {
+  if (!user) {
     return null
   }
 
@@ -108,7 +107,6 @@ export const refreshUser = async (userId: string): Promise<CachedUser | null> =>
   const cachedUser: CachedUser = {
     user: userWithoutPassword,
     password,
-    shardId,
   }
 
   await setUser(userId, cachedUser)
