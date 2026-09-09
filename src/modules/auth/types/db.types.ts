@@ -1,4 +1,4 @@
-import { MfaMethod } from '@prisma/client'
+import { MfaMethod } from '@/generated/prisma/client'
 
 export interface MfaSettings {
   isEnabled: boolean
