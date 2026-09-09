@@ -12,17 +12,6 @@
     "db:studio": "prisma-sharding-studio",
     "generate": "graphql-codegen",
     "test:shards": "prisma-sharding-test",
-    "docker:dev": "docker compose up -d",
-    "docker:dev:build": "docker compose up -d --build",
-    "docker:dev:logs": "docker compose logs -f",
-    "docker:dev:down": "docker compose down",
-    "docker:prod": "docker compose -f docker-compose.prod.yml up -d",
-    "docker:prod:build": "docker compose -f docker-compose.prod.yml up -d --build",
-    "docker:prod:logs": "docker compose -f docker-compose.prod.yml logs -f",
-    "docker:prod:down": "docker compose -f docker-compose.prod.yml down",
-    "docker:clean": "docker compose down -v --rmi local && docker compose -f docker-compose.prod.yml down -v --rmi local",
-    "docker:migrate": "docker compose exec app yarn db:update",
-    "docker:sh": "docker compose exec app sh",
     "test": "vitest run"
   },
   "devDependencies": {
