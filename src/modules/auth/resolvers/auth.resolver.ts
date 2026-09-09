@@ -1,8 +1,15 @@
 import { APP_NAME } from '@/constants'
-import { findUserAcrossShards, sharding } from '@/config/prisma'
-import { OtpSettings, PasswordResetSettings } from '../types/db.types'
+import { sharding } from '@/config/sharding'
+import { MfaSettings, OtpSettings, PasswordResetSettings } from '../types/db.types'
 import { authLite } from '@/config/authlite'
-import { Prisma, UserType } from '@prisma/client'
+import { Prisma, PrismaClient, UserType } from '@/generated/prisma/client'
+import {
+  CrossShardOverloadedError,
+  CrossShardTimeoutError,
+  ShardOwnershipNotFoundError,
+  ShardSearchIncompleteError,
+  ShardUnavailableError,
+} from 'prisma-sharding'
 import { sendEmail } from '@/utils/email.util'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
@@ -14,14 +21,14 @@ import { getOtpEmailTemplate } from '@/templates/otp-email.template'
 import { getResetPasswordEmailTemplate } from '@/templates/reset-password.template'
 import { cache } from '@/cache'
 import { generateOtp } from '@/utils/otp.util'
-import crypto from 'crypto'
+import crypto, { randomUUID } from 'node:crypto'
 
 export const authResolver: Resolvers<Context> = {
   Mutation: {
     signup: async (_parent, { data }) => {
       const { email, username, password } = data
 
-      const { result: existingUser } = await findUserAcrossShards(async (client) => {
+      const { data: existingUser } = await sharding.findAcrossShards(async (client) => {
         return client.user.findFirst({
           where: {
             OR: [
@@ -37,10 +44,12 @@ export const authResolver: Resolvers<Context> = {
       }
 
       const hashedPassword = await hashPassword(password)
-      const shardClient = sharding.getRandomShard()
+      const userId = randomUUID()
+      const shardClient = await sharding.allocateShard(userId)
 
       const user = await shardClient.user.create({
         data: {
+          id: userId,
           email,
           username,
           password: hashedPassword,
@@ -63,13 +72,15 @@ export const authResolver: Resolvers<Context> = {
     login: async (_parent, { data }) => {
       const { email, password } = data
 
-      const { result: user, client } = await findUserAcrossShards(async (shardClient) => {
+      const { data: user } = await sharding.findAcrossShards(async (shardClient) => {
         return shardClient.user.findFirst({ where: { email } })
       })
 
-      if (!user || !client) {
+      if (!user) {
         throw new AuthenticationError('Invalid email or password')
       }
+
+      const client = await sharding.resolveShard(user.ownerId || user.id)
 
       if (!user.password) {
         throw new AuthenticationError('Invalid login method. Try Google Login.')
@@ -81,7 +92,7 @@ export const authResolver: Resolvers<Context> = {
       }
 
       const { password: _, ...userWithOutPassword } = user
-      const mfaSettings = user.mfaSettings
+      const mfaSettings = user.mfaSettings as MfaSettings | null
 
       if (mfaSettings?.isEnabled) {
         if (mfaSettings.method === 'EMAIL') {
@@ -99,6 +110,7 @@ export const authResolver: Resolvers<Context> = {
 
         const tempToken = generateAccessToken({
           _id: user.id,
+          routingKey: user.ownerId || user.id,
           email: user.email,
           userType: user.userType,
           is2faPending: true,
@@ -121,18 +133,22 @@ export const authResolver: Resolvers<Context> = {
       try {
         const googleUser = await authLite.google.verify(token, 'web')
 
-        let { result: user, client } = await findUserAcrossShards(async (shardClient) => {
+        let { data: user } = await sharding.findAcrossShards(async (shardClient) => {
           return shardClient.user.findFirst({ where: { email: googleUser.email } })
         })
+
+        let client: PrismaClient
 
         if (!user) {
           const randomPassword =
             Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10)
           const hashedPassword = await hashPassword(randomPassword)
 
-          client = sharding.getRandomShard()
+          const userId = randomUUID()
+          client = await sharding.allocateShard(userId)
           user = await client.user.create({
             data: {
+              id: userId,
               email: googleUser.email,
               username: googleUser.name || googleUser.email.split('@')[0],
               password: hashedPassword,
@@ -141,7 +157,8 @@ export const authResolver: Resolvers<Context> = {
             },
           })
         } else {
-          if (!user.googleId && client) {
+          client = await sharding.resolveShard(user.ownerId || user.id)
+          if (!user.googleId) {
             user = await client.user.update({
               where: { id: user.id },
               data: { googleId: googleUser.googleId },
@@ -150,12 +167,8 @@ export const authResolver: Resolvers<Context> = {
           }
         }
 
-        if (!client) {
-          throw new AuthenticationError('Failed to determine user shard')
-        }
-
         const { password: _, ...userWithOutPassword } = user
-        const mfaSettings = user.mfaSettings
+        const mfaSettings = user.mfaSettings as MfaSettings | null
 
         if (mfaSettings?.isEnabled) {
           if (mfaSettings.method === 'EMAIL') {
@@ -173,6 +186,7 @@ export const authResolver: Resolvers<Context> = {
 
           const tempToken = generateAccessToken({
             _id: user.id,
+            routingKey: user.ownerId || user.id,
             email: user.email,
             userType: user.userType,
             is2faPending: true,
@@ -190,17 +204,27 @@ export const authResolver: Resolvers<Context> = {
           user: userWithOutPassword as any,
         }
       } catch (error) {
+        if (
+          error instanceof ShardOwnershipNotFoundError ||
+          error instanceof ShardUnavailableError ||
+          error instanceof ShardSearchIncompleteError ||
+          error instanceof CrossShardTimeoutError ||
+          error instanceof CrossShardOverloadedError
+        ) {
+          throw error
+        }
         console.error('Google Login Error:', error)
         throw new AuthenticationError('Google authentication failed')
       }
     },
 
     forgotPassword: async (_parent, { email }) => {
-      const { result: user, client } = await findUserAcrossShards(async (shardClient) => {
+      const { data: user } = await sharding.findAcrossShards(async (shardClient) => {
         return shardClient.user.findFirst({ where: { email } })
       })
 
-      if (user && client) {
+      if (user) {
+        const client = await sharding.resolveShard(user.ownerId || user.id)
         const token = crypto.randomBytes(32).toString('hex')
         const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
         const passwordReset: PasswordResetSettings = { token, expiresAt }
@@ -222,18 +246,19 @@ export const authResolver: Resolvers<Context> = {
     },
 
     resetPassword: async (_parent, { token, password }) => {
-      const { result: user, client } = await findUserAcrossShards(async (shardClient) => {
+      const { data: user } = await sharding.findAcrossShards(async (shardClient) => {
         return shardClient.user.findFirst({
           where: { passwordReset: { path: ['token'], equals: token } },
         })
       })
 
-      const passwordReset = user?.passwordReset
+      const passwordReset = user?.passwordReset as PasswordResetSettings | null | undefined
 
-      if (!user || !client || !passwordReset || new Date(passwordReset.expiresAt) < new Date()) {
+      if (!user || !passwordReset || new Date(passwordReset.expiresAt) < new Date()) {
         throw new ValidationError('Invalid or expired token')
       }
 
+      const client = await sharding.resolveShard(user.ownerId || user.id)
       const hashedPassword = await hashPassword(password)
 
       await client.user.update({
