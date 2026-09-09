@@ -1,10 +1,11 @@
 import jwt, { SignOptions } from 'jsonwebtoken'
 import { JWT_SECRET, ACCESS_TOKEN_EXPIRES_IN, REFRESH_TOKEN_EXPIRES_IN } from '@/constants'
-import { UserType } from '@prisma/client'
+import { UserType } from '@/generated/prisma/client'
 import crypto from 'crypto'
 
 export interface AccessTokenPayload {
   _id: string
+  routingKey: string
   email?: string
   userType?: UserType
   is2faPending?: boolean
@@ -13,6 +14,7 @@ export interface AccessTokenPayload {
 export interface RefreshTokenPayload {
   jti: string
   sub: string // userId
+  routingKey: string
 }
 
 export const generateAccessToken = (payload: AccessTokenPayload): string => {
@@ -20,9 +22,12 @@ export const generateAccessToken = (payload: AccessTokenPayload): string => {
   return jwt.sign(payload, JWT_SECRET, options)
 }
 
-export const generateRefreshToken = (userId: string): { token: string; jti: string } => {
+export const generateRefreshToken = (
+  userId: string,
+  routingKey: string
+): { token: string; jti: string } => {
   const jti = crypto.randomUUID()
-  const payload: RefreshTokenPayload = { jti, sub: userId }
+  const payload: RefreshTokenPayload = { jti, sub: userId, routingKey }
   const options: SignOptions = { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
   const token = jwt.sign(payload, JWT_SECRET, options)
   return { token, jti }
@@ -44,8 +49,19 @@ export const verifyRefreshToken = (token: string): RefreshTokenPayload | null =>
   }
 }
 
-export const generateTokenPair = (user: { id: string; email: string; userType?: UserType }) => {
-  const accessToken = generateAccessToken({ _id: user.id, email: user.email, userType: user.userType })
-  const { token: refreshToken, jti } = generateRefreshToken(user.id)
+export const generateTokenPair = (user: {
+  id: string
+  email: string
+  userType?: UserType
+  ownerId?: string | null
+}) => {
+  const routingKey = user.ownerId || user.id
+  const accessToken = generateAccessToken({
+    _id: user.id,
+    routingKey,
+    email: user.email,
+    userType: user.userType,
+  })
+  const { token: refreshToken, jti } = generateRefreshToken(user.id, routingKey)
   return { accessToken, refreshToken, jti }
 }
