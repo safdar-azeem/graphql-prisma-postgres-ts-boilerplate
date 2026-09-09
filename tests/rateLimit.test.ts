@@ -77,7 +77,7 @@ describe('Rate Limit Middleware', () => {
       expect(key).toBe(`ip:${ip}`)
     })
 
-    it('should prefer x-real-ip header if present', () => {
+    it('should ignore untrusted forwarding headers', () => {
       // GIVEN
       const realIp = '203.0.113.1'
       const request = {
@@ -91,7 +91,7 @@ describe('Rate Limit Middleware', () => {
       const key = options.keyGenerator(request)
 
       // THEN
-      expect(key).toBe(`ip:${realIp}`)
+      expect(key).toBe('ip:127.0.0.1')
     })
   })
 
