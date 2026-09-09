@@ -1,6 +1,7 @@
 # Build and tool output
 .cache
 dist
+src/generated/prisma
 
 # Node dependencies
 node_modules
