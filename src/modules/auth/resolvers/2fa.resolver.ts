@@ -1,10 +1,10 @@
 import { cache } from '@/cache'
 import { requireAuth } from '@/guards'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@/generated/prisma/client'
 import { authLite } from '@/config/authlite'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
-import { findUserAcrossShards } from '@/config/prisma'
+import { sharding } from '@/config/sharding'
 import { comparePassword } from '../utils/auth.utils'
 import { generateTokenPair, verifyAccessToken } from '@/config/tokens'
 import { storeRefreshToken } from '@/cache/refreshToken.cache'
@@ -13,11 +13,12 @@ import { sendEmail } from '@/utils/email.util'
 import { APP_NAME } from '@/constants'
 import { getOtpEmailTemplate } from '@/templates/otp-email.template'
 import { generateOtp } from '@/utils/otp.util'
+import { MfaSettings, OtpSettings } from '../types/db.types'
 
 export const twoFaResolvers: Resolvers<Context> = {
   Mutation: {
     init2faEnrollment: requireAuth(async (_parent, { method }, { user, client }) => {
-      const mfaSettings = user.mfaSettings
+      const mfaSettings = user.mfaSettings as MfaSettings | null
       if (mfaSettings?.isEnabled) {
         throw new ValidationError('MFA is already enabled')
       }
@@ -78,7 +79,7 @@ export const twoFaResolvers: Resolvers<Context> = {
     }),
 
     confirm2faEnrollment: requireAuth(async (_parent, { otp }, { user, client }) => {
-      const mfaSettings = user.mfaSettings
+      const mfaSettings = user.mfaSettings as MfaSettings | null
 
       if (mfaSettings?.method === 'AUTHENTICATOR') {
         if (!mfaSettings.secret) throw new ValidationError('MFA not initialized')
@@ -101,7 +102,7 @@ export const twoFaResolvers: Resolvers<Context> = {
       }
 
       if (mfaSettings?.method === 'EMAIL') {
-        const otpSettings = user.otp
+        const otpSettings = user.otp as OtpSettings | null
 
         if (!otpSettings?.code || !otpSettings?.expiresAt) {
           throw new ValidationError('No OTP found. Please request a new one.')
@@ -165,21 +166,18 @@ export const twoFaResolvers: Resolvers<Context> = {
 
       const decoded = verifyAccessToken(bearerToken)
 
-      if (!decoded?._id) {
+      if (!decoded?._id || !decoded.routingKey) {
         throw new AuthenticationError(`Invalid token`)
       }
 
-      const { result: user, client } = await findUserAcrossShards(async (shardClient) => {
-        return shardClient.user.findFirst({
-          where: { id: decoded._id },
-        })
-      })
+      const client = await sharding.resolveShard(decoded.routingKey)
+      const user = await client.user.findUnique({ where: { id: decoded._id } })
 
-      if (!user || !client) {
+      if (!user) {
         throw new AuthenticationError('Account Not Found')
       }
 
-      const mfaSettings = user.mfaSettings
+      const mfaSettings = user.mfaSettings as MfaSettings | null
       if (!mfaSettings?.isEnabled) {
         // Return existing tokens if MFA not enabled (edge case)
         // Or generate new ones
@@ -199,7 +197,7 @@ export const twoFaResolvers: Resolvers<Context> = {
           isValid = authLite.mfa.verifyTotp({ token: otp, secret: mfaSettings.secret })
         }
       } else if (mfaSettings.method === 'EMAIL') {
-        const otpSettings = user.otp
+        const otpSettings = user.otp as OtpSettings | null
         if (otpSettings?.code && otpSettings.expiresAt) {
           const now = new Date()
           const expires = new Date(otpSettings.expiresAt)
