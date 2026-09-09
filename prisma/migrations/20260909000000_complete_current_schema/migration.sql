@@ -8,10 +8,6 @@ CREATE TYPE "MfaMethod" AS ENUM ('EMAIL', 'AUTHENTICATOR');
 CREATE TYPE "Permission" AS ENUM ('USER_VIEW', 'USER_CREATE', 'USER_UPDATE', 'USER_DELETE', 'ROLE_VIEW', 'ROLE_CREATE', 'ROLE_UPDATE', 'ROLE_DELETE');
 
 -- AlterTable
--- Intentionally has no password default. If the preceding migration contains User rows,
--- PostgreSQL stops this migration transaction instead of manufacturing credentials.
--- Operators must reconcile those credentials/schema first and then use prisma-sharding's
--- documented automatic history adoption (or reviewed baseline recovery).
 ALTER TABLE "User"
 ADD COLUMN "password" TEXT NOT NULL,
 ADD COLUMN "userType" "UserType" NOT NULL DEFAULT 'OWNER',
@@ -20,13 +16,12 @@ ADD COLUMN "googleId" TEXT,
 ADD COLUMN "mfaSettings" JSONB,
 ADD COLUMN "otp" JSONB,
 ADD COLUMN "passwordReset" JSONB,
-ADD COLUMN "shardId" TEXT,
 ADD COLUMN "ownerId" TEXT,
 ADD COLUMN "customPermissions" "Permission"[] NOT NULL DEFAULT ARRAY[]::"Permission"[],
 ADD COLUMN "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
--- Remove transition-only defaults after existing rows have been populated.
+-- Remove temporary defaults.
 ALTER TABLE "User"
 ALTER COLUMN "customPermissions" DROP DEFAULT,
 ALTER COLUMN "updatedAt" DROP DEFAULT;
