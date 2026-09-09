@@ -1,6 +1,6 @@
 import { userResolver } from '../resolvers/user.resolver'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { Permission, UserType } from '@prisma/client'
+import { Permission, UserType } from '@/generated/prisma/client'
 import { Context } from '@/types/context.type'
 import { mockDeep, DeepMockProxy } from 'vitest-mock-extended'
 import { AuthenticationError } from '@/errors'
@@ -28,19 +28,15 @@ describe('User Resolver', () => {
         customPermissions: [Permission.ROLE_VIEW],
       }
 
-      mockContext.user = { id: '1' } as any
+      mockContext.user = mockDbUser as any
       mockContext.isAuthenticated = true
-      mockContext.client.user.findUnique.mockResolvedValue(mockDbUser as any)
+      mockContext.permissions = [Permission.USER_VIEW, Permission.ROLE_VIEW]
 
       const result = await (userResolver.Query?.me as any)({}, {}, mockContext, {})
 
-      expect(mockContext.client.user.findUnique).toHaveBeenCalledWith({
-        where: { id: '1' },
-        include: { roles: true },
-      })
+      expect(mockContext.client.user.findUnique).not.toHaveBeenCalled()
       expect(result.id).toBe('1')
       expect(result.email).toBe('test@example.com')
-      // Merged + deduplicated permissions from roles and customPermissions
       expect(result.permissions.sort()).toEqual(
         [Permission.USER_VIEW, Permission.ROLE_VIEW].sort()
       )
