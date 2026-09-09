@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { Permission, UserType } from '@prisma/client'
+import { Permission, PrismaClient, UserType } from '@/generated/prisma/client'
 import { userManagementResolver } from '../resolvers/user-management.resolver'
 import { Context } from '@/types/context.type'
 import { mockDeep, DeepMockProxy } from 'vitest-mock-extended'
@@ -20,10 +20,12 @@ describe('UserManagement Resolver', () => {
 
   beforeEach(() => {
     mockContext = mockDeep<Context>()
+    mockContext.client = mockDeep<PrismaClient>()
     vi.clearAllMocks()
     mockContext.isAuthenticated = true
     mockContext.userType = UserType.OWNER
     mockContext.user = { id: 'owner-1', userType: UserType.OWNER } as any
+    mockContext.ownerId = 'owner-1'
     mockContext.permissions = []
   })
 
@@ -79,6 +81,7 @@ describe('UserManagement Resolver', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             userType: UserType.EMPLOYEE,
+            ownerId: 'owner-1',
             customPermissions: [Permission.USER_VIEW],
           }),
         })
