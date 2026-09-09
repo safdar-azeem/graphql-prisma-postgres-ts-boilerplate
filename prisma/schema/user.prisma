@@ -15,9 +15,6 @@ model User {
 
   passwordReset Json?
 
-  // Historical metadata only; canonical routing is stored in the sharding ownership directory.
-  shardId String?
-
   // Multi-user: sub-users belong to an OWNER
   ownerId  String?
   owner    User?  @relation("OwnerSubUsers", fields: [ownerId], references: [id], onDelete: Cascade)
