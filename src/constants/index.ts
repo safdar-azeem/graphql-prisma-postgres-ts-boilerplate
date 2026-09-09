@@ -12,6 +12,13 @@ export const APP_NAME = 'AppName'
 export const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:4202'
 export const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || ''
 
+const trustedProxies = (process.env.TRUST_PROXY || '')
+  .split(',')
+  .map((proxy) => proxy.trim())
+  .filter(Boolean)
+
+export const TRUST_PROXY = trustedProxies.length > 0 ? trustedProxies : false
+
 export const STORAGE_SERVICE_URL = process.env.STORAGE_SERVICE_URL || 'http://localhost:4201'
 
 // Unique instance ID for this server replica
