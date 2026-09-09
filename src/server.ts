@@ -16,7 +16,7 @@ import {
   TRUST_PROXY,
 } from '@/constants'
 import { createContext, getCorsOptions, getRateLimitOptions } from '@/middleware'
-import { initializeSharding, shutdownSharding } from '@/config/prisma'
+import { sharding } from '@/config/sharding'
 import { mercuriusFormatError } from '@/errors/errorPlugin'
 import { startQueues, shutdownQueues, queues } from '@/queues'
 import { createBullBoard } from '@bull-board/api'
@@ -30,7 +30,7 @@ async function startServer() {
   })
 
   await connectRedis()
-  await initializeSharding()
+  await sharding.connect()
   await startQueues()
 
   // Build executable schema
@@ -106,7 +106,7 @@ async function startServer() {
       await shutdownQueues()
       app.log.info('Job queues closed')
 
-      await shutdownSharding()
+      await sharding.disconnect()
       app.log.info('Database connections closed')
 
       process.exit(0)
