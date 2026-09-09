@@ -8,7 +8,7 @@ import {
   revokeAllRefreshTokens,
   storeRefreshToken,
 } from '@/cache/refreshToken.cache'
-import { findUserAcrossShards } from '@/config/prisma'
+import { sharding } from '@/config/sharding'
 import { requireAuth } from '@/guards'
 
 export const tokenResolver: Resolvers<Context> = {
@@ -16,7 +16,7 @@ export const tokenResolver: Resolvers<Context> = {
     refreshTokens: async (_parent, { refreshToken }) => {
       const decoded = verifyRefreshToken(refreshToken)
 
-      if (!decoded || !decoded.jti || !decoded.sub) {
+      if (!decoded || !decoded.jti || !decoded.sub || !decoded.routingKey) {
         throw new AuthenticationError('Invalid refresh token')
       }
 
@@ -28,10 +28,8 @@ export const tokenResolver: Resolvers<Context> = {
       // Token Rotation: Revoke the used refresh token
       await revokeRefreshToken(decoded.sub, decoded.jti)
 
-      // Fetch user
-      const { result: user } = await findUserAcrossShards(async (client) => {
-        return client.user.findUnique({ where: { id: decoded.sub } })
-      })
+      const client = await sharding.resolveShard(decoded.routingKey)
+      const user = await client.user.findUnique({ where: { id: decoded.sub } })
 
       if (!user) {
         throw new AuthenticationError('User not found')
