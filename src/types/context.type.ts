@@ -1,4 +1,4 @@
-import { User, PrismaClient, UserType, Permission } from '@prisma/client'
+import { User, PrismaClient, UserType, Permission } from '@/generated/prisma/client'
 
 export type AuthUser = Omit<User, 'password'>
 
