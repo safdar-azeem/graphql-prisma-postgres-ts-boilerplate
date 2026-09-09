@@ -9,16 +9,13 @@ model User {
   // Auth fields
   googleId String? @unique
 
-  /// [MfaSettingsType]
   mfaSettings Json?
 
-  /// [OtpSettingsType]
   otp Json?
 
-  /// [PasswordResetSettingsType]
   passwordReset Json?
 
-  // Shard tracking — critical for routing after login
+  // Historical metadata only; canonical routing is stored in the sharding ownership directory.
   shardId String?
 
   // Multi-user: sub-users belong to an OWNER
