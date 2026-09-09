@@ -8,7 +8,13 @@ import { resolvers } from '@/modules/index'
 import { connectRedis } from '@/config/redis'
 import { Context } from '@/types/context.type'
 import { typeDefs } from '@/types/typeDefs.generated'
-import { INSTANCE_ID, ENABLE_LOGER, IS_DEVELOPMENT, IS_PRODUCTION } from '@/constants'
+import {
+  INSTANCE_ID,
+  ENABLE_LOGER,
+  IS_DEVELOPMENT,
+  IS_PRODUCTION,
+  TRUST_PROXY,
+} from '@/constants'
 import { createContext, getCorsOptions, getRateLimitOptions } from '@/middleware'
 import { initializeSharding, shutdownSharding } from '@/config/prisma'
 import { mercuriusFormatError } from '@/errors/errorPlugin'
@@ -20,9 +26,7 @@ import { FastifyAdapter } from '@bull-board/fastify'
 async function startServer() {
   const app = Fastify({
     logger: ENABLE_LOGER,
-    // Trust Nginx proxy to get correct client IP for rate limiting
-    // This allows X-Real-IP and X-Forwarded-For to populate request.ip
-    trustProxy: true,
+    trustProxy: TRUST_PROXY,
   })
 
   await connectRedis()
