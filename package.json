@@ -5,12 +5,13 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "pretest": "prisma generate",
     "start": "node dist/index.cjs",
     "build": "rimraf dist && yarn generate && node esbuild.config.js",
     "dev": "yarn generate && concurrently \"yarn db:studio\" \"nodemon --exec tsx --env-file=.env --no-warnings src/server.ts\"",
     "db:update": "prisma-sharding-update",
-    "db:studio": "prisma-sharding-studio",
-    "generate": "graphql-codegen",
+    "db:studio": "prisma-studio-next",
+    "generate": "prisma generate && graphql-codegen",
     "test:shards": "prisma-sharding-test",
     "test": "vitest run"
   },
@@ -27,7 +28,6 @@
     "nodemon": "^3.1.11",
     "prettier": "^3.8.1",
     "prisma": "^7.3.0",
-    "prisma-json-types-generator": "^3.2.2",
     "rimraf": "^6.1.2",
     "tsconfig-paths": "^4.2.0",
     "tsx": "^4.21.0",
@@ -64,7 +64,7 @@
     "mercurius": "^16.0.3",
     "nodemailer": "^7.0.13",
     "pg": "^8.18.0",
-    "prisma-sharding": "^0.0.5",
+    "prisma-sharding": "^1.3.1",
     "superjson": "^2.2.6"
   },
   "prettier": {
