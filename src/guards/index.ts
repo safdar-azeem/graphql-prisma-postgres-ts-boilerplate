@@ -1,4 +1,4 @@
-import { UserType, Permission } from '@prisma/client'
+import { UserType, Permission } from '@/generated/prisma/client'
 import { Context } from '@/types/context.type'
 import { AuthenticationError, AuthorizationError } from '@/errors'
 
