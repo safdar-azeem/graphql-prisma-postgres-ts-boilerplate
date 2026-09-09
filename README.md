@@ -28,21 +28,14 @@ issued access/refresh tokens carry the OWNER routing key so authenticated reques
 password-reset token. Configure `DATABASE_URL`, `SHARD_DIRECTORY_URL`, `SHARD_COUNT`, and each
 `SHARD_N_URL` as shown in `.env.example`.
 
-The ownership namespace in `src/config/sharding.ts` is persistent data identity and must not be
-changed after ownership records exist. Deployments with Users created by the legacy integration
-must populate the built-in ownership directory before serving traffic; Prisma Sharding does not
-automatically repair missing historical ownership. See the Prisma Sharding package documentation
-for [ownership and migration operations](https://github.com/safdar-azeem/prisma-sharding).
+`User.id` is identity, while `User.ownerId` records application tenancy for managed users. Physical
+`shardId` placement is infrastructure state maintained only by Prisma Sharding's built-in ownership
+directory as `(namespace, routingKey) -> shardId`; it is not stored or used for routing by the
+`User` model.
 
-### Upgrade prerequisites
-
-The committed schema-completion migration intentionally does not invent passwords for rows that
-exist at the old `User(id, email, username)` migration state. If such rows exist, PostgreSQL stops
-the migration transaction at the required `password` column. Reconcile those credentials and the
-live schema under operator review, then use Prisma Sharding's documented automatic migration-history
-adoption; use `prisma-sharding-baseline` only for a reviewed exception that adoption cannot prove.
-
-This release also intentionally requires the new OWNER `routingKey` claim in access and refresh
-tokens. Tokens issued before this upgrade are rejected, so deployments must treat the rollout as a
-forced sign-in and revoke/clear existing sessions. This avoids global ID searches or legacy routing
-fallbacks that would weaken the durable-ownership contract.
+The ownership namespace `graphql-boilerplate-users` in `src/config/sharding.ts` is persistent data
+identity and must not be changed after ownership records exist. Managed users do not receive
+separate ownership records: their `ownerId` is the OWNER routing key. Use `allocateShard()` only to
+establish ownership for a new OWNER, and `resolveShard()` whenever that ownership is already known.
+See the Prisma Sharding package documentation for
+[ownership and sharding behavior](https://github.com/safdar-azeem/prisma-sharding).
