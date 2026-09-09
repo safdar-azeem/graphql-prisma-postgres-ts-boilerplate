@@ -18,7 +18,6 @@ import jwt from 'jsonwebtoken'
  *
  * Infrastructure:
  * - Uses Redis for distributed counter state (works across multiple server instances)
- * - Uses Fastify's trustProxy to correctly identify client IP behind Nginx/LoadBalancers
  */
 
 const LIMITS = {
@@ -89,8 +88,7 @@ export const getRateLimitOptions = (): RateLimitPluginOptions => {
       }
 
       // 2. IP Fallback Strategy
-      // fastify.trustProxy must be true for this to work behind Nginx
-      const clientIp = (request.headers['x-real-ip'] as string) || request.ip || '127.0.0.1'
+      const clientIp = request.ip || '127.0.0.1'
       return `ip:${clientIp}`
     },
 
