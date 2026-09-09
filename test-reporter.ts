@@ -1,71 +1,62 @@
-import { reporter } from 'vitest'
+import type { Reporter } from 'vitest/reporters'
+
+type TestCase = Parameters<NonNullable<Reporter['onTestCaseResult']>>[0]
+type TestRunEnd = NonNullable<Reporter['onTestRunEnd']>
 
 const RESET = '\x1b[0m'
 const GREEN = '\x1b[32m'
 const RED = '\x1b[31m'
 const BOLD = '\x1b[1m'
 
-const green = (str) => `${GREEN}${str}${RESET}`
-const red = (str) => `${RED}${str}${RESET}`
-const bold = (str) => `${BOLD}${str}${RESET}`
+const green = (value: string | number) => `${GREEN}${value}${RESET}`
+const red = (value: string | number) => `${RED}${value}${RESET}`
+const bold = (value: string | number) => `${BOLD}${value}${RESET}`
 
-export default class CustomReporter {
-  constructor() {
-    this.ctx = null
-    this.printed = new Set()
-    this.stats = {
-      passed: 0,
-      failed: 0,
-    }
+export default class CustomReporter implements Reporter {
+  private passedTests = 0
+  private failedTests = 0
+  private skippedTests = 0
 
-    this.printSummary = this.printSummary.bind(this)
+  onTestRunStart() {
+    this.passedTests = 0
+    this.failedTests = 0
+    this.skippedTests = 0
   }
 
-  onInit(ctx) {
-    this.ctx = ctx
-    process.on('exit', this.printSummary)
-  }
+  onTestCaseResult(testCase: TestCase) {
+    const state = testCase.result().state
 
-  onTaskUpdate(packs) {
-    if (!this.ctx || !packs) return
+    if (state === 'passed') this.passedTests += 1
+    else if (state === 'failed') this.failedTests += 1
+    else this.skippedTests += 1
 
-    for (const pack of packs) {
-      const [id, result] = pack
-
-      // Check if task is finished
-      if (result && (result.state === 'pass' || result.state === 'fail')) {
-        if (this.printed.has(id)) continue
-        this.printed.add(id)
-
-        let task = null
-        if (this.ctx.state.idMap) {
-          task = this.ctx.state.idMap.get(id)
-        }
-
-        if (task && task.type === 'test') {
-          // Only count and print ACTUAL tests
-          if (result.state === 'pass') this.stats.passed++
-          if (result.state === 'fail') this.stats.failed++
-
-          const status = result.state === 'pass' ? green('SUCCESS') : red('FAILED')
-          let name = task.name.replace(/ : (SUCCESS|FAILED)$/, '')
-          process.stderr.write(`${name} : ${status}\n`)
-        }
-      }
+    if (state === 'passed' || state === 'failed') {
+      const status = state === 'passed' ? green('SUCCESS') : red('FAILED')
+      process.stderr.write(`${testCase.fullName} : ${status}\n`)
     }
   }
 
-  printSummary() {
-    if (this.summaryPrinted) return
-    this.summaryPrinted = true
-
-    const total = this.stats.passed + this.stats.failed
-    const passedLabel = this.stats.passed > 0 ? green(this.stats.passed) : this.stats.passed
-    const failedLabel = this.stats.failed > 0 ? red(this.stats.failed) : this.stats.failed
+  onTestRunEnd(...[testModules, unhandledErrors, reason]: Parameters<TestRunEnd>) {
+    const passedFiles = testModules.filter((module) => module.state() === 'passed').length
+    const failedFiles = testModules.filter((module) => module.state() === 'failed').length
+    const skippedFiles = testModules.length - passedFiles - failedFiles
+    const suiteFailures = testModules.reduce((total, module) => total + module.errors().length, 0)
+    const totalTests = this.passedTests + this.failedTests + this.skippedTests
+    const knownFailures = this.failedTests + suiteFailures + unhandledErrors.length
+    const totalFailures = reason === 'failed' ? Math.max(knownFailures, 1) : knownFailures
 
     process.stderr.write('\n--- Test Summary ---\n')
-    process.stderr.write(`Total: ${bold(total)}\n`)
-    process.stderr.write(`Passed: ${passedLabel}\n`)
-    process.stderr.write(`Failed: ${failedLabel}\n`)
+    process.stderr.write(
+      `Test Files: ${bold(testModules.length)} | Passed: ${green(passedFiles)} | Failed: ${failedFiles ? red(failedFiles) : 0} | Skipped: ${skippedFiles}\n`
+    )
+    process.stderr.write(
+      `Tests: ${bold(totalTests)} | Passed: ${green(this.passedTests)} | Failed: ${this.failedTests ? red(this.failedTests) : 0} | Skipped: ${this.skippedTests}\n`
+    )
+    process.stderr.write(`Suite/import failures: ${suiteFailures ? red(suiteFailures) : 0}\n`)
+    process.stderr.write(
+      `Unhandled errors: ${unhandledErrors.length ? red(unhandledErrors.length) : 0}\n`
+    )
+    process.stderr.write(`Total failures: ${totalFailures ? red(totalFailures) : 0}\n`)
+    process.stderr.write(`Run: ${reason === 'passed' ? green('PASSED') : red(reason.toUpperCase())}\n`)
   }
 }
