@@ -1,4 +1,4 @@
-import { Permission, UserType } from '@prisma/client'
+import { Permission, UserType } from '@/generated/prisma/client'
 import { Protect } from '@/guards'
 import { Context } from '@/types/context.type'
 import { Resolvers } from '@/types/types.generated'
